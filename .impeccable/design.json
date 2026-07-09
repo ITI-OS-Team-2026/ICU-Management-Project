@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-09T15:05:00Z",
+  "title": "Design System: SmartCare ICU",
+  "extensions": {
+    "colorMeta": {
+      "cyan-base": {
+        "role": "primary",
+        "displayName": "Medical Cyan / Teal",
+        "canonical": "oklch(72% 0.14 200)",
+        "tonalRamp": [
+          "oklch(20% 0.08 200)",
+          "oklch(35% 0.10 200)",
+          "oklch(48% 0.12 200)",
+          "oklch(60% 0.13 200)",
+          "oklch(72% 0.14 200)",
+          "oklch(82% 0.10 200)",
+          "oklch(90% 0.06 200)",
+          "oklch(96% 0.03 200)"
+        ]
+      },
+      "emergency-base": {
+        "role": "secondary",
+        "displayName": "Emergency Oxblood / Red",
+        "canonical": "oklch(60% 0.22 28)",
+        "tonalRamp": [
+          "oklch(18% 0.12 28)",
+          "oklch(30% 0.16 28)",
+          "oklch(45% 0.19 28)",
+          "oklch(60% 0.22 28)",
+          "oklch(70% 0.18 28)",
+          "oklch(82% 0.13 28)",
+          "oklch(90% 0.07 28)",
+          "oklch(96% 0.03 28)"
+        ]
+      },
+      "warning-base": {
+        "role": "secondary",
+        "displayName": "Clinical Amber",
+        "canonical": "oklch(78% 0.18 70)",
+        "tonalRamp": [
+          "oklch(22% 0.10 70)",
+          "oklch(38% 0.14 70)",
+          "oklch(55% 0.16 70)",
+          "oklch(68% 0.17 70)",
+          "oklch(78% 0.18 70)",
+          "oklch(86% 0.12 70)",
+          "oklch(92% 0.07 70)",
+          "oklch(97% 0.03 70)"
+        ]
+      },
+      "stable-base": {
+        "role": "secondary",
+        "displayName": "Stable Emerald",
+        "canonical": "oklch(72% 0.17 155)",
+        "tonalRamp": [
+          "oklch(20% 0.10 155)",
+          "oklch(35% 0.13 155)",
+          "oklch(50% 0.15 155)",
+          "oklch(62% 0.16 155)",
+          "oklch(72% 0.17 155)",
+          "oklch(82% 0.12 155)",
+          "oklch(90% 0.07 155)",
+          "oklch(96% 0.03 155)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Deep Slate / Charcoal",
+        "canonical": "oklch(18% 0.015 250)",
+        "tonalRamp": [
+          "oklch(12% 0.01 250)",
+          "oklch(18% 0.015 250)",
+          "oklch(22% 0.02 250)",
+          "oklch(26% 0.025 250)",
+          "oklch(35% 0.03 250)",
+          "oklch(50% 0.03 250)",
+          "oklch(75% 0.02 250)",
+          "oklch(95% 0.01 250)"
+        ]
+      },
+      "surface-light": {
+        "role": "neutral",
+        "displayName": "Clinical Paper Surface",
+        "canonical": "oklch(97% 0.005 230)",
+        "tonalRamp": [
+          "oklch(15% 0.01 230)",
+          "oklch(30% 0.015 230)",
+          "oklch(50% 0.015 230)",
+          "oklch(70% 0.012 230)",
+          "oklch(85% 0.01 230)",
+          "oklch(92% 0.008 230)",
+          "oklch(97% 0.005 230)",
+          "oklch(99% 0.002 230)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Bedside monitor hero callouts & patient identity headers." },
+      "headline": { "displayName": "Headline", "purpose": "Unified Patient Dashboard section headers." },
+      "title": { "displayName": "Title", "purpose": "Sub-panel titles, modal headers, AI summary section dividers." },
+      "body": { "displayName": "Body", "purpose": "Clinical progress notes, diagnostic reasoning explanations, medical history." },
+      "label": { "displayName": "Label", "purpose": "Data table column headers, form input labels, status badge identifiers." },
+      "vital-number": { "displayName": "Vital Number", "purpose": "High-precision numerical vitals display with tabular numbers (tnum)." }
+    },
+    "shadows": [
+      { "name": "shadow-popover", "value": "0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 1px 1px rgba(255, 255, 255, 0.08)", "purpose": "Clean, high-opacity focused shadow lifting dropdown menus and alert popovers." },
+      { "name": "shadow-modal", "value": "0 12px 36px -4px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.12)", "purpose": "Deep elevation lifting active dialog overlays and patient quick-switchers." },
+      { "name": "shadow-sticky", "value": "0 2px 12px -2px rgba(0, 0, 0, 0.35)", "purpose": "Subtle bottom anchor shadow keeping situational awareness anchored at the top of the viewport." }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Default exponential easing curve for state transitions and feedback." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Rapid tactile feedback for clinical button presses and input border transitions." },
+      { "name": "duration-normal", "value": "200ms", "purpose": "Smooth drawer and modal open/close transitions." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action Button",
+      "kind": "button",
+      "refersTo": "btn-primary",
+      "description": "Primary interactive telemetry and action trigger (`min-h-[48px]`), high contrast against slate backgrounds.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" stroke=\"currentColor\" stroke-width=\"2\" fill=\"none\"><path d=\"M22 12h-4l-3 9L9 3l-3 9H2\"/></svg><span>LOG VITALS</span></button>",
+      "css": ".ds-btn-primary { background-color: var(--color-cyan-base, oklch(72% 0.14 200)); color: var(--color-surface-dark, #161a1d); font-family: var(--font-sans, sans-serif); font-weight: 600; font-size: 0.9375rem; padding: 0.625rem 1.25rem; border-radius: var(--radius-md, 6px); border: none; min-height: 48px; min-width: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1), transform 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-primary:hover { background-color: var(--color-cyan-hover, oklch(65% 0.14 200)); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-cyan-base, oklch(72% 0.14 200)); outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Emergency Action Button",
+      "kind": "button",
+      "refersTo": "btn-emergency",
+      "description": "Oxblood P0 destructive or critical emergency alarm trigger (`min-h-[48px]`).",
+      "html": "<button class=\"ds-btn-emergency\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" stroke=\"currentColor\" stroke-width=\"2\" fill=\"none\"><path d=\"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z\"/><line x1=\"12\" y1=\"9\" x2=\"12\" y2=\"13\"/><line x1=\"12\" y1=\"17\" x2=\"12.01\" y2=\"17\"/></svg><span>TRIGGER P0 ALARM</span></button>",
+      "css": ".ds-btn-emergency { background-color: var(--color-emergency-base, oklch(60% 0.22 28)); color: #ffffff; font-family: var(--font-sans, sans-serif); font-weight: 600; font-size: 0.9375rem; padding: 0.625rem 1.25rem; border-radius: var(--radius-md, 6px); border: none; min-height: 48px; min-width: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer; transition: background-color 150ms cubic-bezier(0.25, 1, 0.5, 1); } .ds-btn-emergency:hover { background-color: var(--color-emergency-hover, oklch(53% 0.22 28)); } .ds-btn-emergency:focus-visible { outline: 2px solid var(--color-emergency-base, oklch(60% 0.22 28)); outline-offset: 2px; } .ds-btn-emergency:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "P0 Emergency Badge",
+      "kind": "chip",
+      "refersTo": "badge-p0",
+      "description": "Unmistakable color-coded triage pill indicating immediate life-threatening physiological violations.",
+      "html": "<span class=\"ds-badge-p0\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" stroke=\"currentColor\" stroke-width=\"2.5\" fill=\"none\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/></svg><span>P0 EMERGENCY</span></span>",
+      "css": ".ds-badge-p0 { background-color: var(--color-emergency-subtle, oklch(60% 0.22 28 / 18%)); color: var(--color-emergency-base, oklch(60% 0.22 28)); border: 1px solid oklch(60% 0.22 28 / 40%); padding: 0.25rem 0.625rem; border-radius: var(--radius-sm, 4px); font-family: var(--font-sans, sans-serif); font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; gap: 0.375rem; }"
+    },
+    {
+      "name": "Numerical Vitals Input",
+      "kind": "input",
+      "refersTo": "clinical-input",
+      "description": "High-precision form field with tabular figures (`tnum`) ensuring columns never shift or jump.",
+      "html": "<div style=\"display:flex;flex-direction:column;gap:6px;width:100%;max-width:280px;\"><label style=\"font-family:var(--font-sans,sans-serif);font-size:0.8125rem;font-weight:600;color:var(--color-ink-dark-muted,#c3c8cf);text-transform:uppercase;letter-spacing:0.04em;\">Heart Rate (BPM)</label><input class=\"ds-clinical-input\" type=\"text\" value=\"124\" placeholder=\"20-300 bpm\" /></div>",
+      "css": ".ds-clinical-input { background-color: var(--color-surface-dark, oklch(18% 0.015 250)); border: 1px solid var(--color-border-dark, oklch(32% 0.02 250)); border-radius: var(--radius-md, 6px); padding: 0.625rem 0.875rem; color: var(--color-ink-dark, #f0f2f5); font-family: var(--font-sans, sans-serif); font-variant-numeric: tabular-nums; font-size: 0.9375rem; min-height: 48px; width: 100%; transition: border-color 150ms cubic-bezier(0.25, 1, 0.5, 1), box-shadow 150ms cubic-bezier(0.25, 1, 0.5, 1); box-sizing: border-box; } .ds-clinical-input:focus { outline: none; border-color: var(--color-cyan-base, oklch(72% 0.14 200)); box-shadow: 0 0 0 1px var(--color-cyan-base, oklch(72% 0.14 200)); } .ds-clinical-input::placeholder { color: var(--color-ink-dark-muted, oklch(76% 0.015 240)); }"
+    },
+    {
+      "name": "Clinical Card Container",
+      "kind": "card",
+      "refersTo": "clinical-card",
+      "description": "Flat high-contrast container adhering strictly to `The Flat-By-Default Rule`.",
+      "html": "<div class=\"ds-clinical-card\"><div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;\"><span style=\"font-family:var(--font-sans,sans-serif);font-size:0.8125rem;font-weight:600;color:var(--color-ink-dark-muted,#c3c8cf);text-transform:uppercase;letter-spacing:0.04em;\">Hemodynamic Vitals</span><span class=\"ds-badge-p0\">CRITICAL</span></div><div style=\"display:flex;align-items:baseline;gap:8px;\"><span style=\"font-family:var(--font-sans,sans-serif);font-size:1.75rem;font-weight:700;color:var(--color-ink-dark,#f0f2f5);font-variant-numeric:tabular-nums;\">142 / 94</span><span style=\"font-family:var(--font-sans,sans-serif);font-size:0.8125rem;color:var(--color-ink-dark-muted,#c3c8cf);\">mmHg (MAP 110)</span></div></div>",
+      "css": ".ds-clinical-card { background-color: var(--color-surface-dark-card, oklch(22% 0.02 250)); border: 1px solid var(--color-border-dark, oklch(32% 0.02 250)); border-radius: var(--radius-md, 6px); padding: 1rem; font-family: var(--font-sans, sans-serif); color: var(--color-ink-dark, #f0f2f5); width: 100%; max-width: 320px; box-sizing: border-box; } .ds-badge-p0 { background-color: oklch(60% 0.22 28 / 18%); color: oklch(60% 0.22 28); border: 1px solid oklch(60% 0.22 28 / 40%); padding: 0.25rem 0.625rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: inline-flex; align-items: center; }"
+    },
+    {
+      "name": "Sticky Situational Header",
+      "kind": "nav",
+      "refersTo": "sticky-context-bar",
+      "description": "Sticky top bar anchoring critical patient identity (MRN, Age, Bed, Code Status) across shifts.",
+      "html": "<header class=\"ds-sticky-header\"><div style=\"display:flex;align-items:center;gap:12px;\"><span style=\"font-size:1.125rem;font-weight:700;color:var(--color-ink-dark,#f0f2f5);\">Doe, John (MRN-84920)</span><span style=\"font-size:0.8125rem;color:var(--color-ink-dark-muted,#c3c8cf);font-variant-numeric:tabular-nums;\">Bed ICU-04 • Age 64 • O+</span></div><button style=\"background:var(--color-cyan-base,oklch(72% 0.14 200));color:var(--color-surface-dark,#161a1d);border:none;padding:8px 16px;border-radius:6px;font-weight:600;font-size:0.8125rem;cursor:pointer;\">+ Quick Entry</button></header>",
+      "css": ".ds-sticky-header { background-color: var(--color-surface-dark, oklch(18% 0.015 250)); border-bottom: 1px solid var(--color-border-dark, oklch(32% 0.02 250)); padding: 0.75rem 1.25rem; box-shadow: var(--shadow-sticky, 0 2px 12px -2px rgba(0,0,0,0.35)); display: flex; align-items: center; justify-content: space-between; font-family: var(--font-sans, sans-serif); width: 100%; box-sizing: border-box; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Clinical Command Terminal",
+    "overview": "SmartCare ICU operates under a Restrained yet Vigilant aesthetic philosophy designed specifically for high-stress intensive care environments (product + adaptive registers). Drawing structural and ergonomic inspiration from Epic/Cerner ICU clinical terminals (for information density and sticky situational awareness), Raycast/Linear (for ultra-fast keyboard/touch command ergonomics, crisp typography, and deep slate dark mode), and Apple Health/Watch ICU telemetry (for instant visual hierarchy and high-precision visual sparklines), the interface functions as an extension of clinical thought rather than software waiting to be clicked. Every pixel must serve clinical clarity, speed, and precision.",
+    "keyCharacteristics": [
+      "Zero Visual Noise: No decorative blurs, frosted glass (backdrop-blur), gradient headings, or non-functional background card styling.",
+      "Tabular Precision: Tabular numbers (tnum) across all numerical metrics, vital signs, fluid balances, and timestamps to ensure fixed-width column alignment.",
+      "Uncompromised Contrast (≥4.5:1 Strict): Every body text string, table cell, and form label exceeds WCAG AA (≥4.5:1), with display telemetry hitting ≥3:1 under both night-shift dark/slate mode and day-shift light mode.",
+      "Adaptive Ergonomics: Minimum 48×48px touch targets for bedside iPad/tablet carts, paired with high-speed keyboard tabbing (Enter / Tab progression) for desktop hospital terminals."
+    ],
+    "rules": [
+      { "name": "The Full Palette Rule", "body": "Each color role (Cyan, Oxblood, Amber, Emerald) carries exact clinical semantic meaning. Colors are never used decoratively to make a card look interesting. If a metric is colored Oxblood/Red, it must represent a genuine P0 clinical emergency or destructive action.", "section": "colors" },
+      { "name": "The No-Contrast-Compromise Rule", "body": "Gray or muted text on tinted backgrounds that falls below 4.5:1 contrast (3:1 for large bold text ≥18px) is treated as a P0 clinical safety defect. Readability at 4:00 AM under dim ICU lighting is non-negotiable.", "section": "colors" },
+      { "name": "The Tabular Vitals Rule", "body": "All numerical vital signs, fluid I/O volumes (mL), GCS scores, lab values, and timestamps must enable font-variant-numeric: tabular-nums (font-tnum). Numbers must never jump or shift horizontally when values update dynamically.", "section": "typography" },
+      { "name": "The Fixed Rem Scale Rule", "body": "In accordance with our product register, headings and UI elements utilize fixed rem scales rather than fluid clamp() sizing. ICU clinicians view data at fixed terminal and tablet DPIs; consistent spatial geometry is essential for spatial memory during emergencies.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Drop shadows and blurs do not exist as static decoration. Elevation only appears when an element dynamically lifts off the canvas to command immediate, exclusive user interaction.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do maintain strict WCAG AA (≥4.5:1 contrast for body text, ≥3:1 for large display vitals ≥18px) across every dashboard screen, table row, and status pill.",
+      "Do use tabular numbers (tnum / .font-tnum) for every vital sign, fluid balance volume, lab test value, and timestamp to ensure stable column alignment.",
+      "Do provide generous minimum touch targets (≥48×48px for touch tablets, ≥44×44px on native mobile endpoints) with at least 8px breathing room between adjacent clinical buttons.",
+      "Do support @media (prefers-reduced-motion: reduce) on every alert pulse, sparkline render, and modal drawer by instantly switching to crisp, static crossfades.",
+      "Do pair every AI monitoring alert and diagnostic summary with an accessible Clinical Reasoning Explanation that clearly states the triggering physiological metrics and differential hypotheses.",
+      "Do ensure all critical clinical actions and alert explanations are accessible without requiring mouse hover over hidden triggers (focus-visible rings and direct click/touch targets required)."
+    ],
+    "donts": [
+      "Don't use low-contrast muted or gray body text on white or tinted backgrounds (<4.5:1 is prohibited).",
+      "Don't use decorative glassmorphism, frosted glass (backdrop-blur), or non-functional background gradients (Generic SaaS AI Marketing Templates).",
+      "Don't use card grid slop or deeply nested containers (border-left side-stripe accents > 1px or boxed-within-boxes clutter).",
+      "Don't use decorative gradient text (background-clip: text) on headings or tiny all-caps tracked 01 / 02 / 03 eyebrows above every section.",
+      "Don't animate <img> elements on hover or gate critical clinical data behind hover-only interaction triggers (<img> hover animations and hover-only tooltips are strictly banned).",
+      "Don't reinvent standard OS or browser affordances (e.g., custom scrollbars, non-standard modals, or web-shaped switches ported onto native tablet layouts)."
+    ]
+  }
+}

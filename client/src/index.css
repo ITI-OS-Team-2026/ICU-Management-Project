@@ -1,1 +1,311 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+@theme {
+  /* ==========================================================================
+     SmartCare ICU — Clean, High-Precision & Minimalist UI Design Tokens
+     Governed by DESIGN.md & PRODUCT.md specifications (Whitespace & Simplicity First)
+     ========================================================================== */
+
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Roboto Mono', monospace;
+
+  /* Color Palette: Full Palette (Deliberate Roles) */
+  /* Surfaces - Dark Mode (Clean Minimalist Slate) */
+  --color-surface-dark: oklch(18% 0.015 250);          /* #161a1d */
+  --color-surface-dark-card: oklch(22% 0.02 250);     /* #1f2428 */
+  --color-surface-dark-elevated: oklch(26% 0.025 250); /* #292e33 */
+  
+  /* Surfaces - Light Mode (Hospital Day Shift Option) */
+  --color-surface-light: oklch(97% 0.005 230);         /* #f6f7f9 */
+  --color-surface-light-card: oklch(99% 0.002 230);    /* #ffffff */
+  --color-surface-light-elevated: oklch(95% 0.008 230);/* #f0f2f5 */
+
+  /* High-Contrast Ink (Strict ≥4.5:1 WCAG AA Compliance) */
+  --color-ink-dark: oklch(95% 0.01 240);               /* Primary text on dark backgrounds */
+  --color-ink-dark-muted: oklch(76% 0.015 240);        /* Secondary/label text on dark (≥4.5:1) */
+  --color-ink-light: oklch(20% 0.02 250);              /* Primary text on light backgrounds */
+  --color-ink-light-muted: oklch(42% 0.02 250);        /* Secondary/label text on light (≥4.5:1) */
+
+  /* Semantic Clinical Roles */
+  /* Primary Telemetry (Medical Cyan/Teal) */
+  --color-cyan-base: oklch(72% 0.14 200);              /* Active telemetry, primary focus ring */
+  --color-cyan-hover: oklch(65% 0.14 200);             /* Hover/active state */
+  --color-cyan-subtle: oklch(72% 0.14 200 / 15%);      /* Translucent active container */
+
+  /* P0 Emergency Alerts & Critical Vitals (Emergency Oxblood/Red) */
+  --color-emergency-base: oklch(60% 0.22 28);          /* P0 critical alarm, destructive action */
+  --color-emergency-hover: oklch(53% 0.22 28);         /* Hover state */
+  --color-emergency-subtle: oklch(60% 0.22 28 / 18%);  /* Translucent P0 alarm banner */
+
+  /* P1 Warnings & Out-of-Range Shifts (Clinical Amber) */
+  --color-warning-base: oklch(78% 0.18 70);            /* P1 warning, vitals out of baseline */
+  --color-warning-subtle: oklch(78% 0.18 70 / 15%);    /* Translucent P1 warning badge */
+
+  /* Stable & Confirmed AI Reasoning (Stable Emerald) */
+  --color-stable-base: oklch(72% 0.17 155);            /* Normal range, AI reasoning confirmation */
+  --color-stable-subtle: oklch(72% 0.17 155 / 15%);    /* Translucent stable badge */
+
+  /* Borders & Separators */
+  --color-border-dark: oklch(32% 0.02 250);            /* Crisp 1px container outline on dark */
+  --color-border-light: oklch(88% 0.01 230);           /* Crisp 1px container outline on light */
+
+  /* Fixed Rem Typography Hierarchy (The Fixed Rem Scale Rule) */
+  --text-display: 2rem;                                /* 32px - Bedside monitor hero callouts */
+  --text-headline: 1.5rem;                             /* 24px - Dashboard section titles */
+  --text-title: 1.125rem;                              /* 18px - Panel headers, modal titles */
+  --text-body: 0.9375rem;                              /* 15px - Clinical notes, reasoning prose */
+  --text-label: 0.8125rem;                             /* 13px - Table headers, status badge text */
+  --text-vital-number: 1.75rem;                        /* 28px - Large numerical vitals display */
+
+  /* Shape & Corner Radii (Restrained & High Precision) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Elevation Shadows (Restrained: Active Elevation Only, Flat by Default) */
+  --shadow-popover: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+  --shadow-modal: 0 12px 36px -4px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.12);
+  --shadow-sticky: 0 2px 12px -2px rgba(0, 0, 0, 0.35);
+
+  /* Semantic Z-Index Scale */
+  --z-dropdown: 40;
+  --z-sticky: 50;
+  --z-modal-backdrop: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+  --z-tooltip: 90;
+
+  /* Motion Timing & Easing (Restrained: 150-200ms ease-out-quart) */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+}
+
+/* ==========================================================================
+   Base Layer & Tabular Precision Defaults
+   ========================================================================== */
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-dark);
+    color: var(--color-ink-dark);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Strict Reduced Motion Enforcement */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ==========================================================================
+   Clinical Utility & Component Classes (Tailwind v4 @utility / @layer)
+   ========================================================================== */
+
+@layer utilities {
+  /* Tabular Precision for all Vitals, Timestamps, and Fluid Volumes */
+  .font-tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Clinical Container Primitives (Flat by Default, High Contrast Borders) */
+  .clinical-card {
+    background-color: var(--color-surface-dark-card);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+  }
+
+  .clinical-card-light {
+    background-color: var(--color-surface-light-card);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    color: var(--color-ink-light);
+  }
+
+  /* Clean Minimalist Page Layouts (Use for simple pages, forms, settings, and auth) */
+  .clinical-page {
+    min-height: 100vh;
+    background-color: var(--color-surface-dark);
+    color: var(--color-ink-dark);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+
+  .clinical-page-container {
+    width: 100%;
+    max-width: 28rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Sticky Clinical Context Header (Use ONLY on main multi-patient monitoring dashboard. Do NOT use on simple forms or auth screens) */
+  .sticky-context-bar {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    background-color: var(--color-surface-dark);
+    border-bottom: 1px solid var(--color-border-dark);
+    padding: 0.75rem 1.25rem;
+    box-shadow: var(--shadow-sticky);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Status Badges & Alert Pills (Use ONLY for active telemetry or triage. Do NOT use as decorative slop on simple forms) */
+  .badge-p0 {
+    background-color: var(--color-emergency-subtle);
+    color: var(--color-emergency-base);
+    border: 1px solid oklch(60% 0.22 28 / 40%);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .badge-p1 {
+    background-color: var(--color-warning-subtle);
+    color: var(--color-warning-base);
+    border: 1px solid oklch(78% 0.18 70 / 40%);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .badge-stable {
+    background-color: var(--color-stable-subtle);
+    color: var(--color-stable-base);
+    border: 1px solid oklch(72% 0.17 155 / 40%);
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-label);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  /* Interactive Buttons (Min 44x44 / 48x48 Touch Targets for Bedside Tablets) */
+  .btn-primary {
+    background-color: var(--color-cyan-base);
+    color: var(--color-surface-dark);
+    font-weight: 600;
+    font-size: var(--text-body);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    transition: background-color var(--duration-fast) var(--ease-out-quart),
+                transform var(--duration-fast) var(--ease-out-quart);
+    min-height: 48px;
+    min-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-cyan-hover);
+  }
+
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--color-cyan-base);
+    outline-offset: 2px;
+  }
+
+  .btn-emergency {
+    background-color: var(--color-emergency-base);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: var(--text-body);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    transition: background-color var(--duration-fast) var(--ease-out-quart);
+    min-height: 48px;
+    min-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .btn-emergency:hover {
+    background-color: var(--color-emergency-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-surface-dark-card);
+    color: var(--color-ink-dark);
+    border: 1px solid var(--color-border-dark);
+    font-weight: 500;
+    font-size: var(--text-body);
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-md);
+    transition: background-color var(--duration-fast) var(--ease-out-quart);
+    min-height: 48px;
+    min-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-surface-dark-elevated);
+  }
+
+  /* High-Precision Form Controls (Adaptive Touch & Keyboard Tabbing) */
+  .clinical-input {
+    background-color: var(--color-surface-dark);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-md);
+    padding: 0.625rem 0.875rem;
+    color: var(--color-ink-dark);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-body);
+    min-height: 48px;
+    width: 100%;
+    transition: border-color var(--duration-fast) var(--ease-out-quart),
+                box-shadow var(--duration-fast) var(--ease-out-quart);
+  }
+
+  .clinical-input:focus {
+    outline: none;
+    border-color: var(--color-cyan-base);
+    box-shadow: 0 0 0 1px var(--color-cyan-base);
+  }
+
+  .clinical-input::placeholder {
+    color: var(--color-ink-dark-muted);
+  }
+}
