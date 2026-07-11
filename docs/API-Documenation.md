@@ -25,6 +25,7 @@
 14. Notifications
 15. Treatment Approvals
 16. Audit Logs (Admin, Read-Only)
+17. Summary
 
 ---
 
