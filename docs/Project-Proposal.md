@@ -122,6 +122,7 @@ The system is designed for the four distinct roles operating inside an Intensive
 
 ### ICU Nurse
 
+- Admit the patient and assign a bed and doctor for the patient
 - Create initial patient admission profiles
 - Record hourly vital signs, fluid intake/output, and GCS scores
 - Upload laboratory results and radiology documents
