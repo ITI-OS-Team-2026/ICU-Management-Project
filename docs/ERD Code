@@ -1,0 +1,319 @@
+title Clinical Information System Data Model
+
+// ===== AUTHENTICATION & SECURITY =====
+users [icon: user, color: blue] {
+  id uuid pk
+  first_name string
+  last_name string
+  email string
+  password_hash string
+  role string
+  status string
+}
+
+login_attempts [icon: log-in, color: blue] {
+  id uuid pk
+  user_id uuid fk
+  success boolean
+  ip_address string
+  attempted_at timestamp
+}
+
+refresh_tokens [icon: key, color: blue] {
+  id uuid pk
+  user_id uuid fk
+  token string
+  expires_at timestamp
+  is_revoked boolean
+}
+
+audit_logs [icon: shield, color: blue] {
+  id uuid pk
+  user_id uuid fk
+  action string
+  target_table string
+  old_values jsonb
+  new_values jsonb
+  created_at timestamp
+}
+
+// ===== CORE CLINICAL =====
+patients [icon: heart, color: red] {
+  id uuid pk
+  mrn string
+  first_name string
+  last_name string
+  date_of_birth date
+  gender string
+  weight decimal
+  height decimal
+  blood_type string
+  is_archived boolean
+  archived_at timestamp
+}
+
+allergies [icon: alert-circle, color: red] {
+  id uuid pk
+  patient_id uuid fk
+  allergen string
+  severity string
+  is_archived boolean
+  archived_at timestamp
+}
+
+beds [icon: home, color: red] {
+  id uuid pk
+  bed_number string
+  status string
+}
+
+admissions [icon: clipboard, color: red] {
+  id uuid pk
+  patient_id uuid fk
+  bed_id uuid fk
+  doctor_id uuid fk
+  admission_reason jsonb
+  status string
+  admitted_at timestamp
+  discharged_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+admission_nurses [icon: users, color: red] {
+  id uuid pk
+  admission_id uuid fk
+  nurse_id uuid fk
+  assigned_at timestamp
+}
+
+diagnoses [icon: file-plus, color: red] {
+  id uuid pk
+  admission_id uuid fk
+  description text
+  diagnosed_by uuid fk
+  diagnosed_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+// ===== CLINICAL RECORDING =====
+vital_signs [icon: activity, color: green] {
+  id uuid pk
+  admission_id uuid fk
+  recorded_by uuid fk
+  heart_rate integer
+  systolic_bp integer
+  diastolic_bp integer
+  map_mmhg integer
+  respiratory_rate integer
+  spo2 integer
+  temperature decimal
+  gcs_total integer
+  is_override boolean
+  override_reason text
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+fluid_records [icon: droplet, color: green] {
+  id uuid pk
+  admission_id uuid fk
+  recorded_by uuid fk
+  direction string
+  type string
+  volume_ml integer
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+medications [icon: package, color: green] {
+  id uuid pk
+  admission_id uuid fk
+  prescribed_by uuid fk
+  drug_name string
+  dosage string
+  frequency string
+  prescribed_at timestamp
+  is_active boolean
+  is_archived boolean
+  archived_at timestamp
+}
+
+medication_administrations [icon: check-circle, color: green] {
+  id uuid pk
+  medication_id uuid fk
+  administered_by uuid fk
+  administered_dose string
+  administered_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+lab_results [icon: thermometer, color: green] {
+  id uuid pk
+  admission_id uuid fk
+  recorded_by uuid fk
+  test_name string
+  result_value string
+  abnormal boolean
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+// ===== CLINICAL DOCUMENTATION =====
+nursing_notes [icon: edit, color: yellow] {
+  id uuid pk
+  admission_id uuid fk
+  author_id uuid fk
+  note text
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+clinical_notes [icon: file-text, color: yellow] {
+  id uuid pk
+  admission_id uuid fk
+  author_id uuid fk
+  assessment text
+  plan text
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+medical_documents [icon: folder, color: yellow] {
+  id uuid pk
+  admission_id uuid fk
+  uploaded_by uuid fk
+  document_type string
+  original_filename string
+  file_path string
+  embedding_status string
+  uploaded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+document_embeddings [icon: cpu, color: yellow] {
+  id uuid pk
+  document_id uuid fk
+  admission_id uuid fk
+  chunk_text text
+  embedding vector
+}
+
+// ===== ARTIFICIAL INTELLIGENCE =====
+ai_summaries [icon: zap, color: purple] {
+  id uuid pk
+  admission_id uuid fk
+  requested_by uuid fk
+  summary_type string
+  overall_summary text
+  generated_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+ai_query_logs [icon: search, color: purple] {
+  id uuid pk
+  admission_id uuid fk
+  asked_by uuid fk
+  question text
+  ai_response text
+  cited_sources jsonb
+  created_at timestamp
+}
+
+alerts [icon: alert-triangle, color: purple] {
+  id uuid pk
+  admission_id uuid fk
+  severity string
+  title string
+  triggering_metrics jsonb
+  clinical_reasoning text
+  status string
+  generated_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+alert_reviews [icon: check-square, color: purple] {
+  id uuid pk
+  alert_id uuid fk
+  reviewer_id uuid fk
+  review_notes text
+  accepted boolean
+  reviewed_at timestamp
+}
+
+notifications [icon: bell, color: purple] {
+  id uuid pk
+  user_id uuid fk
+  title string
+  message string
+  status string
+  created_at timestamp
+}
+
+// ===== SYSTEM MANAGEMENT =====
+treatment_approvals [icon: thumbs-up, color: gray] {
+  id uuid pk
+  admission_id uuid fk
+  approved_by uuid fk
+  treatment_name string
+  clinical_justification text
+  approval_status boolean
+  requested_at timestamp
+  approved_at timestamp
+}
+
+// ===== RELATIONSHIPS =====
+users.id < login_attempts.user_id
+users.id < refresh_tokens.user_id
+users.id < audit_logs.user_id
+users.id < notifications.user_id
+
+patients.id < admissions.patient_id
+patients.id < allergies.patient_id
+beds.id < admissions.bed_id
+users.id < admissions.doctor_id
+
+admissions.id < admission_nurses.admission_id
+users.id < admission_nurses.nurse_id
+
+admissions.id < diagnoses.admission_id
+users.id < diagnoses.diagnosed_by
+
+admissions.id < vital_signs.admission_id
+users.id < vital_signs.recorded_by
+admissions.id < fluid_records.admission_id
+users.id < fluid_records.recorded_by
+admissions.id < medications.admission_id
+users.id < medications.prescribed_by
+medications.id < medication_administrations.medication_id
+users.id < medication_administrations.administered_by
+admissions.id < lab_results.admission_id
+users.id < lab_results.recorded_by
+
+admissions.id < nursing_notes.admission_id
+admissions.id < clinical_notes.admission_id
+users.id < clinical_notes.author_id
+admissions.id < medical_documents.admission_id
+medical_documents.id < document_embeddings.document_id
+admissions.id < document_embeddings.admission_id
+
+admissions.id < ai_summaries.admission_id
+users.id < ai_summaries.requested_by
+admissions.id < ai_query_logs.admission_id
+users.id < ai_query_logs.asked_by
+admissions.id < alerts.admission_id
+alerts.id < alert_reviews.alert_id
+users.id < alert_reviews.reviewer_id
+
+admissions.id < treatment_approvals.admission_id
+users.id < treatment_approvals.approved_by
