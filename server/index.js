@@ -1,9 +1,9 @@
 const { Pool } = require("pg");
-const app = require("./app");
 const config = require("./config/env");
+const app = require("./app");
 const logger = require("./utils/logger");
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = config.databaseUrl;
 
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is not defined");
