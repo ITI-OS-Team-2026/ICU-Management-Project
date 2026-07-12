@@ -5,8 +5,8 @@ const express = require("express");
 // const { xss } = require("express-xss-sanitizer");
 // const { limiter } = require("./middlewares/rateLimiter");
 
-
 const errorHandler = require("./middlewares/errorHandler");
+const prismaHealthCheckRoutes = require("./routes/prismaHealthCheck.routes");
 
 // Routes
 
@@ -20,6 +20,14 @@ app.use(express.json());
 // app.use(limiter);
 
 // Route Mount
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "API is running",
+  });
+});
+
+app.use("/api/prisma-health-check", prismaHealthCheckRoutes);
 
 // Global error handler
 app.use(errorHandler);
