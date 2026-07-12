@@ -1,35 +1,13 @@
-const { Pool } = require("pg");
 const config = require("./config/env");
 const app = require("./app");
 const logger = require("./utils/logger");
-
-const databaseUrl = config.databaseUrl;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is not defined");
-}
-
-const normalizedDatabaseUrl = (() => {
-  const url = new URL(databaseUrl);
-  url.searchParams.delete("sslmode");
-  url.searchParams.delete("channel_binding");
-  return url.toString();
-})();
-
-const pool = new Pool({
-  connectionString: normalizedDatabaseUrl,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const prisma = require("./utils/prismaClient");
 
 async function startServer() {
   try {
-    const client = await pool.connect();
-    await client.query("SELECT 1");
-    client.release();
-
-    logger.info("PostgreSQL connection successful");
+    await prisma.$connect();
+    
+    logger.info("PostgreSQL connection successful via Prisma");
 
     const server = app.listen(config.port, () => {
       logger.info(`App running on port ${config.port}`);
@@ -47,7 +25,7 @@ async function startServer() {
       logger.info("👋 SIGTERM RECEIVED. Shutting down gracefully");
       server.close(() => {
         logger.info("💥 Process terminated!");
-        pool.end().then(() => {
+        prisma.$disconnect().then(() => {
           process.exit(0);
         });
       });
