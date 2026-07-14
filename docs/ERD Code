@@ -7,7 +7,7 @@ users [icon: user, color: blue] {
   last_name string
   email string
   password_hash string
-  role string
+  role enum
   status string
 }
 
@@ -41,15 +41,32 @@ audit_logs [icon: shield, color: blue] {
 patients [icon: heart, color: red] {
   id uuid pk
   mrn string
-  first_name string
-  last_name string
-  date_of_birth date
+  national_id string
+  name string
+  age integer
   gender string
-  weight decimal
-  height decimal
-  blood_type string
+  residence text
+  occupation text
+  marital_status enum
+  handedness enum
   is_archived boolean
   archived_at timestamp
+}
+
+medical_histories [icon: clipboard, color: red] {
+  id uuid pk
+  patient_id uuid fk
+  diabetes_dm boolean
+  hypertension_htn boolean
+  past_similar_conditions text
+  past_diseases jsonb
+  previous_operations boolean
+  operations_details text
+  has_allergies boolean
+  traveled_abroad boolean
+  consanguinity boolean
+  family_similar_conditions text
+  inherited_diseases jsonb
 }
 
 allergies [icon: alert-circle, color: red] {
@@ -72,7 +89,15 @@ admissions [icon: clipboard, color: red] {
   patient_id uuid fk
   bed_id uuid fk
   doctor_id uuid fk
-  admission_reason jsonb
+  admission_reason text
+  place_of_transfer text
+  transfer_doctor_name text
+  chief_complaint text
+  symptoms_related_system text
+  symptoms_other_systems text
+  previous_investigations text
+  previous_treatments text
+  provisional_diagnosis text
   status string
   admitted_at timestamp
   discharged_at timestamp
@@ -85,12 +110,16 @@ admission_nurses [icon: users, color: red] {
   admission_id uuid fk
   nurse_id uuid fk
   assigned_at timestamp
+  unassigned_at timestamp      // When the nurse stops caring for this patient
+  is_archived boolean          // Soft delete
+  archived_at timestamp        // When archived
 }
 
 diagnoses [icon: file-plus, color: red] {
   id uuid pk
   admission_id uuid fk
-  description text
+  condition_name text
+  status enum
   diagnosed_by uuid fk
   diagnosed_at timestamp
   is_archived boolean
@@ -102,28 +131,14 @@ vital_signs [icon: activity, color: green] {
   id uuid pk
   admission_id uuid fk
   recorded_by uuid fk
-  heart_rate integer
+  temperature decimal // (35 - 45)
+  pulse integer
   systolic_bp integer
   diastolic_bp integer
-  map_mmhg integer
-  respiratory_rate integer
+  respiratory_rate integer // (breath rate)
   spo2 integer
-  temperature decimal
-  gcs_total integer
   is_override boolean
   override_reason text
-  recorded_at timestamp
-  is_archived boolean
-  archived_at timestamp
-}
-
-fluid_records [icon: droplet, color: green] {
-  id uuid pk
-  admission_id uuid fk
-  recorded_by uuid fk
-  direction string
-  type string
-  volume_ml integer
   recorded_at timestamp
   is_archived boolean
   archived_at timestamp
@@ -136,6 +151,8 @@ medications [icon: package, color: green] {
   drug_name string
   dosage string
   frequency string
+  start_date timestamp
+  end_date timestamp
   prescribed_at timestamp
   is_active boolean
   is_archived boolean
@@ -152,6 +169,15 @@ medication_administrations [icon: check-circle, color: green] {
   archived_at timestamp
 }
 
+investigation_orders [icon: file-text, color: green] {
+  id uuid pk
+  admission_id uuid fk
+  ordered_by uuid fk
+  type string // e.g., 'Lab', 'Radiology'
+  status string // 'Pending', 'Completed'
+  order_date timestamp
+}
+
 lab_results [icon: thermometer, color: green] {
   id uuid pk
   admission_id uuid fk
@@ -159,6 +185,28 @@ lab_results [icon: thermometer, color: green] {
   test_name string
   result_value string
   abnormal boolean
+  recorded_at timestamp
+  is_archived boolean
+  archived_at timestamp
+}
+
+// ===== CLINICAL DOCUMENTATION & EXAMS =====
+// Handles Steps 3 & 4: The rigid checkboxes
+clinical_examinations [icon: eye, color: yellow] {
+  id uuid pk
+  admission_id uuid fk
+  examiner_id uuid fk
+  general_exams jsonb // Stores built, nutrition, skin, head & neck
+  local_exams jsonb // Stores inspection, palpation, percussion, auscultation
+  recorded_at timestamp
+}
+
+// Handles Step 5 & Daily Updates: The free-text reasoning
+clinical_notes [icon: file-text, color: yellow] {
+  id uuid pk
+  admission_id uuid fk
+  author_id uuid fk
+  content text
   recorded_at timestamp
   is_archived boolean
   archived_at timestamp
@@ -175,10 +223,12 @@ nursing_notes [icon: edit, color: yellow] {
   archived_at timestamp
 }
 
-clinical_notes [icon: file-text, color: yellow] {
+follow_ups [icon: file-text, color: yellow] {
   id uuid pk
   admission_id uuid fk
   author_id uuid fk
+  objective text
+  subjective text
   assessment text
   plan text
   recorded_at timestamp
@@ -280,6 +330,7 @@ users.id < notifications.user_id
 
 patients.id < admissions.patient_id
 patients.id < allergies.patient_id
+patients.id < medical_histories.patient_id
 beds.id < admissions.bed_id
 users.id < admissions.doctor_id
 
@@ -291,16 +342,21 @@ users.id < diagnoses.diagnosed_by
 
 admissions.id < vital_signs.admission_id
 users.id < vital_signs.recorded_by
-admissions.id < fluid_records.admission_id
-users.id < fluid_records.recorded_by
 admissions.id < medications.admission_id
 users.id < medications.prescribed_by
 medications.id < medication_administrations.medication_id
 users.id < medication_administrations.administered_by
+admissions.id < investigation_orders.admission_id
+users.id < investigation_orders.ordered_by
 admissions.id < lab_results.admission_id
 users.id < lab_results.recorded_by
 
 admissions.id < nursing_notes.admission_id
+users.id < nursing_notes.author_id
+admissions.id < follow_ups.admission_id
+users.id < follow_ups.author_id
+admissions.id < clinical_examinations.admission_id
+users.id < clinical_examinations.examiner_id
 admissions.id < clinical_notes.admission_id
 users.id < clinical_notes.author_id
 admissions.id < medical_documents.admission_id
