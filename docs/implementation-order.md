@@ -3,7 +3,7 @@
 # SmartCare ICU
 ### Build sequence for the endpoints defined in the API Documentation
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Purpose:** Defines the order in which endpoints should be implemented, based on data dependency — not the order they appear in the API documentation. An endpoint cannot be built or meaningfully tested before the things it depends on exist.
 
 ---
@@ -34,15 +34,17 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 
 **Why here:** you need at least one Nurse, one Resident, one Specialist, and some beds provisioned before any clinical endpoint is testable at all.
 
-**Lock down before moving on:** this is the cheapest point to fix the two open schema items flagged earlier — the missing `nursing_notes.author_id` relationship and the nurse-assignment "one primary" constraint. Fixing them after Wave 4 means a migration and retest; fixing them now costs nothing.
+**Nurse assignment model:** the ERD supports multiple nurses per admission via `admission_nurses`, with `unassigned_at` recording when a nurse stops caring for the patient. Treat this as handover history — more than one active or historical assignment per admission is expected and correct.
 
 ---
 
-# Wave 2 — Patients
+# Wave 2 — Patients & Medical History
 
-**Endpoints:** `POST/GET /patients`, `GET /patients/:id`, `DELETE /patients/:id`, `POST/GET/DELETE /patients/:id/allergies`
+**Endpoints:**
+- Patients: `POST/GET /patients`, `GET /patients/:id`, `DELETE /patients/:id`, `POST/GET/DELETE /patients/:id/allergies`
+- Medical history: `POST/GET/PATCH /patients/:id/medical-history`
 
-**Why here:** no admission can exist without a patient to attach it to.
+**Why here:** no admission can exist without a patient to attach it to. Medical history is patient-scoped (`medical_histories.patient_id`), so it belongs in this wave immediately after patient CRUD — before admissions and the clinical recording that depends on them.
 
 ---
 
@@ -50,7 +52,7 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 
 **Endpoints:** `POST /admissions`, `GET /admissions`, `GET /admissions/:id`, `POST/GET/DELETE /admissions/:id/nurses`
 
-**Why this is the most important wave:** nearly every clinical table's foreign key points to `admission_id`, not `patient_id`. Every wave after this one depends directly on admissions existing and being correctly scoped.
+**Why this is the most important wave:** nearly every clinical table's foreign key points to `admission_id`, not `patient_id`. Every wave after this one depends directly on admissions existing and being correctly scoped. Nurse assignment uses `admission_nurses` with `assigned_at` / `unassigned_at` for handover history.
 
 ---
 
@@ -58,13 +60,15 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 
 **Endpoints:**
 - Vitals: `POST/GET/DELETE /admissions/:id/vitals`, `/vitals/:id`
-- Fluids: `POST/GET/DELETE /admissions/:id/fluids`, `/fluids/:id`
 - Labs: `POST/GET/DELETE /admissions/:id/labs`, `/labs/:id`
 - Diagnoses: `POST/GET/DELETE /admissions/:id/diagnoses`, `/diagnoses/:id`
 - Medications + administrations: `/medications`, `/medications/:id`, `/medications/:id/administrations`
 - Notes: `/notes/clinical`, `/notes/nursing`
+- Clinical examinations: `POST/GET /admissions/:id/examinations`
+- Follow-ups (SOAP): `POST/GET/DELETE /admissions/:id/follow-ups`, `/follow-ups/:id`
+- Investigation orders: `POST/GET/PATCH /admissions/:id/investigation-orders`
 
-**Why here:** all depend on Wave 3, but are mostly independent of each other — safe to build in parallel within this wave.
+**Why here:** all depend on Wave 3, but are mostly independent of each other — safe to build in parallel within this wave. Vitals store temperature, pulse, systolic/diastolic BP, respiratory rate, and SpO2 (with override flags). Clinical notes carry free-text `content` only; SOAP structured documentation lives in follow-ups.
 
 ---
 
@@ -122,9 +126,9 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 |---|---|---|
 | 0 | Auth + middleware | Nothing |
 | 1 | Admin: users, beds | Wave 0 |
-| 2 | Patients, allergies | Wave 1 |
+| 2 | Patients, allergies, medical history | Wave 1 |
 | 3 | Admissions, nurse assignment | Wave 2 |
-| 4 | Vitals, fluids, labs, diagnoses, medications, notes | Wave 3 |
+| 4 | Vitals, labs, diagnoses, medications, notes, examinations, follow-ups, investigation orders | Wave 3 |
 | 5 | Documents + embedding trigger | Wave 4 |
 | 6 | Discharge, treatment approval | Wave 4 |
 | 7 | AI summary + RAG query | Waves 4, 5 |

@@ -3,7 +3,7 @@
 # SmartCare ICU
 ### AI-Powered Intensive Care Unit Management and Clinical Decision Support System
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Status:** MVP Baseline
 
 ---
@@ -16,7 +16,7 @@ This document specifies the functional and non-functional requirements for Smart
 
 ## 1.2 Scope
 
-SmartCare ICU centralizes patient data — admissions, vital signs, fluid balance, laboratory results, medications, and clinical notes — into a single, role-secure dashboard, and augments clinical workflows with AI-generated summaries, a conversational retrieval-augmented (RAG) assistant, and an autonomous monitoring agent that produces explainable alerts.
+SmartCare ICU centralizes patient data — admissions, vital signs, structured medical histories, clinical examinations, SOAP follow-ups, diagnoses, investigation orders, laboratory results, medications, and clinical notes — into a single, role-secure dashboard, and augments clinical workflows with AI-generated summaries, a conversational retrieval-augmented (RAG) assistant, and an autonomous monitoring agent that produces explainable alerts.
 
 The system manages patients within a single ICU. It does not cover hospital-wide administration, billing, insurance, appointment scheduling, pharmacy inventory, or multi-hospital operation in this MVP.
 
@@ -28,13 +28,13 @@ The system manages patients within a single ICU. It does not cover hospital-wide
 | RAG | Retrieval-Augmented Generation |
 | RBAC | Role-Based Access Control |
 | JWT | JSON Web Token |
-| GCS | Glasgow Coma Scale |
-| MAP | Mean Arterial Pressure |
 | SpO2 | Peripheral Oxygen Saturation |
-| I/O | Fluid Intake and Output |
 | MRN | Medical Record Number |
+| SOAP | Subjective, Objective, Assessment, Plan — structured follow-up note format |
 | P0 / P1 | Alert severity tiers — P0: Emergency, immediate bedside attention; P1: Clinical warning |
 | MVP | Minimum Viable Product |
+| GCS | Glasgow Coma Scale — not stored as a discrete vitals field in this MVP; neurological status may appear in notes, exams, or follow-ups |
+| MAP | Mean Arterial Pressure — not a primary stored vital in this MVP; blood pressure is recorded as systolic and diastolic values |
 
 ## 1.4 References
 
@@ -58,8 +58,8 @@ SmartCare ICU is a new, standalone web application. It is not a modification of 
 At a high level, the system:
 
 - Authenticates users and enforces role-based permissions.
-- Manages patient admission, bed assignment, and discharge.
-- Records and validates vital signs, fluid I/O, GCS scores, medications, lab results, and clinical/nursing notes.
+- Manages patient admission, bed assignment, nurse assignment, and discharge.
+- Records and validates vital signs, structured medical histories, clinical examinations, SOAP follow-ups, diagnoses, investigation orders, medications, lab results, and clinical/nursing notes.
 - Presents a unified, role-adaptive patient dashboard with a persistent context header and trend visualizations.
 - Generates one-click AI summaries of a patient's recent clinical course.
 - Answers natural-language clinical questions via a RAG assistant with source citations.
@@ -70,7 +70,7 @@ At a high level, the system:
 
 | Role | Characteristics | Primary Goal |
 |---|---|---|
-| System Admin | IT/administrative staff, non-clinical | Manage accounts, roles, and system health; no clinical data access |
+| System Admin | IT/administrative staff, non-clinical | Manage accounts, roles, beds, and audit trail; no clinical data access |
 | ICU Nurse | Bedside staff, time-constrained, often on a tablet cart | Fast, accurate structured data entry |
 | Medical Resident | Manages patients across full shifts | Deep read/write access, AI querying, alert triage |
 | ICU Specialist | Senior decision-maker, rounds-based | Rapid situational overview, final treatment/discharge authority |
@@ -84,7 +84,7 @@ At a high level, the system:
 
 ## 2.5 Design and Implementation Constraints
 
-- All patient-facing clinical data must be scoped to specific ICU admissions, not just patients, to correctly support multiple admissions per patient over time.
+- All patient-facing clinical data must be scoped to specific ICU admissions, not just patients, to correctly support multiple admissions per patient over time (medical history is patient-scoped; most other clinical records are admission-scoped).
 - No clinical record may ever be permanently deleted — only archived (soft delete).
 - JWTs must be delivered exclusively via `HttpOnly`, `Secure`, `SameSite=Strict` cookies; storage in `localStorage` is prohibited.
 - The System Admin role must be technically prevented from querying unblinded clinical/vitals data, not merely restricted by UI hiding.
@@ -137,12 +137,12 @@ Requirements are grouped into the three build phases used across the project's p
 **Priority:** Critical
 **Actors:** Nurse, Resident, Specialist
 
-**Preconditions:** The user is authenticated and viewing a vitals/GCS entry form for an active (non-discharged) admission.
+**Preconditions:** The user is authenticated and viewing a vitals entry form for an active (non-discharged) admission.
 
 **System Behavior:**
-1. As the user types or leaves a numeric field, the frontend validates the value against its defined clinical range (Heart Rate 20–300 bpm, MAP 20–200 mmHg, SpO2 50–100%, Temperature 30.0–45.0°C, GCS 3–15) within 50ms of blur.
+1. As the user types or leaves a numeric field, the frontend validates the value against its defined clinical range (Temperature 35.0–45.0°C, Pulse 20–300 bpm, Systolic BP 50–250 mmHg, Diastolic BP 20–150 mmHg, Respiratory Rate 5–60 breaths/min, SpO2 50–100%) within 50ms of blur.
 2. If out of range, the field is marked `aria-invalid="true"` with a visible, descriptive error and an `aria-describedby` explanation — the form is not silently blocked.
-3. If the clinician marks the value as a confirmed emergency override, the value is accepted with a flag (`is_override: true`) stored alongside it.
+3. If the clinician marks the value as a confirmed emergency override, the value is accepted with a flag (`is_override: true`) and `override_reason` stored alongside it.
 4. On submit, the backend independently re-validates every field against the same ranges using a schema validator (Zod/Joi), regardless of what the frontend already checked.
 5. On backend validation failure, the request is rejected before any database write occurs.
 
@@ -191,15 +191,16 @@ Requirements are grouped into the three build phases used across the project's p
 **Preconditions:** The user holds a role authorized for the specific endpoint (see Access Control Matrix, Section 8).
 
 **System Behavior:**
-1. **`POST /api/patients`** — creates a patient admission profile (name, age, MRN, blood type, allergies, code status, attending specialist). The system checks MRN uniqueness among active admissions before insert; a returning patient (existing MRN, prior discharge) creates a new admission record linked to the existing patient rather than a duplicate patient.
-2. **`POST /api/vitals`** — logs a vitals/GCS entry against an active admission ID, with the recording nurse's ID and a server-generated timestamp (client-supplied timestamps are not trusted).
-3. **`POST /api/vitals/fluid`** — logs an intake or output entry in milliliters, tagged with type (IV infusion, enteral feed, urine, drain) and timestamp.
-4. **`POST /api/documents`** — accepts a lab/radiology file via `multer`, stores it, and creates a `medical_documents` record linked to the admission; large files are streamed rather than buffered fully in memory.
-5. All four endpoints run through the FR-1.1 auth/role middleware and the FR-1.3 audit-logging middleware before their handler logic executes.
+1. **`POST /api/patients`** — creates a patient profile (name, age, MRN, national ID, gender, residence, occupation, marital status, handedness, allergies). The system checks MRN uniqueness among active patients before insert; a returning patient (existing MRN, prior discharge) creates a new admission record linked to the existing patient rather than a duplicate patient.
+2. **`POST /api/admissions`** — creates an admission linked to patient, bed, and attending doctor, capturing chief complaint, place of transfer, transfer doctor, provisional diagnosis, and related admission-detail fields from the ERD.
+3. **`POST /api/patients/:id/medical-history`** — creates or updates the patient's structured medical history (e.g. diabetes, hypertension, past diseases, operations, allergies flag, family history).
+4. **`POST /api/admissions/:id/vitals`** — logs a vitals entry (temperature, pulse, systolic BP, diastolic BP, respiratory rate, SpO2) against an active admission ID, with the recording user's ID, optional override flag/reason, and a server-generated timestamp (client-supplied timestamps are not trusted).
+5. **`POST /api/admissions/:id/documents`** — accepts a lab/radiology file via `multer`, stores it, and creates a `medical_documents` record linked to the admission; large files are streamed rather than buffered fully in memory.
+6. All endpoints run through the FR-1.1 auth/role middleware and the FR-1.3 audit-logging middleware before their handler logic executes.
 
 **Outputs:** The created resource's ID and canonical representation, returned as JSON with `201 Created`.
 
-**Postconditions:** A new row exists in the relevant table, correctly linked to its admission; an audit log entry exists for the creation.
+**Postconditions:** A new row exists in the relevant table, correctly linked to its patient or admission; an audit log entry exists for the creation.
 
 **Exception Handling:**
 - Vitals/document submitted against a discharged or archived admission → `409 Conflict`, write refused.
@@ -218,8 +219,8 @@ Requirements are grouped into the three build phases used across the project's p
 **Preconditions:** The user is authenticated and has selected a patient from the census/quick-switcher.
 
 **System Behavior:**
-1. On patient selection, the frontend requests a consolidated payload (or parallel requests resolved together) covering the latest vitals, active fluid balance, unarchived documents, and recent notes for the selected admission.
-2. The dashboard renders five zones: sticky context header, live vitals panel, fluid balance tracker, lab/document repository, and clinical notes history.
+1. On patient selection, the frontend requests a consolidated payload (or parallel requests resolved together) covering the latest vitals, unarchived documents, investigation orders/labs, clinical examinations, follow-ups, and recent notes for the selected admission.
+2. The dashboard renders zones including: sticky context header, live vitals panel, labs/investigations, clinical examinations, SOAP follow-ups, lab/document repository, and clinical notes history.
 3. Long lists (e.g., historical vitals) are virtualized so only visible rows are mounted, keeping the view responsive as history grows.
 4. Zones update independently and reactively (via the relevant Zustand store slice) as new data arrives, without a full-page reload.
 
@@ -239,7 +240,7 @@ Requirements are grouped into the three build phases used across the project's p
 **Actors:** Nurse, Resident, Specialist
 
 **System Behavior:**
-1. The header renders patient name, MRN, age/gender, blood type, allergy pill(s) in high-contrast styling, code status, and attending specialist.
+1. The header renders patient name, MRN, age/gender, allergy pill(s) in high-contrast styling, and attending doctor.
 2. The header is pinned (`position: sticky; top: 0`) and remains visible across all scroll positions and dashboard tabs.
 3. The quick-switcher control opens a searchable list of active ICU beds/patients; selecting one navigates directly to that patient's dashboard without returning to a census screen first.
 
@@ -256,7 +257,7 @@ Requirements are grouped into the three build phases used across the project's p
 **Actors:** Nurse, Resident, Specialist
 
 **System Behavior:**
-1. For each of Heart Rate, MAP, SpO2, and GCS, the system fetches the last 12–24 hours of recorded values for the current admission.
+1. For each of pulse, SpO2, blood pressure (systolic/diastolic), and temperature, the system fetches the last 12–24 hours of recorded values for the current admission.
 2. Each metric is rendered as an inline SVG sparkline directly beside its current numeric value in the vitals table.
 3. Data points outside the metric's normal range are rendered with a distinct marker (filled circle, high-contrast) and an icon tooltip on focus/click (not hover-only, per accessibility constraints).
 4. Sparklines load asynchronously and do not block the rest of the vitals table from rendering.
@@ -275,12 +276,12 @@ Requirements are grouped into the three build phases used across the project's p
 **Priority:** High
 **Actors:** Resident, Specialist
 
-**Preconditions:** The target admission has at least one vitals/note/document record to query against.
+**Preconditions:** The target admission has at least one vitals/note/document/exam/follow-up record to query against.
 
 **System Behavior:**
 1. The user submits a natural-language question scoped to the currently open admission.
 2. The backend calls an n8n webhook, passing the admission ID and question text.
-3. The n8n workflow retrieves relevant structured data (vitals, fluid balance, labs) and performs a pgvector similarity search over embedded document/note chunks for that admission only — never across other patients.
+3. The n8n workflow retrieves relevant structured data (vitals, labs, notes, clinical examinations, follow-ups) and performs a pgvector similarity search over embedded document/note chunks for that admission only — never across other patients.
 4. Retrieved context is passed to the LLM along with the question; the LLM's answer is returned to the backend, which relays it to the frontend.
 5. The response is displayed with exact source timestamps and record references (e.g., "[Vitals log, 04:15 AM]") so the clinician can verify the answer against the original entry.
 
@@ -302,8 +303,8 @@ Requirements are grouped into the three build phases used across the project's p
 
 **System Behavior:**
 1. The user clicks "Instant 24h Summary" on the dashboard.
-2. The backend aggregates all vitals trends, fluid balances, lab changes, and nursing/clinical entries from the past 24 hours for the admission.
-3. This structured data is sent to the LLM with an instruction to categorize findings under Hemodynamic Status, Respiratory & Ventilator State, Renal/Fluid Balance, and Neurological Status.
+2. The backend aggregates all vitals trends, lab changes, nursing/clinical entries, examinations, and follow-ups from the past 24 hours for the admission.
+3. This structured data is sent to the LLM with an instruction to categorize findings under Hemodynamic Status, Respiratory State, Renal/Metabolic Status (from labs and notes), and Neurological Status.
 4. The generated summary is displayed and persisted as an `ai_summaries` record linked to the admission.
 
 **Outputs:** A structured, four-category clinical summary, rendered within 5 seconds.
@@ -323,7 +324,7 @@ Requirements are grouped into the three build phases used across the project's p
 
 **System Behavior:**
 1. A scheduled job polls newly recorded vitals for all active admissions on a fixed interval.
-2. Each new reading is evaluated against both single-variable thresholds and known multi-variable deterioration patterns (e.g., falling MAP + rising HR + rising temperature suggesting early septic shock; falling SpO2 + rising respiratory rate suggesting respiratory failure).
+2. Each new reading is evaluated against both single-variable thresholds and known multi-variable deterioration patterns (e.g., falling systolic BP + rising pulse + rising temperature suggesting early septic shock; falling SpO2 + rising respiratory rate suggesting respiratory failure).
 3. When a pattern is matched, the agent creates an `alerts` record with a severity tier (P0 Emergency or P1 Clinical Warning) and a generated explanation (see FR-3.4).
 4. The new alert is pushed to the dashboard's top alert banner in real time for the assigned Nurse and Resident, and appears in their notification list.
 5. Alerts remain visible and actionable (dismissible only after being explicitly reviewed) until a Resident or Specialist reviews them.
@@ -345,7 +346,7 @@ Requirements are grouped into the three build phases used across the project's p
 
 **System Behavior:**
 1. Whenever FR-3.2 or FR-3.3 produces a conclusion, the system generates an accompanying "Clinical Reasoning & Differential" panel.
-2. The panel states, explicitly: (a) the exact triggering metrics and their values/trend (e.g., "MAP dropped from 78 to 58 mmHg while urine output fell below 15 mL/hr over 2 hours"), (b) the primary differential hypotheses (e.g., "consider early septic shock or hypovolemic deficit"), and (c) recommended next diagnostic steps (e.g., "suggest checking arterial blood gas and serum lactate").
+2. The panel states, explicitly: (a) the exact triggering metrics and their values/trend (e.g., "Systolic BP dropped from 118 to 88 mmHg while pulse rose from 92 to 118 bpm over 2 hours"), (b) the primary differential hypotheses (e.g., "consider early septic shock or hypovolemic deficit"), and (c) recommended next diagnostic steps (e.g., "suggest checking arterial blood gas and serum lactate").
 3. The panel is reachable without any hover interaction — it expands on click/tap and remains open until explicitly closed.
 
 **Outputs:** A structured, always-visible-on-demand rationale attached to every AI conclusion.
@@ -422,7 +423,7 @@ Requirements are grouped into the three build phases used across the project's p
 
 - All primary identifiers shall use UUIDs.
 - The database shall be normalized to Third Normal Form (3NF).
-- Every clinical entity (vitals, labs, notes, medications, alerts, AI summaries) shall be scoped to a specific admission, not directly to a patient, to correctly support multiple admissions per patient over time.
+- Every clinical entity (vitals, labs, notes, medications, alerts, AI summaries, examinations, follow-ups, diagnoses, investigation orders) shall be scoped to a specific admission, not directly to a patient, to correctly support multiple admissions per patient over time. Medical history is the exception: it is patient-scoped.
 - Document uploads shall be chunked and embedded for retrieval; embeddings shall be stored alongside a reference to their source document.
 
 ---
@@ -433,14 +434,16 @@ Requirements are grouped into the three build phases used across the project's p
 |---|---|---|
 | UC-1 | Manage user accounts and roles | System Admin |
 | UC-2 | Admit patient and assign bed | Nurse / Resident / Specialist |
-| UC-3 | Record vital signs, fluid I/O, GCS | Nurse |
+| UC-3 | Record vital signs | Nurse |
 | UC-4 | Upload lab/radiology documents | Nurse / Resident / Specialist |
-| UC-5 | Write comprehensive medical history | Resident / Specialist |
-| UC-6 | Query RAG assistant | Resident / Specialist |
-| UC-7 | Trigger instant AI summary | Resident / Specialist |
-| UC-8 | Review AI-generated alert and reasoning | Resident / Specialist |
-| UC-9 | Approve treatment plan / discharge | Specialist |
-| UC-10 | Archive (soft-delete) a record | Nurse / Resident / Specialist |
+| UC-5 | Write structured medical history | Resident / Specialist |
+| UC-6 | Record clinical examination | Resident / Specialist |
+| UC-7 | Record SOAP follow-up | Resident / Specialist |
+| UC-8 | Query RAG assistant | Resident / Specialist |
+| UC-9 | Trigger instant AI summary | Resident / Specialist |
+| UC-10 | Review AI-generated alert and reasoning | Resident / Specialist |
+| UC-11 | Approve treatment plan / discharge | Specialist |
+| UC-12 | Archive (soft-delete) a record | Nurse / Resident / Specialist |
 
 ---
 
@@ -449,10 +452,13 @@ Requirements are grouped into the three build phases used across the project's p
 | Feature / Action | System Admin | ICU Nurse | Medical Resident | ICU Specialist |
 |---|:---:|:---:|:---:|:---:|
 | Manage users & role assignments | Yes | No | No | No |
+| Manage ICU beds | Yes | No | No | No |
 | Create patient profile (admission) | No | Yes | Yes | Yes |
-| Input vitals, fluid I/O, GCS | No | Yes | Yes | Yes |
+| Input vitals | No | Yes | Yes | Yes |
 | Upload lab/radiology documents | No | Yes | Yes | Yes |
-| Write comprehensive medical history | No | No | Yes | Yes |
+| Write structured medical history | No | No | Yes | Yes |
+| Record clinical examinations | No | No | Yes | Yes |
+| Record SOAP follow-ups | No | No | Yes | Yes |
 | View unified patient dashboard | No | Yes | Yes | Yes |
 | Query RAG assistant | No | No | Yes | Yes |
 | Trigger instant AI summary | No | No | Yes | Yes |

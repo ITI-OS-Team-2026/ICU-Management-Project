@@ -34,13 +34,13 @@ As the volume of ICU patient data continues to grow, there is an increasing need
 
 SmartCare ICU digitizes the complete patient journey inside a single Intensive Care Unit, from admission through discharge, with zero reliance on paper charting.
 
-The system centralizes all patient-related information — demographics, diagnoses, vital signs, fluid intake/output, Glasgow Coma Scale (GCS) scores, laboratory results, medications, clinical notes, and medical documents — into one unified, role-aware dashboard.
+The system centralizes all patient-related information — demographics, structured medical history, diagnoses, vital signs (pulse, blood pressure, respiratory rate, SpO2, temperature), clinical examinations, SOAP follow-up notes, laboratory results, investigation orders, medications, clinical notes, and medical documents — into one unified, role-aware dashboard.
 
 Artificial Intelligence is integrated to actively reduce clinical cognitive load, not just store data:
 
-- **Instant AI Summarization** — one-click synthesis of a patient's last 24 hours, organized by Hemodynamic, Respiratory, Renal/Fluid, and Neurological status.
+- **Instant AI Summarization** — one-click synthesis of a patient's last 24 hours, organized by Hemodynamic, Respiratory, Renal/Metabolic (from labs and notes), and Neurological status.
 - **Conversational RAG assistant** — natural-language querying of a patient's full clinical history, with exact timestamps and source citations.
-- **Autonomous Monitoring Agent** — continuous background evaluation of incoming vitals for multi-variable deterioration patterns (e.g. dropping MAP with rising heart rate and temperature), pushing severity-ranked alerts before thresholds are critically breached.
+- **Autonomous Monitoring Agent** — continuous background evaluation of incoming vitals for multi-variable deterioration patterns (e.g. dropping blood pressure with rising pulse and temperature), pushing severity-ranked alerts before thresholds are critically breached.
 - **Clinical Reasoning Explanations** — every AI alert or summary is accompanied by the exact triggering metrics, differential hypotheses, and suggested next diagnostic steps, so the clinician always sees the "why," not just the "what."
 
 Rather than replacing clinical judgment, SmartCare ICU is intended to support healthcare professionals by reducing information retrieval time, surfacing risk earlier, and keeping every action within a fully auditable, role-restricted system.
@@ -58,7 +58,7 @@ To design and develop an AI-powered ICU management system that centralizes patie
 - Develop a centralized, paperless ICU patient management platform.
 - Digitize the complete ICU patient lifecycle, from admission to discharge.
 - Enforce strict role-based access control across four distinct clinical and administrative roles.
-- Record vital signs, fluid balance, GCS scores, laboratory results, medications, and clinical notes with real-time input validation.
+- Record vital signs (pulse, BP, respiratory rate, SpO2, temperature), structured medical histories, clinical examinations, SOAP follow-ups, diagnoses, investigation orders, laboratory results, medications, and clinical notes with real-time input validation.
 - Provide a unified, role-adaptive patient dashboard with a persistent clinical context header and visual trend sparklines.
 - Implement one-click AI-generated patient summaries.
 - Integrate a conversational RAG assistant for natural-language, source-cited patient queries.
@@ -73,9 +73,13 @@ To design and develop an AI-powered ICU management system that centralizes patie
 ## Included Features
 
 - Role-based authentication and authorization (JWT, `HttpOnly` cookies)
-- Patient admission and discharge management
-- ICU bed management
-- Vital signs, fluid intake/output, and GCS score tracking with real-time boundary validation
+- Patient admission and discharge management (including chief complaint, transfer context, and provisional diagnosis)
+- ICU bed management and nurse-to-admission assignment (with handover history)
+- Vital signs tracking (temperature, pulse, systolic/diastolic BP, respiratory rate, SpO2) with real-time boundary validation and override flags
+- Structured medical history (patient-level)
+- Clinical examinations (general and local exam structures)
+- SOAP follow-up documentation
+- Diagnoses and investigation orders
 - Laboratory results management
 - Medication management
 - Clinical and nursing notes
@@ -116,22 +120,22 @@ The system is designed for the four distinct roles operating inside an Intensive
 
 - Provision and revoke user accounts
 - Assign and audit role boundaries
-- Manage ICU bed configuration and system settings
-- Monitor system health and AI service usage
+- Manage ICU bed configuration
+- Monitor system health and review the action audit trail
 - **No access** to unblinded clinical records, vitals, or patient identifiers
 
 ### ICU Nurse
 
 - Admit the patient and assign a bed and doctor for the patient
 - Create initial patient admission profiles
-- Record hourly vital signs, fluid intake/output, and GCS scores
+- Record hourly vital signs (pulse, BP, respiratory rate, SpO2, temperature)
 - Upload laboratory results and radiology documents
 - View the unified patient dashboard and receive clinical alerts
 - No access to the RAG assistant or AI summarization tools, to keep the bedside workflow fast and uncluttered
 
 ### Medical Resident
 
-- Perform clinical assessments and log comprehensive medical histories
+- Perform clinical assessments, log structured medical histories, examinations, and SOAP follow-ups
 - Query the RAG assistant for historical, cross-shift clinical metrics
 - Trigger AI patient summaries
 - Review and triage alerts from the autonomous monitoring agent
