@@ -3,7 +3,7 @@
 # SmartCare ICU
 ### AI-Powered Intensive Care Unit Management and Clinical Decision Support System
 
-**Document Version:** 1.0
+**Document Version:** 1.1
 **Purpose:** Implementation-level reference. Every flow below specifies exact triggers, preconditions, step-by-step system behavior, decision branches, and failure paths — intended to be read alongside the SRS and Architecture documents during build.
 
 ---
@@ -174,8 +174,9 @@ sequenceDiagram
     participant API as Backend API
     participant DB as PostgreSQL
 
-    Nurse->>UI: Enter name, age, MRN, blood type, allergies, code status, attending specialist
-    UI->>API: POST /patients
+    Nurse->>UI: Enter name, age, MRN, national ID, gender, residence, occupation, marital status, handedness, allergies
+    Nurse->>UI: Enter admission details — bed, doctor, chief complaint, transfer info, provisional diagnosis
+    UI->>API: POST /patients (if new) then POST /admissions
     API->>API: Authz check (2.2)
     API->>DB: Search for existing patient by MRN
     alt MRN exists (readmission)
@@ -185,20 +186,21 @@ sequenceDiagram
         API->>DB: Create patient record
         API->>DB: Create admission linked to new patient
     end
-    API->>DB: Assign bed (status -> occupied)
+    API->>DB: Assign bed (status -> occupied), set doctor_id
+    API->>DB: Optionally assign nurse via admission_nurses
     API->>DB: Audit log (2.3): CREATE_PATIENT / CREATE_ADMISSION
     API-->>UI: 201 Created — dashboard opens for new admission
 ```
 
-**Notes:** This is the one flow that determines whether a returning patient's history is correctly preserved (linked to the same `patient_id` across admissions) or incorrectly duplicated — MRN lookup must happen before any insert.
+**Notes:** This is the one flow that determines whether a returning patient's history is correctly preserved (linked to the same `patient_id` across admissions) or incorrectly duplicated — MRN lookup must happen before any insert. Admission fields include `chief_complaint`, `place_of_transfer`, `transfer_doctor_name`, `provisional_diagnosis`, and related clinical context from the ERD — not blood type or code status.
 
-## 4.2 Record Vital Signs / GCS
+## 4.2 Record Vital Signs
 
 **Trigger:** Hourly (or as-needed) bedside vitals check.
 
 ```mermaid
 flowchart TD
-    Enter[Nurse enters HR, MAP, SpO2, Temp, GCS] --> ClientCheck{Within clinical range?}
+    Enter[Nurse enters pulse, BP, SpO2, Temp, RR] --> ClientCheck{Within clinical range?}
     ClientCheck -- No --> ShowError[Inline error shown, field marked invalid]
     ShowError --> Override{Nurse confirms emergency override + reason?}
     Override -- No --> Blocked[Submission blocked]
@@ -206,20 +208,14 @@ flowchart TD
     ClientCheck -- Yes --> Submit[Submit to backend]
     Submit --> ServerCheck{Backend re-validates range}
     ServerCheck -- Fail --> Reject[400 — request rejected, no write]
-    ServerCheck -- Pass --> Write[Insert vitals row, admission_id, nurse_id, server timestamp]
+    ServerCheck -- Pass --> Write[Insert vitals row: temperature, pulse, systolic_bp, diastolic_bp, respiratory_rate, spo2]
     Write --> Audit[Audit logging flow - 2.3]
     Audit --> AgentTrigger[Available to monitoring agent on next poll - Section 7]
 ```
 
-**Notes:** The server-side check is authoritative even if the frontend was bypassed — see SRS FR-1.2 exception handling. Timestamps are always server-generated, never trusted from the client, to prevent backdating.
+**Notes:** The server-side check is authoritative even if the frontend was bypassed — see SRS FR-1.2 exception handling. Timestamps are always server-generated, never trusted from the client, to prevent backdating. Ranges match the ERD: temperature 35–45°C, plus pulse, systolic/diastolic BP, respiratory rate, and SpO2, with `is_override` / `override_reason` as needed.
 
-## 4.3 Record Fluid Intake / Output
-
-**Trigger:** IV bag change, feed administered, urine/drain output measured.
-- `POST /vitals/fluid` — type (`IV`, `enteral`, `urine`, `drain`), amount in mL, timestamp (server-generated).
-- Same validation → write → audit sequence as 4.2, without the physiological range check (fluid volumes are bounded only by sanity limits, e.g. non-negative).
-
-## 4.4 Upload Lab / Radiology Document
+## 4.3 Upload Lab / Radiology Document
 
 **Trigger:** New lab result or imaging file arrives.
 
@@ -250,29 +246,65 @@ sequenceDiagram
 
 **Notes:** Embedding generation is asynchronous and does not block the upload response — the nurse sees confirmation immediately, while the document becomes RAG-queryable moments later.
 
-## 4.5 Write Nursing Note
+## 4.4 Write Nursing Note
 
 **Trigger:** Observation or care note during shift.
 - `POST /notes/nursing` — free-text note, linked to admission and author.
 - Standard validate → write → audit sequence.
 
-## 4.6 Receive & Acknowledge Alert
+## 4.5 Receive & Acknowledge Alert
 
 **Trigger:** Monitoring agent raises a new alert (see Section 7).
 - Alert appears in the top banner in real time (push, not polling) for the assigned Nurse.
-- Nurse can view the alert but **cannot** dismiss/resolve it — only a Resident or Specialist can mark an alert reviewed (see 5.5), preserving clinical accountability for the review decision.
+- Nurse can view the alert but **cannot** dismiss/resolve it — only a Resident or Specialist can mark an alert reviewed (see 5.7), preserving clinical accountability for the review decision.
 
 ---
 
 # 5. Role Flow: Medical Resident
 
-## 5.1 Write Comprehensive Medical History
+## 5.1 Write Structured Medical History
 
-**Trigger:** Initial or ongoing clinical assessment.
-- `POST /notes/clinical` — structured/free-text history, linked to admission and author (Resident or Specialist only — Nurses cannot write clinical notes, per the Access Control Matrix).
+**Trigger:** Initial clinical assessment after admission.
+**Preconditions:** Patient record exists; Resident or Specialist role.
+
+```mermaid
+sequenceDiagram
+    actor Resident
+    participant UI as Web client
+    participant API as Backend API
+    participant DB as PostgreSQL
+
+    Resident->>UI: Enter DM/HTN flags, past diseases, operations, allergies, family history
+    UI->>API: POST /patients/:id/medical-history
+    API->>API: Authz check (2.2) — Resident/Specialist only
+    API->>DB: Upsert medical_histories for patient_id
+    API->>DB: Audit log (2.3): CREATE_MEDICAL_HISTORY
+    API-->>UI: 201 Created / 200 Updated
+```
+
+**Notes:** Medical history is patient-scoped (`medical_histories.patient_id`), not admission-scoped — it persists across readmissions. Clinical notes (`clinical_notes.content`) remain free-text for narrative documentation; structured history belongs here.
+
+## 5.2 Record Clinical Examination
+
+**Trigger:** General and local physical examination during assessment.
+- `POST /admissions/:id/examinations` — stores `general_exams` and `local_exams` as structured JSON (built, nutrition, skin, head & neck; inspection, palpation, percussion, auscultation), linked to admission and examiner.
 - Standard validate → write → audit sequence.
 
-## 5.2 Query the RAG Assistant
+## 5.3 Record SOAP Follow-Up
+
+**Trigger:** Daily or interval clinical update.
+- `POST /admissions/:id/follow-ups` — Subjective, Objective, Assessment, and Plan fields linked to admission and author.
+- Standard validate → write → audit sequence.
+- SOAP lives in `follow_ups`; free-text clinical notes use `clinical_notes.content` only.
+
+## 5.4 Record Diagnosis / Investigation Order
+
+**Trigger:** Provisional or working diagnosis confirmed; lab/radiology investigation ordered.
+- `POST /admissions/:id/diagnoses` — condition name, status, diagnosed_by, diagnosed_at.
+- `POST /admissions/:id/investigation-orders` — order name, type (Lab/Radiology), status (Pending/Completed), order date.
+- Both follow standard validate → write → audit sequence.
+
+## 5.5 Query the RAG Assistant
 
 **Trigger:** Resident asks a natural-language question about the current patient.
 
@@ -289,7 +321,7 @@ sequenceDiagram
     UI->>API: POST /ai/query {admission_id, question}
     API->>API: Authz check (2.2) — Resident/Specialist only
     API->>Orch: Forward request via webhook
-    Orch->>DB: Fetch structured data (vitals, labs, fluids) for this admission
+    Orch->>DB: Fetch structured data (vitals, labs, notes, exams, follow-ups) for this admission
     Orch->>DB: pgvector similarity search on this admission's embeddings only
     DB-->>Orch: Top matching chunks + structured data
     alt Nothing relevant found
@@ -307,7 +339,7 @@ sequenceDiagram
 
 **Notes:** Retrieval is always scoped to the currently open `admission_id` — the similarity search query includes this as a hard filter, not just a ranking signal, so a resident can never accidentally retrieve another patient's data.
 
-## 5.3 Trigger Instant AI Summary
+## 5.6 Trigger Instant AI Summary
 
 **Trigger:** Resident (or Specialist) requests a 24-hour synthesis.
 
@@ -322,9 +354,9 @@ sequenceDiagram
 
     Resident->>UI: Click "Instant 24h Summary"
     UI->>API: POST /ai/summary {admission_id}
-    API->>DB: Aggregate last 24h vitals, fluids, labs, notes
+    API->>DB: Aggregate last 24h vitals, labs, notes, exams, follow-ups
     API->>Orch: Send structured aggregate
-    Orch->>LLM: Categorize into Hemodynamic / Respiratory / Renal-Fluid / Neurological
+    Orch->>LLM: Categorize into Hemodynamic / Respiratory / Renal-Metabolic / Neurological
     LLM-->>Orch: Structured summary
     Orch-->>API: Summary text
     API->>DB: Persist ai_summaries record
@@ -332,9 +364,9 @@ sequenceDiagram
     API-->>UI: Display 4-category summary
 ```
 
-**Notes:** Categories with no data in the period explicitly state "no data recorded in this period" — the LLM is instructed never to fabricate a value for an empty category.
+**Notes:** Categories with no data in the period explicitly state "no data recorded in this period" — the LLM is instructed never to fabricate a value for an empty category. Renal/Metabolic status is inferred from labs and notes, not from a dedicated fluid I/O table.
 
-## 5.4 Review & Triage an Alert
+## 5.7 Review & Triage an Alert
 
 **Trigger:** New P0/P1 alert appears in the banner.
 1. Resident opens the alert from the banner or notification list.
@@ -350,9 +382,9 @@ sequenceDiagram
 
 **Trigger:** Specialist begins rounds.
 1. Opens the unified dashboard for a patient (directly, or via the sticky header's quick-switcher to move bed-to-bed without returning to a census screen).
-2. Reviews the sticky context bar (identity, allergies, code status) — always visible regardless of scroll position.
-3. Reviews vitals with trend sparklines, fluid balance, and any open alerts.
-4. Triggers Instant AI Summary if not already generated this period (flow 5.3 — Specialists have the same trigger permission as Residents).
+2. Reviews the sticky context bar (name, MRN, age/gender, allergies, attending doctor) — always visible regardless of scroll position.
+3. Reviews vitals with trend sparklines, recent examinations and follow-ups, investigation orders/labs, and any open alerts.
+4. Triggers Instant AI Summary if not already generated this period (flow 5.6 — Specialists have the same trigger permission as Residents).
 
 ## 6.2 Approve Treatment Plan
 
@@ -376,12 +408,13 @@ sequenceDiagram
     API->>API: Authz check — Specialist role required
     API->>DB: Set admission.status = 'discharged', discharged_at = now
     API->>DB: Set bed.status = 'available'
+    API->>DB: Unassign active admission_nurses (set unassigned_at)
     API->>DB: Generate final ICU report record
     API->>DB: Audit log (2.3): DISCHARGE_PATIENT
     API-->>UI: Discharge confirmed, admission moves to read-only history
 ```
 
-**Notes:** A discharged admission becomes read-only for clinical writes (see Section 8, admission state machine) — vitals/notes/documents can no longer be added against it, enforced at the authorization layer (returns 409, per SRS FR-1.4 exception handling), though it remains fully visible in the patient's history.
+**Notes:** A discharged admission becomes read-only for clinical writes (see Section 8, admission state machine) — vitals/notes/exams/follow-ups/documents can no longer be added against it, enforced at the authorization layer (returns 409, per SRS FR-1.4 exception handling), though it remains fully visible in the patient's history.
 
 ---
 
@@ -394,7 +427,7 @@ flowchart TD
     Start([Scheduled tick]) --> PollAll[Poll all active, non-discharged admissions]
     PollAll --> ForEach[For each admission: fetch latest vitals]
     ForEach --> SingleCheck{Single-variable threshold breached?}
-    ForEach --> PatternCheck{Multi-variable pattern matched? e.g. falling MAP + rising HR + rising temp}
+    ForEach --> PatternCheck{Multi-variable pattern matched? e.g. falling BP + rising pulse + rising temp}
     SingleCheck -- Yes --> Debounce{Held across 2+ consecutive readings?}
     PatternCheck -- Yes --> Debounce
     SingleCheck -- No --> NextAdmission
@@ -411,6 +444,7 @@ flowchart TD
 ```
 
 **Notes:**
+- Pattern examples use pulse, systolic/diastolic BP, SpO2, temperature, and respiratory rate (not MAP or GCS as discrete stored fields).
 - The debounce step exists specifically to reduce false positives from a single noisy sensor reading or manual-entry typo — the exact number of consecutive readings and polling interval are implementation parameters to finalize during development, not fixed here.
 - The agent's write scope is strictly limited to the `alerts` and `notifications` tables — it has no permission, at the database or application layer, to modify a vitals, medication, or note record.
 - Every alert generation is treated as a write action and follows the standard audit logging flow (2.3), attributed to the system agent as the "actor."
@@ -424,7 +458,7 @@ Referenced throughout the flows above — this is the exact lifecycle every admi
 ```mermaid
 stateDiagram-v2
     [*] --> Active: Nurse admits patient (4.1)
-    Active --> Active: Vitals, fluids, notes, documents, AI queries, alerts
+    Active --> Active: Vitals, notes, exams, follow-ups, documents, AI queries, alerts
     Active --> Discharged: Specialist discharges (6.3)
     Discharged --> [*]
     Active --> Archived: Soft delete (2.4) — rare, e.g. duplicate entry
@@ -457,11 +491,12 @@ flowchart TD
 ```mermaid
 flowchart TD
     Start([Patient arrives at ICU]) --> Admit[Nurse admits patient]
-    Admit --> BedAssign[System assigns bed]
-    BedAssign --> InitialVitals[Nurse records initial vitals and GCS]
+    Admit --> BedAssign[System assigns bed and doctor]
+    BedAssign --> InitialVitals[Nurse records initial vitals]
     InitialVitals --> History[Resident writes medical history]
 
-    History --> VitalsLoop[Nurse records hourly vitals and fluid I/O]
+    History --> ExamFollowUp[Resident records exams and SOAP follow-ups]
+    ExamFollowUp --> VitalsLoop[Nurse records hourly vitals]
     VitalsLoop --> AgentLoop[Agent runs continuous monitoring]
     AgentLoop --> AlertCheck{Alert raised?}
     AlertCheck -- Yes --> Triage[Resident reviews alert and reasoning panel]
@@ -490,12 +525,15 @@ flowchart TD
 | Soft deletion | 2.4 | System (all deletes) | FR-1.3 |
 | Manage users | 3.1 | System Admin | — |
 | Admit patient | 4.1 | Nurse | FR-1.4 |
-| Record vitals/GCS | 4.2 | Nurse | FR-1.2, FR-1.4 |
-| Record fluid I/O | 4.3 | Nurse | FR-1.4 |
-| Upload document | 4.4 | Nurse | FR-1.4 |
-| RAG query | 5.2 | Resident, Specialist | FR-3.1 |
-| AI summary | 5.3 | Resident, Specialist | FR-3.2 |
-| Alert review | 5.4 | Resident, Specialist | FR-3.3, FR-3.4 |
+| Record vitals | 4.2 | Nurse | FR-1.2, FR-1.4 |
+| Upload document | 4.3 | Nurse | FR-1.4 |
+| Medical history | 5.1 | Resident, Specialist | FR-1.4 |
+| Clinical examination | 5.2 | Resident, Specialist | FR-2.1 |
+| SOAP follow-up | 5.3 | Resident, Specialist | FR-2.1 |
+| Diagnoses / investigation orders | 5.4 | Resident, Specialist | FR-1.4 / FR-2.1 |
+| RAG query | 5.5 | Resident, Specialist | FR-3.1 |
+| AI summary | 5.6 | Resident, Specialist | FR-3.2 |
+| Alert review | 5.7 | Resident, Specialist | FR-3.3, FR-3.4 |
 | Treatment approval | 6.2 | Specialist | — |
 | Discharge | 6.3 | Specialist | — |
 | Monitoring agent | 7 | System | FR-3.3 |

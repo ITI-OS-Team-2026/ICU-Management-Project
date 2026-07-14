@@ -58,11 +58,11 @@ Reasons for choosing Agile:
 ### Activities
 - Design system architecture: React 19 (Vite) frontend ↔ Express/Node.js backend ↔ PostgreSQL, with n8n as the AI orchestration layer
 - Design PostgreSQL database including mandatory soft-deletion fields (`is_archived`, `archived_at`) on every clinical table
-- Create Entity Relationship Diagram (ERD) covering patients, vitals, fluid I/O, GCS scores, documents, and audit logs
-- Design REST APIs (`/api/patients`, `/api/vitals`, `/api/vitals/fluid`, `/api/documents`)
+- Create Entity Relationship Diagram (ERD) covering patients, medical histories, admissions, vital signs, diagnoses, clinical examinations, follow-ups, documents, and audit logs
+- Design REST APIs (`/api/patients`, `/api/admissions/:id/vitals`, `/api/admissions/:id/documents`, and related clinical endpoints)
 - Design UI/UX per the Strategic Design Principles: sticky clinical context bar, trend sparklines, strict role-driven UI boundaries, ≥4.5:1 contrast, no hover-gated critical data
 - Design AI architecture: Instant AI Summarization engine and Autonomous Monitoring Agent with Clinical Reasoning Explanations
-- Design RAG workflow via n8n webhook orchestration querying structured vitals/notes/lab data
+- Design RAG workflow via n8n webhook orchestration querying structured vitals, labs, notes, examinations, follow-ups, and embedded documents
 
 ### Deliverables
 - System Architecture Diagram
@@ -82,18 +82,18 @@ Development is divided into three phases that mirror the functional requirement 
 - **FR-1.1** Secure Authentication & Role-Based Authorization Engine — `HttpOnly`/`Secure` JWT cookies, Express RBAC middleware, Zustand `useAuthStore`
 - **FR-1.2** Smart Input Validation & Real-Time Physiological Boundary Checks — frontend + backend (Zod/Joi) boundary validation on vitals
 - **FR-1.3** Soft Deletion (Archive State) & Action Audit Logging — `is_archived`/`archived_at` fields, immutable `audit_logs` table
-- **FR-1.4** Paperless ICU Workflow CRUD Endpoints — patient admission, vitals, fluid I/O, document upload (`multer`)
+- **FR-1.4** Paperless ICU Workflow CRUD Endpoints — patient admission, vitals, medical history, document upload (`multer`)
 
 ### Phase 2: Core UX & Clinical Visualization (Weeks 3–4)
 Depends on Phase 1's data model and auth being complete.
-- **FR-2.1** Unified Patient Dashboard — sticky header, live vitals panel, fluid balance tracker, lab/PDF repository, clinical history notes
+- **FR-2.1** Unified Patient Dashboard — sticky header, live vitals panel, labs/investigations, clinical examinations, follow-ups, lab/PDF repository, clinical history notes
 - **FR-2.2** Sticky Clinical Context Bar — persistent patient identity header with quick-switcher across ICU beds
-- **FR-2.3** Visual Trend Sparklines — inline SVG trend graphs for HR, MAP, SpO2, GCS with abnormal-point markers
+- **FR-2.3** Visual Trend Sparklines — inline SVG trend graphs for pulse, SpO2, BP, and temperature with abnormal-point markers
 
 ### Phase 3: Intelligence & AI Automation (Weeks 5–6)
 Depends on Phase 1's clinical data existing and Phase 2's dashboard surfaces to render into.
-- **FR-3.1** Conversational RAG Interface — n8n webhook orchestration over patient vitals/notes/lab history, with source-citation responses
-- **FR-3.2** Instant AI Summarization — one-click 24-hour synthesis across Hemodynamic, Respiratory, Renal/Fluid, and Neurological categories
+- **FR-3.1** Conversational RAG Interface — n8n webhook orchestration over patient vitals/notes/labs/exams/follow-ups, with source-citation responses
+- **FR-3.2** Instant AI Summarization — one-click 24-hour synthesis across Hemodynamic, Respiratory, Renal/Metabolic, and Neurological categories
 - **FR-3.3** Autonomous Monitoring Agent & Alerting — continuous multi-variable anomaly detection, P0/P1 severity alert banner
 - **FR-3.4** Clinical Reasoning Explanations — expandable "Clinical Reasoning & Differential" panel on every AI alert/summary
 
@@ -105,7 +105,7 @@ Testing is structured in three tracks run continuously alongside — not strictl
 
 ### 5.1 Automated Integration & API Testing (validates Phase 1 output)
 - Auth & RBAC Matrix Verification (`Jest`/`Supertest`) across all 4 roles — expect `200/201` for allowed actions, `403` for forbidden
-- Smart Validation Boundary tests (e.g. Heart Rate `=19`, `=301`, `NaN`, `-5` rejected with descriptive errors)
+- Smart Validation Boundary tests (e.g. pulse `=19`, `=301`, temperature `=34`, `=46`, `NaN`, `-5` rejected with descriptive errors)
 - Soft Deletion & Audit Trail Integrity tests confirming no row is ever hard-deleted
 
 ### 5.2 Frontend Accessibility (a11y) & Ergonomics Verification (validates Phase 2 output)
@@ -115,7 +115,7 @@ Testing is structured in three tracks run continuously alongside — not strictl
 
 ### 5.3 End-to-End Clinical Scenario Validation (validates Phase 3 output)
 - **Scenario A** — Nurse bedside admission + vitals entry on tablet, <90s total
-- **Scenario B** — Resident P1 alert triage, Clinical Reasoning drawer review, RAG fluid-output query
+- **Scenario B** — Resident P1 alert triage, Clinical Reasoning drawer review, RAG vitals-trend or lab query
 - **Scenario C** — Specialist morning rounds: Instant 24h Summary review + treatment approval
 
 ---

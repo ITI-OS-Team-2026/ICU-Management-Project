@@ -173,6 +173,7 @@ investigation_orders [icon: file-text, color: green] {
   id uuid pk
   admission_id uuid fk
   ordered_by uuid fk
+  order_name string
   type string // e.g., 'Lab', 'Radiology'
   status string // 'Pending', 'Completed'
   order_date timestamp
