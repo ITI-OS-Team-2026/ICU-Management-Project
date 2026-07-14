@@ -106,24 +106,54 @@ const login = async ({ email, password, ipAddress, userAgent, req }) => {
     if (newFailedAttempts >= config.lockoutThreshold) {
       updateData.status = "LOCKED";
       updateData.lockedUntil = new Date(Date.now() + config.lockoutDurationMinutes * 60 * 1000);
-    }
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: updateData,
-      }),
-      prisma.loginAttempt.create({
-        data: {
+      await auditedTransaction(req, { action: "ACCOUNT_LOCKED", targetTable: "User" }, async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: updateData,
+        });
+
+        await tx.loginAttempt.create({
+          data: {
+            userId: user.id,
+            email: normalizedEmail,
+            ipAddress,
+            userAgent: userAgent || null,
+            success: false,
+            failureReason: "Invalid password - Account Locked",
+          },
+        });
+
+        return {
           userId: user.id,
-          email: normalizedEmail,
+          targetId: user.id,
+          oldValues: { status: user.status, failedLoginAttempts: user.failedLoginAttempts },
+          newValues: { status: "LOCKED", failedLoginAttempts: newFailedAttempts, lockedUntil: updateData.lockedUntil.toISOString() },
           ipAddress,
-          userAgent: userAgent || null,
-          success: false,
-          failureReason: "Invalid password",
-        },
-      }),
-    ]);
+          userAgent,
+          result: null,
+        };
+      });
+
+      throw new APIError("Account is locked. Please try again later.", 423);
+    } else {
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+        }),
+        prisma.loginAttempt.create({
+          data: {
+            userId: user.id,
+            email: normalizedEmail,
+            ipAddress,
+            userAgent: userAgent || null,
+            success: false,
+            failureReason: "Invalid password",
+          },
+        }),
+      ]);
+    }
 
     throw new APIError("Invalid credentials", 401);
   }
@@ -132,7 +162,7 @@ const login = async ({ email, password, ipAddress, userAgent, req }) => {
   const now = new Date();
   const token = generateToken(user);
 
-  return auditedTransaction(req, { action: "LOGIN", targetTable: "User" }, async (tx) => {
+  const { token: resolvedToken, user: resolvedUser } = await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
       data: {
@@ -152,39 +182,22 @@ const login = async ({ email, password, ipAddress, userAgent, req }) => {
     });
 
     return {
-      userId: user.id,
-      ipAddress,
-      userAgent,
-      targetId: user.id,
-      oldValues: null,
-      newValues: { lastLogin: now.toISOString() },
-      result: {
-        token,
-        user: {
-          id: user.id,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          role: user.role,
-        },
+      token,
+      user: {
+        id: user.id,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        role: user.role,
       },
     };
   });
+
+  return { token: resolvedToken, user: resolvedUser };
 };
 
-// Logout: logs the logout event.
+// Logout: no-op since audit logs are removed for routine logouts and session is cookie-based.
 const logout = async ({ userId, ipAddress, userAgent }) => {
-  await prisma.auditLog.create({
-    data: {
-      userId,
-      action: "LOGOUT",
-      targetTable: "User",
-      targetId: userId,
-      oldValues: null,
-      newValues: null,
-      ipAddress,
-      userAgent: userAgent || null,
-    },
-  });
+  // Routine logout is not logged in AuditLog to minimize noise.
 };
 
 // Fetch authenticated user profile data.

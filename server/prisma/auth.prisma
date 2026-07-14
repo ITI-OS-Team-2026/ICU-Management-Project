@@ -78,6 +78,7 @@ enum AuditAction {
   UPDATE
   ARCHIVE
   VIEW
+  ACCOUNT_LOCKED
 }
 
 model AuditLog {
