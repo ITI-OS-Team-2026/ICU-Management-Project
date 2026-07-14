@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const app = require("../../../app");
 const prisma = require("../../utils/prismaClient");
 const config = require("../../config/env");
+const { authLimiter } = require("../../middlewares/rateLimiter");
 
 require("dotenv").config();
 
@@ -95,7 +96,13 @@ async function cleanupTestData() {
   });
 }
 
-beforeEach(cleanupTestData);
+beforeEach(async () => {
+  await cleanupTestData();
+  // Reset IP-based rate limiter so tests don't interfere with each other
+  authLimiter.resetKey("::ffff:127.0.0.1");
+  authLimiter.resetKey("127.0.0.1");
+});
+
 
 afterAll(async () => {
   await cleanupTestData();
