@@ -7,7 +7,7 @@ module.exports = (err, req, res, next) => {
     return res.status(err.statusCode).json({
       status: "fail",
       message: err.message,
-      isClientError: err.isClientError,
+      isClientError: err.statusCode >= 400 && err.statusCode < 500,
     });
   }
 

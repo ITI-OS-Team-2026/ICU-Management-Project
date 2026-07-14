@@ -1,4 +1,4 @@
-const prisma = require("../utils/prismaClient");
+const prisma = require("../../utils/prismaClient");
 
 const createOne = (data) => {
   return prisma.prismaHealthCheck.create({

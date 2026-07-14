@@ -1,4 +1,4 @@
-const prismaHealthCheckService = require("../services/prismaHealthCheck.service");
+const prismaHealthCheckService = require("./prismaHealthCheck.service");
 
 const createHealthCheck = async (req, res, next) => {
   try {

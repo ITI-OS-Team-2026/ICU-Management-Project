@@ -1,8 +1,8 @@
 const { Prisma } = require("@prisma/client");
 
-const APIError = require("../utils/APIError");
-const throwIfNotFound = require("../utils/throwIfNotFound");
-const prismaHealthCheckModel = require("../models/prismaHealthCheck.model");
+const APIError = require("../../utils/APIError");
+const throwIfNotFound = require("../../utils/throwIfNotFound");
+const prismaHealthCheckModel = require("./prismaHealthCheck.model");
 
 const createHealthCheck = async (payload) => {
   try {

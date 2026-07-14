@@ -1,12 +1,12 @@
 const express = require("express");
 
-const validate = require("../middlewares/validate");
-const prismaHealthCheckController = require("../controllers/prismaHealthCheck.controller");
+const validate = require("../../middlewares/validate");
+const prismaHealthCheckController = require("./prismaHealthCheck.controller");
 const {
   createHealthCheckSchema,
   updateHealthCheckSchema,
   healthCheckIdParamSchema,
-} = require("../schemas/prismaHealthCheck.schema");
+} = require("./prismaHealthCheck.schema");
 
 const router = express.Router();
 
