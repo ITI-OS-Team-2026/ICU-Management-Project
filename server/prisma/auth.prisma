@@ -1,0 +1,100 @@
+// Foundation models for authentication, audit logging, and session tracking.
+
+enum UserRole {
+  SYSTEM_ADMIN
+  ICU_NURSE
+  MEDICAL_RESIDENT
+  ICU_SPECIALIST
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  SUSPENDED
+}
+
+enum AuthProvider {
+  LOCAL
+}
+
+model User {
+  id                  String       @id @default(uuid())
+  firstName           String
+  lastName            String
+  email               String       @unique
+  passwordHash        String
+  role                UserRole
+  status              UserStatus   @default(ACTIVE)
+  authProvider        AuthProvider @default(LOCAL)
+  phone               String?
+  profileImage        String?
+  lastLogin           DateTime?
+  failedLoginAttempts Int          @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  loginAttempts       LoginAttempt[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model LoginAttempt {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email         String
+  ipAddress     String
+  userAgent     String?
+  success       Boolean
+  failureReason String?
+  attemptedAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([attemptedAt])
+  @@index([success])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  ARCHIVE
+  VIEW
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      AuditAction
+  targetTable String
+  targetId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([targetTable])
+  @@index([createdAt(sort: Desc)])
+}
