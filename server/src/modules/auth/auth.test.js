@@ -190,7 +190,7 @@ describe("POST /api/auth/login", () => {
     expect(res.body).toHaveProperty("first_name", "Test");
   });
 
-  it("should log a successful LoginAttempt and AuditLog on login", async () => {
+  it("should log a successful LoginAttempt but NOT write an AuditLog on routine login", async () => {
     const user = await createTestUser();
 
     await request(app)
@@ -207,10 +207,9 @@ describe("POST /api/auth/login", () => {
 
     // Check AuditLog
     const auditLogs = await prisma.auditLog.findMany({
-      where: { userId: user.id, action: "LOGIN" },
+      where: { userId: user.id },
     });
-    expect(auditLogs).toHaveLength(1);
-    expect(auditLogs[0].targetTable).toBe("User");
+    expect(auditLogs).toHaveLength(0);
   });
 
   // Failed Login: Wrong Password
@@ -277,25 +276,38 @@ describe("POST /api/auth/login", () => {
 
   // Account Lockout
 
-  it("should lock account after 5 failed attempts", async () => {
-    await createTestUser();
+  it("should lock account after 5 failed attempts and write an ACCOUNT_LOCKED AuditLog row", async () => {
+    const user = await createTestUser();
 
     // Make 5 failed login attempts
-    for (let i = 0; i < 5; i++) {
+    for (let i = 1; i <= 5; i++) {
       const res = await request(app)
         .post("/api/auth/login")
         .send({ email: TEST_EMAIL, password: "wrong-password" });
 
-      expect(res.status).toBe(401);
+      if (i < 5) {
+        expect(res.status).toBe(401);
+      } else {
+        // The 5th attempt triggers the lock and returns 423
+        expect(res.status).toBe(423);
+      }
     }
 
     // Verify user is now locked
-    const user = await prisma.user.findUnique({
+    const updatedUser = await prisma.user.findUnique({
       where: { email: TEST_EMAIL },
     });
-    expect(user.status).toBe("LOCKED");
-    expect(user.lockedUntil).toBeTruthy();
-    expect(new Date(user.lockedUntil).getTime()).toBeGreaterThan(Date.now());
+    expect(updatedUser.status).toBe("LOCKED");
+    expect(updatedUser.lockedUntil).toBeTruthy();
+    expect(new Date(updatedUser.lockedUntil).getTime()).toBeGreaterThan(Date.now());
+
+    // Verify AuditLog record was created
+    const auditLogs = await prisma.auditLog.findMany({
+      where: { userId: user.id, action: "ACCOUNT_LOCKED" },
+    });
+    expect(auditLogs).toHaveLength(1);
+    expect(auditLogs[0].targetTable).toBe("User");
+    expect(auditLogs[0].newValues).toHaveProperty("status", "LOCKED");
   });
 
   it("should return 423 when locked account tries to login with correct password", async () => {
@@ -381,7 +393,7 @@ describe("POST /api/auth/logout", () => {
     }
   });
 
-  it("should write an AuditLog row on logout", async () => {
+  it("should NOT write an AuditLog row on routine logout", async () => {
     const user = await createTestUser();
     const token = generateTestToken(user);
 
@@ -390,10 +402,9 @@ describe("POST /api/auth/logout", () => {
       .set("Cookie", `${COOKIE_NAME}=${token}`);
 
     const auditLogs = await prisma.auditLog.findMany({
-      where: { userId: user.id, action: "LOGOUT" },
+      where: { userId: user.id },
     });
-    expect(auditLogs).toHaveLength(1);
-    expect(auditLogs[0].targetTable).toBe("User");
+    expect(auditLogs).toHaveLength(0);
   });
 
   it("should return 401 when no cookie is present", async () => {
