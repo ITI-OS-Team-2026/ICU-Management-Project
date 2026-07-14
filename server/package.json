@@ -13,11 +13,13 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:test": "node scripts/prisma-smoke-test.js"
+    "prisma:test": "node scripts/prisma-smoke-test.js",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "@prisma/client": "^6.16.2",
     "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
@@ -30,7 +32,13 @@
     "winston": "^3.19.0"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.11",
-    "prisma": "^6.16.2"
+    "prisma": "^6.16.2",
+    "supertest": "^7.2.2"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

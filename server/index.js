@@ -1,7 +1,7 @@
-const config = require("./config/env");
+const config = require("./src/config/env");
 const app = require("./app");
-const logger = require("./utils/logger");
-const prisma = require("./utils/prismaClient");
+const logger = require("./src/utils/logger");
+const prisma = require("./src/utils/prismaClient");
 
 async function startServer() {
   try {

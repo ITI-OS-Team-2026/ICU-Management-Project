@@ -1,18 +1,20 @@
 const express = require("express");
+const cookieParser = require("cookie-parser");
 // const cors = require("cors");
 // const helmet = require("helmet");
 // var hpp = require("hpp");
 // const { xss } = require("express-xss-sanitizer");
-// const { limiter } = require("./middlewares/rateLimiter");
+// const { limiter } = require("./src/middlewares/rateLimiter");
 
-const errorHandler = require("./middlewares/errorHandler");
-const prismaHealthCheckRoutes = require("./routes/prismaHealthCheck.routes");
+const errorHandler = require("./src/middlewares/errorHandler");
+const apiRouter = require("./src/routes");
 
 // Routes
 
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 // app.use(cors());
 // app.use(helmet());
 // app.use(hpp());
@@ -27,7 +29,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/prisma-health-check", prismaHealthCheckRoutes);
+app.use("/api", apiRouter);
 
 // Global error handler
 app.use(errorHandler);
