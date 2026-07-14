@@ -17,7 +17,8 @@
     "test": "jest --runInBand"
   },
   "dependencies": {
-    "@prisma/client": "^6.16.2",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -29,16 +30,15 @@
     "hpp": "^0.2.3",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
+    "pg": "^8.22.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
+    "@types/pg": "^8.20.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.11",
-    "prisma": "^6.16.2",
+    "prisma": "^7.8.0",
     "supertest": "^7.2.2"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
   }
 }
