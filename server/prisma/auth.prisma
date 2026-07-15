@@ -71,31 +71,3 @@ model RefreshToken {
   createdAt DateTime  @default(now())
 }
 
-enum AuditAction {
-  LOGIN
-  LOGOUT
-  CREATE
-  UPDATE
-  ARCHIVE
-  VIEW
-  ACCOUNT_LOCKED
-}
-
-model AuditLog {
-  id          String      @id @default(uuid())
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      AuditAction
-  targetTable String
-  targetId    String?
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime    @default(now())
-
-  @@index([userId])
-  @@index([action])
-  @@index([targetTable])
-  @@index([createdAt(sort: Desc)])
-}
