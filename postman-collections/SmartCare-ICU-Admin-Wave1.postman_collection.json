@@ -1,0 +1,266 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Admin (Wave 1)",
+    "description": "Comprehensive edge-case tests for the Admin module (Users and Beds). Run collection to test all assertions.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api" },
+    { "key": "admin_email", "value": "admin@smartcare.icu" },
+    { "key": "shared_password", "value": "SuperSecurePassword2026!" },
+    { "key": "created_user_id", "value": "" },
+    { "key": "created_bed_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Users",
+      "item": [
+        {
+          "name": "Create User - Success",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Test\",\n  \"email\": \"postman.test@smartcare.icu\",\n  \"role\": \"nurse\"\n}"
+            },
+            "url": "{{base_url}}/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns created user', () => pm.expect(res.data).to.have.property('id'));",
+                  "pm.collectionVariables.set('created_user_id', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Duplicate Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Test\",\n  \"email\": \"postman.test@smartcare.icu\",\n  \"role\": \"nurse\"\n}"
+            },
+            "url": "{{base_url}}/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Message says email exists', () => pm.expect(pm.response.json().message).to.eql('Email already exists'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create User - Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bad@smartcare.icu\"\n}"
+            },
+            "url": "{{base_url}}/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Users - Success",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/users"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has array of data', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User Role - Success",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"specialist\"\n}"
+            },
+            "url": "{{base_url}}/admin/users/{{created_user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role changed', () => pm.expect(pm.response.json().data.role).to.eql('ICU_SPECIALIST'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/admin/users/{{created_user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Beds",
+      "item": [
+        {
+          "name": "Create Bed - Success",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"POSTMAN-BED-001\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('created_bed_id', res.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Bed - Duplicate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"POSTMAN-BED-001\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Beds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admin/beds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has array of data', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Bed - Success",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"MAINTENANCE\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds/{{created_bed_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status changed to MAINTENANCE', () => pm.expect(pm.response.json().data.status).to.eql('MAINTENANCE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Bed - Invalid Status",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INVALID_STATUS\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds/{{created_bed_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
