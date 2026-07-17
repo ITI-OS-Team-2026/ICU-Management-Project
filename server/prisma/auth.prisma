@@ -38,6 +38,8 @@ model User {
   loginAttempts       LoginAttempt[]
   refreshTokens       RefreshToken[]
   auditLogs           AuditLog[]
+  admissionsAsDoctor  Admission[]       @relation("AdmissionDoctor")
+  nurseAssignments    AdmissionNurse[]  @relation("AdmissionNurseAssignments")
 
   @@index([role])
   @@index([status])
