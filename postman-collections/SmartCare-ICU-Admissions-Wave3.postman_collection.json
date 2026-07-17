@@ -1,0 +1,839 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Admissions (Wave 3)",
+    "description": "Admissions & Nurse Assignment endpoints (Wave 3). Run the Setup folder first to login and create patient/bed fixtures, then Admissions and Nurse Assignment folders. Cookie auth is used after login.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api" },
+    { "key": "nurse_email", "value": "nurse@smartcare.icu" },
+    { "key": "resident_email", "value": "resident@smartcare.icu" },
+    { "key": "specialist_email", "value": "specialist@smartcare.icu" },
+    { "key": "shared_password", "value": "SuperSecurePassword2026!" },
+    { "key": "patient_id", "value": "" },
+    { "key": "bed_id", "value": "" },
+    { "key": "doctor_id", "value": "" },
+    { "key": "nurse_id", "value": "" },
+    { "key": "admission_id", "value": "" },
+    { "key": "second_bed_id", "value": "" },
+    { "key": "second_patient_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login Nurse",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns nurse user', () => {",
+                  "  pm.expect(res).to.have.property('id');",
+                  "  pm.expect(res.role).to.eql('ICU_NURSE');",
+                  "});",
+                  "pm.collectionVariables.set('nurse_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Specialist (capture doctor_id)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns specialist', () => pm.expect(res.role).to.eql('ICU_SPECIALIST'));",
+                  "pm.collectionVariables.set('doctor_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse Again (session for clinical writes)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Patient Fixture",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-ADM-{{$timestamp}}\",\n  \"name\": \"Postman Admission Patient\",\n  \"age\": 62,\n  \"gender\": \"Male\"\n}"
+            },
+            "url": "{{base_url}}/patients"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has patient id', () => pm.expect(res).to.have.property('id'));",
+                  "pm.collectionVariables.set('patient_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Second Patient Fixture",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-ADM2-{{$timestamp}}\",\n  \"name\": \"Postman Second Patient\",\n  \"age\": 48\n}"
+            },
+            "url": "{{base_url}}/patients"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('second_patient_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for beds)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Bed Fixture",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"PM-BED-{{$timestamp}}\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const bed = pm.response.json();",
+                  "pm.test('Has bed id', () => pm.expect(bed).to.have.property('id'));",
+                  "pm.collectionVariables.set('bed_id', bed.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Second Bed Fixture",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"PM-BED2-{{$timestamp}}\"\n}"
+            },
+            "url": "{{base_url}}/admin/beds"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const bed = pm.response.json();",
+                  "pm.collectionVariables.set('second_bed_id', bed.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse (restore clinical session)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Admissions",
+      "item": [
+        {
+          "name": "Create Admission - Success",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\",\n  \"admission_reason\": \"Respiratory failure\",\n  \"place_of_transfer\": \"ER\",\n  \"transfer_doctor_name\": \"Dr. Referral\",\n  \"chief_complaint\": \"Shortness of breath\",\n  \"symptoms_related_system\": \"Respiratory distress\",\n  \"symptoms_other_systems\": \"Mild fever\",\n  \"previous_investigations\": \"Chest X-ray abnormal\",\n  \"previous_treatments\": \"Oxygen therapy\",\n  \"provisional_diagnosis\": \"ARDS\"\n}"
+            },
+            "url": "{{base_url}}/admissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Admission is ACTIVE', () => pm.expect(res.status).to.eql('ACTIVE'));",
+                  "pm.test('Links patient/bed/doctor', () => {",
+                  "  pm.expect(res.patient_id).to.eql(pm.collectionVariables.get('patient_id'));",
+                  "  pm.expect(res.bed_id).to.eql(pm.collectionVariables.get('bed_id'));",
+                  "  pm.expect(res.doctor_id).to.eql(pm.collectionVariables.get('doctor_id'));",
+                  "});",
+                  "pm.collectionVariables.set('admission_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Admission - Bed Conflict (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{second_patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\"\n}"
+            },
+            "url": "{{base_url}}/admissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Admission - Validation Error (400)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"not-a-uuid\"\n}"
+            },
+            "url": "{{base_url}}/admissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Admissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admissions"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns data + meta', () => {",
+                  "  pm.expect(res).to.have.property('data');",
+                  "  pm.expect(res).to.have.property('meta');",
+                  "  pm.expect(res.data).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Admissions - Filter ACTIVE + bed_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions?status=ACTIVE&bed_id={{bed_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admissions"],
+              "query": [
+                { "key": "status", "value": "ACTIVE" },
+                { "key": "bed_id", "value": "{{bed_id}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('All rows match filter', () => {",
+                  "  res.data.forEach((a) => {",
+                  "    pm.expect(a.status).to.eql('ACTIVE');",
+                  "    pm.expect(a.bed_id).to.eql(pm.collectionVariables.get('bed_id'));",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Admission By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Matches admission_id', () => pm.expect(res.id).to.eql(pm.collectionVariables.get('admission_id')));",
+                  "pm.test('Has clinical fields', () => {",
+                  "  pm.expect(res).to.have.property('admission_reason');",
+                  "  pm.expect(res).to.have.property('chief_complaint');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Admission - Not Found (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admissions/00000000-0000-0000-0000-000000000000"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Nurse Assignment",
+      "item": [
+        {
+          "name": "Assign Nurse - Self (Success)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nurse_id\": \"{{nurse_id}}\"\n}"
+            },
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Nurse assigned', () => {",
+                  "  pm.expect(res.nurse_id).to.eql(pm.collectionVariables.get('nurse_id'));",
+                  "  pm.expect(res.unassigned_at).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign Nurse - Duplicate Active (409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nurse_id\": \"{{nurse_id}}\"\n}"
+            },
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Nurses (current + historical)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns array', () => pm.expect(res).to.be.an('array'));",
+                  "pm.test('Has at least one assignment', () => pm.expect(res.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unassign Nurse - Success",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses/{{nurse_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-assign Nurse After Handover",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nurse_id\": \"{{nurse_id}}\"\n}"
+            },
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('New active assignment', () => pm.expect(pm.response.json().unassigned_at).to.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Nurses After Handover History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Has historical + current', () => {",
+                  "  pm.expect(res.length).to.be.at.least(2);",
+                  "  pm.expect(res.some((a) => a.unassigned_at !== null)).to.be.true;",
+                  "  pm.expect(res.some((a) => a.unassigned_at === null)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Discharge & Archive",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discharge Admission - Success",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}/discharge"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Status is DISCHARGED', () => pm.expect(res.status).to.eql('DISCHARGED'));",
+                  "pm.test('Has discharged_at', () => pm.expect(res.discharged_at).to.not.eql(null));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Discharge Admission - Already Discharged (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": "{{base_url}}/admissions/{{admission_id}}/discharge"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse Then Create Second Admission",
+          "item": [
+            {
+              "name": "Login Nurse",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+                },
+                "url": "{{base_url}}/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create Admission On Second Bed",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"patient_id\": \"{{second_patient_id}}\",\n  \"bed_id\": \"{{second_bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\",\n  \"admission_reason\": \"Post-op monitoring\"\n}"
+                },
+                "url": "{{base_url}}/admissions"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('admission_id', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Login Specialist Then Archive",
+          "item": [
+            {
+              "name": "Login Specialist",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+                },
+                "url": "{{base_url}}/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Archive Admission - Success",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": "{{base_url}}/admissions/{{admission_id}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Archived Admission - Not Found",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{base_url}}/admissions/{{admission_id}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Auth Edge Cases",
+      "item": [
+        {
+          "name": "Login Resident",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resident Cannot Assign Nurses (403)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nurse_id\": \"{{nurse_id}}\"\n}"
+            },
+            "url": "{{base_url}}/admissions/{{admission_id}}/nurses"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403 or 404', () => {",
+                  "  pm.expect([403, 404]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse - Cannot Discharge (403)",
+          "item": [
+            {
+              "name": "Login Nurse",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+                },
+                "url": "{{base_url}}/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Nurse Discharge Forbidden",
+              "request": {
+                "method": "PATCH",
+                "header": [],
+                "url": "{{base_url}}/admissions/{{admission_id}}/discharge"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status is 403 or 404', () => {",
+                      "  pm.expect([403, 404]).to.include(pm.response.code);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

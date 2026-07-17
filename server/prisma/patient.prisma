@@ -30,7 +30,8 @@ model Patient {
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
   medicalHistory MedicalHistory?
-  allergies     Allergy[]
+  allergies      Allergy[]
+  admissions     Admission[]
 
   @@map("patients")
   @@index([mrn])
