@@ -1,0 +1,1746 @@
+{
+	"info": {
+		"_postman_id": "43347d98-1a37-4f15-a152-c07e56137454",
+		"name": "ICU (ITI Graduation Project)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "51418842",
+		"_collection_link": "https://elsayedmohamed-iti-7318366.postman.co/workspace/Elsayed-Mohamed's-Workspace~b9f90cef-09d2-47e0-8bb8-332d4155d0fc/collection/51418842-43347d98-1a37-4f15-a152-c07e56137454?action=share&source=collection_link&creator=51418842"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "0. Session - Unauthenticated Check (must run first, before any login)",
+					"item": [
+						{
+							"name": "Me Without Login (should fail)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/auth/me",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"me"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "1. Login - Happy Path",
+					"item": [
+						{
+							"name": "Login Admin",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Role is SYSTEM_ADMIN', () => pm.expect(pm.response.json().role).to.eql('SYSTEM_ADMIN'));",
+											"pm.test('No password hash or token leaked', () => {",
+											"  const body = pm.response.json();",
+											"  pm.expect(body).to.not.have.property('passwordHash');",
+											"  pm.expect(body).to.not.have.property('token');",
+											"});",
+											"pm.test('Cookie is set and HttpOnly', () => {",
+											"  const cookieHeader = pm.response.headers.get('Set-Cookie');",
+											"  pm.expect(cookieHeader).to.not.be.null;",
+											"  pm.expect(cookieHeader.toLowerCase()).to.include('httponly');",
+											"});"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"SuperSecurePassword2026!\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Login Nurse",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Role is ICU_NURSE', () => pm.expect(pm.response.json().role).to.eql('ICU_NURSE'));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"nurse@smartcare.icu\",\n  \"password\": \"SuperSecurePassword2026!\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Login Resident",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Role is MEDICAL_RESIDENT', () => pm.expect(pm.response.json().role).to.eql('MEDICAL_RESIDENT'));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"resident@smartcare.icu\",\n  \"password\": \"SuperSecurePassword2026!\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Login Specialist",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Role is ICU_SPECIALIST', () => pm.expect(pm.response.json().role).to.eql('ICU_SPECIALIST'));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"specialist@smartcare.icu\",\n  \"password\": \"SuperSecurePassword2026!\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Login Case-Insensitive Email",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200 despite uppercase email', () => pm.response.to.have.status(200));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"ADMIN@SMARTCARE.ICU\",\n  \"password\": \"admin@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "2. Login - Validation Errors",
+					"item": [
+						{
+							"name": "Empty Body",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 400', () => pm.response.to.have.status(400));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Missing Password",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 400', () => pm.response.to.have.status(400));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"{{admin_email}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Invalid Email Format",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 400', () => pm.response.to.have.status(400));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"not-an-email\",\n  \"password\": \"{{shared_password}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "3. Login - Wrong Credentials",
+					"item": [
+						{
+							"name": "Wrong Password",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 401', () => pm.response.to.have.status(401));",
+											"pm.test('Generic message', () => pm.expect(pm.response.json().message).to.eql('Invalid credentials'));",
+											"pm.collectionVariables.set('wrong_password_message', pm.response.json().message);"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong-password-123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Nonexistent Email",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 401', () => pm.response.to.have.status(401));",
+											"pm.test('Message is byte-identical to wrong-password message', () => {",
+											"  const expected = pm.collectionVariables.get('wrong_password_message');",
+											"  pm.expect(pm.response.json().message).to.eql(expected);",
+											"});"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"nobody@smartcare.icu\",\n  \"password\": \"anything123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "4. Session (auth-me)",
+					"item": [
+						{
+							"name": "Login Then Me (should match)",
+							"item": [
+								{
+									"name": "Step 1 - Login Nurse",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test('Login succeeded', () => pm.response.to.have.status(200));"
+												],
+												"type": "text/javascript",
+												"packages": {},
+												"requests": {}
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"email\": \"nurse@smartcare.icu\",\n  \"password\": \"nurse@123\"\n}"
+										},
+										"url": {
+											"raw": "{{base_url}}/auth/login",
+											"host": [
+												"{{base_url}}"
+											],
+											"path": [
+												"auth",
+												"login"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Step 2 - Me (uses same cookie jar)",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+													"pm.test('Role matches logged-in nurse', () => pm.expect(pm.response.json().role).to.eql('ICU_NURSE'));",
+													"pm.test('No password hash in me response', () => {",
+													"  pm.expect(pm.response.json()).to.not.have.property('passwordHash');",
+													"});"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{base_url}}/auth/me",
+											"host": [
+												"{{base_url}}"
+											],
+											"path": [
+												"auth",
+												"me"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "5. Logout",
+					"item": [
+						{
+							"name": "Login Then Logout Then Me",
+							"item": [
+								{
+									"name": "Step 1 - Login Specialist",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test('Login succeeded', () => pm.response.to.have.status(200));"
+												],
+												"type": "text/javascript",
+												"packages": {},
+												"requests": {}
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n  \"email\": \"specialist@smartcare.icu\",\n  \"password\": \"specialist@123\"\n}"
+										},
+										"url": {
+											"raw": "{{base_url}}/auth/login",
+											"host": [
+												"{{base_url}}"
+											],
+											"path": [
+												"auth",
+												"login"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Step 2 - Logout",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test('Status is 204', () => pm.response.to.have.status(204));"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "POST",
+										"header": [],
+										"url": {
+											"raw": "{{base_url}}/auth/logout",
+											"host": [
+												"{{base_url}}"
+											],
+											"path": [
+												"auth",
+												"logout"
+											]
+										}
+									},
+									"response": []
+								},
+								{
+									"name": "Step 3 - Me After Logout (should fail)",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"exec": [
+													"pm.test('Status is 401 - session cleared', () => pm.response.to.have.status(401));"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{base_url}}/auth/me",
+											"host": [
+												"{{base_url}}"
+											],
+											"path": [
+												"auth",
+												"me"
+											]
+										}
+									},
+									"response": []
+								}
+							]
+						},
+						{
+							"name": "Logout Without Session (should fail)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/auth/logout",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"logout"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "6. Lockout (run manually - mutates admin account state)",
+					"item": [
+						{
+							"name": "Failed Attempt 1",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Failed Attempt 2",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Failed Attempt 3",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Failed Attempt 4",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('401', () => pm.response.to.have.status(401));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Failed Attempt 5 (triggers lock)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 423 - account locked after 5 failed attempts', () => pm.response.to.have.status(423));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"wrong\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Correct Password While Locked (should be 423)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 423 Locked', () => pm.response.to.have.status(423));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"admin@123\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/auth/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "1. Users",
+					"item": [
+						{
+							"name": "Create User - Success",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 201', () => pm.response.to.have.status(201));",
+											"const res = pm.response.json();",
+											"pm.test('Returns created user', () => pm.expect(res).to.have.property('id'));",
+											"pm.collectionVariables.set('created_user_id', res.id);",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								},
+								{
+									"listen": "prerequest",
+									"script": {
+										"packages": {},
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Test\",\n  \"email\": \"postman.test@smartcare.icu\",\n  \"role\": \"nurse\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create User - Duplicate Email",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 409', () => pm.response.to.have.status(409));",
+											"pm.test('Message says email exists', () => pm.expect(pm.response.json().message).to.eql('Email already exists'));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Test\",\n  \"email\": \"postman.test@smartcare.icu\",\n  \"role\": \"nurse\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create User - Missing Fields",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 400', () => pm.response.to.have.status(400));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"bad@smartcare.icu\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Users - Success",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Has array of data', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/admin/users",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update User Role - Success",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Role changed', () => pm.expect(pm.response.json().role).to.eql('ICU_SPECIALIST'));",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"role\": \"specialist\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/users/{{created_user_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users",
+										"{{created_user_id}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Delete User",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/admin/users/{{created_user_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"users",
+										"{{created_user_id}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "2. Beds",
+					"item": [
+						{
+							"name": "Create Bed - Success",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 201', () => pm.response.to.have.status(201));",
+											"const res = pm.response.json();",
+											"pm.collectionVariables.set('created_bed_id', res.id);",
+											""
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"bed_number\": \"POSTMAN-BED-002\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/beds",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"beds"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create Bed - Duplicate",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 409', () => pm.response.to.have.status(409));"
+										],
+										"type": "text/javascript",
+										"packages": {},
+										"requests": {}
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"bed_number\": \"POSTMAN-BED-001\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/beds",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"beds"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Beds",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Has array of data', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/admin/beds",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"beds"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Bed - Success",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+											"pm.test('Status changed to MAINTENANCE', () => pm.expect(pm.response.json().data.status).to.eql('MAINTENANCE'));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"status\": \"MAINTENANCE\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/beds/{{created_bed_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"beds",
+										"{{created_bed_id}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Bed - Invalid Status",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"pm.test('Status is 400', () => pm.response.to.have.status(400));"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"status\": \"INVALID_STATUS\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/admin/beds/{{created_bed_id}}",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"admin",
+										"beds",
+										"{{created_bed_id}}"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "3. Patients, Allergies & Medical History",
+			"item": [
+				{
+					"name": "Create Patient",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+									"pm.test(\"Should return patient id\", () => {",
+									"  const body = pm.response.json();",
+									"  pm.expect(body.id).to.not.be.null;",
+									"  pm.environment.set(\"created_patient_id\", body.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"mrn\": \"MRN-{{$randomInt}}\",\n  \"national_id\": \"NAT-{{$randomInt}}\",\n  \"name\": \"Jane Doe\",\n  \"age\": 28,\n  \"gender\": \"Female\",\n  \"residence\": \"Alexandria, Egypt\",\n  \"occupation\": \"Teacher\",\n  \"marital_status\": \"SINGLE\",\n  \"handedness\": \"RIGHT\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/patients",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Patients",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/patients",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Patient by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Allergy",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+									"pm.test(\"Should return allergy id\", () => {",
+									"  const body = pm.response.json();",
+									"  pm.expect(body.id).to.not.be.null;",
+									"  pm.environment.set(\"created_allergy_id\", body.id);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"allergen\": \"Latex\",\n  \"severity\": \"HIGH\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}/allergies",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}",
+								"allergies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Allergies",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}/allergies",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}",
+								"allergies"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Allergy",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/allergies/{{created_allergy_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"allergies",
+								"{{created_allergy_id}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Medical History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"diabetes_dm\": false,\n  \"hypertension_htn\": true,\n  \"past_similar_conditions\": \"None\",\n  \"past_diseases\": [\"Flu\"],\n  \"previous_operations\": false,\n  \"operations_details\": \"\",\n  \"has_allergies\": true,\n  \"traveled_abroad\": false,\n  \"consanguinity\": false,\n  \"family_similar_conditions\": \"None\",\n  \"inherited_diseases\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}/medical-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}",
+								"medical-history"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Medical History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}/medical-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}",
+								"medical-history"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Medical History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"diabetes_dm\": true,\n  \"traveled_abroad\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}/medical-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}",
+								"medical-history"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Patient",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/patients/{{created_patient_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"patients",
+								"{{created_patient_id}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "wrong_password_message",
+			"value": ""
+		},
+		{
+			"key": "created_bed_id",
+			"value": ""
+		},
+		{
+			"key": "created_user_id",
+			"value": ""
+		},
+		{
+			"key": "created_patient_id",
+			"value": ""
+		},
+		{
+			"key": "created_allergy_id",
+			"value": ""
+		}
+	]
+}
