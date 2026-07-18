@@ -40,8 +40,10 @@ model User {
   auditLogs          AuditLog[]
   admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
   nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
-  diagnoses          Diagnosis[]
-  vitalSigns         VitalSign[]
+  diagnoses               Diagnosis[]
+  vitalSigns              VitalSign[]
+  prescribedMedications   Medication[]               @relation("MedicationPrescriber")
+  administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")
 
   @@index([role])
   @@index([status])
