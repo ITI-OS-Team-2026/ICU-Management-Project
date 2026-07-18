@@ -240,6 +240,9 @@
 ## `GET /admissions/:id/diagnoses`
 - **Auth:** Nurse, Resident, Specialist
 
+## `PATCH /diagnoses/:id`
+- **Auth:** Resident, Specialist
+
 ## `DELETE /diagnoses/:id`
 - **Auth:** Resident, Specialist
 - **Responses:** `204 No Content` (soft archive)
