@@ -163,8 +163,11 @@ medication_administrations [icon: check-circle, color: green] {
   id uuid pk
   medication_id uuid fk
   administered_by uuid fk
-  administered_dose string
-  administered_at timestamp
+  administered_dose string // E.g., "10mg" (can be null if refused)
+  status string // E.g., 'ADMINISTERED', 'REFUSED', 'HELD', 'MISSED'
+  notes text // The explanation (e.g., "Patient heart rate too low, holding dose")
+  scheduled_time timestamp // When it WAS supposed to be given
+  administered_at timestamp // When it WAS ACTUALLY given (or attempted)
   is_archived boolean
   archived_at timestamp
 }
