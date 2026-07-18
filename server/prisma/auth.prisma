@@ -41,6 +41,7 @@ model User {
   admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
   nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
   diagnoses          Diagnosis[]
+  vitalSigns         VitalSign[]
 
   @@index([role])
   @@index([status])
