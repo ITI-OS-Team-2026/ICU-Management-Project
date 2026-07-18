@@ -31,7 +31,8 @@ model Admission {
   doctor    User             @relation("AdmissionDoctor", fields: [doctorId], references: [id])
   nurses    AdmissionNurse[]
   diagnoses Diagnosis[]
-  vitalSigns VitalSign[]
+  vitalSigns     VitalSign[]
+  medications    Medication[]
 
   @@index([patientId])
   @@index([status])

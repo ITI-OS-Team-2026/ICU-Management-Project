@@ -343,8 +343,11 @@ CHECK (is_override = FALSE OR override_reason IS NOT NULL)
 | id | UUID | PK | Admin id |
 | medication_id | UUID | FK → medications, NOT NULL | Order |
 | administered_by | UUID | FK → users, NOT NULL | Nurse |
-| administered_dose | VARCHAR(100) | NOT NULL | Dose given |
-| administered_at | TIMESTAMPTZ | DEFAULT NOW() | When given |
+| administered_dose | VARCHAR(100) | NULL | Dose given (null if refused) |
+| status | VARCHAR(50) | NOT NULL | ADMINISTERED/REFUSED/HELD/MISSED |
+| notes | TEXT | NULL | Reason if not administered |
+| scheduled_time | TIMESTAMPTZ | NOT NULL | Scheduled time |
+| administered_at | TIMESTAMPTZ | NULL | Attempt time |
 | is_archived | BOOLEAN | DEFAULT FALSE | Soft delete |
 | archived_at | TIMESTAMPTZ | NULL | Archive time |
 

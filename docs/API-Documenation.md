@@ -293,7 +293,7 @@
 
 ## `PATCH /medications/:id`
 - **Auth:** Resident, Specialist
-- **Request Body:** `{ is_active: false }` (discontinue)
+- **Request Body:** `{ is_active: false }` to discontinue, OR append-only updates `{ drug_name, dosage, frequency }` to correct mistakes.
 
 ## `DELETE /medications/:id`
 - **Auth:** Resident, Specialist
@@ -301,11 +301,17 @@
 
 ## `POST /medications/:id/administrations`
 - **Auth:** Nurse only
-- **Request Body:** `{ administered_dose }`
+- **Request Body:** `{ status, administered_dose?, notes?, scheduled_time, administered_at? }`
+- **Notes:** `status` must be `ADMINISTERED`, `REFUSED`, `HELD`, or `MISSED`. `notes` is required if status is not `ADMINISTERED`.
 - **Responses:** `201 Created` — MAR entry
 
 ## `GET /medications/:id/administrations`
 - **Auth:** Nurse, Resident, Specialist
+
+## `PATCH /medication-administrations/:id`
+- **Auth:** Nurse, Resident, Specialist
+- **Request Body:** `{ administered_dose, modification_reason, status, notes, ... }`
+- **Notes:** Append-only correction for MAR logs. `modification_reason` is required.
 
 ## `DELETE /medication-administrations/:id`
 - **Auth:** Resident, Specialist
