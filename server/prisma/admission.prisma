@@ -26,16 +26,17 @@ model Admission {
   createdAt              DateTime        @default(now()) @map("created_at")
   updatedAt              DateTime        @updatedAt @map("updated_at")
 
-  patient Patient          @relation(fields: [patientId], references: [id])
-  bed     Bed              @relation(fields: [bedId], references: [id])
-  doctor  User             @relation("AdmissionDoctor", fields: [doctorId], references: [id])
-  nurses  AdmissionNurse[]
+  patient   Patient          @relation(fields: [patientId], references: [id])
+  bed       Bed              @relation(fields: [bedId], references: [id])
+  doctor    User             @relation("AdmissionDoctor", fields: [doctorId], references: [id])
+  nurses    AdmissionNurse[]
+  diagnoses Diagnosis[]
 
-  @@map("admissions")
   @@index([patientId])
   @@index([status])
   @@index([doctorId])
   @@index([bedId])
+  @@map("admissions")
 }
 
 model AdmissionNurse {
@@ -52,7 +53,7 @@ model AdmissionNurse {
   admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   nurse     User      @relation("AdmissionNurseAssignments", fields: [nurseId], references: [id])
 
-  @@map("admission_nurses")
   @@index([admissionId])
   @@index([nurseId])
+  @@map("admission_nurses")
 }

@@ -35,11 +35,12 @@ model User {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  loginAttempts       LoginAttempt[]
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
-  admissionsAsDoctor  Admission[]       @relation("AdmissionDoctor")
-  nurseAssignments    AdmissionNurse[]  @relation("AdmissionNurseAssignments")
+  loginAttempts      LoginAttempt[]
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
+  nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
+  diagnoses          Diagnosis[]
 
   @@index([role])
   @@index([status])
@@ -72,4 +73,3 @@ model RefreshToken {
   userAgent String?
   createdAt DateTime  @default(now())
 }
-
