@@ -13,7 +13,9 @@ const userUpdateSchema = Joi.object({
 }).min(1);
 
 const bedCreateSchema = Joi.object({
-  bed_number: Joi.string().required(),
+  bed_number: Joi.string().trim().min(1).max(20).required().messages({
+    "string.max": "bed_number must be at most 20 characters",
+  }),
 });
 
 const bedUpdateSchema = Joi.object({

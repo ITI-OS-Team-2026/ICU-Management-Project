@@ -49,7 +49,32 @@ module.exports = (err, req, res, next) => {
     });
   }
 
-  // console.error(err);
+  // Prisma known request errors (validation / constraint)
+  if (err.code === "P2000") {
+    return res.status(400).json({
+      status: "fail",
+      message: "A provided value is too long for its column",
+      isClientError: true,
+    });
+  }
+
+  if (err.code === "P2002") {
+    const fields = err.meta?.target;
+    const fieldList = Array.isArray(fields) ? fields.join(", ") : fields || "field";
+    return res.status(409).json({
+      status: "fail",
+      message: `Duplicate value for ${fieldList}`,
+      isClientError: true,
+    });
+  }
+
+  if (err.code === "P2025") {
+    return res.status(404).json({
+      status: "fail",
+      message: "Record not found",
+      isClientError: true,
+    });
+  }
 
   res.status(500).json({
     status: "error",
