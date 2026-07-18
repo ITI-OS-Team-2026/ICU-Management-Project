@@ -5,9 +5,9 @@ enum BedStatus {
 }
 
 model Bed {
-  id         String     @id @default(uuid())
-  bedNumber  String     @unique @map("bed_number") @db.VarChar(20)
-  status     BedStatus  @default(AVAILABLE)
+  id        String    @id @default(uuid())
+  bedNumber String    @unique @map("bed_number") @db.VarChar(20)
+  status    BedStatus @default(AVAILABLE)
 
   admissions Admission[]
 
