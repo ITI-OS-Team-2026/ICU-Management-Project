@@ -34,6 +34,7 @@ model Admission {
   vitalSigns     VitalSign[]
   medications    Medication[]
   investigationOrders InvestigationOrder[]
+  labResults          LabResult[]
 
   @@index([patientId])
   @@index([status])
