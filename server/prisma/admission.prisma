@@ -35,6 +35,7 @@ model Admission {
   medications    Medication[]
   investigationOrders InvestigationOrder[]
   labResults          LabResult[]
+  clinicalExaminations ClinicalExamination[]
 
   @@index([patientId])
   @@index([status])
