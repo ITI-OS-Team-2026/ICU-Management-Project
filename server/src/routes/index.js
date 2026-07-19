@@ -7,6 +7,7 @@ const { admissionDiagnosisRouter, diagnosisRouter } = require("../modules/diagno
 const { admissionVitalsRouter, vitalsRouter } = require("../modules/vitalSigns/vitalSign.routes");
 const { admissionMedicationsRouter, medicationsRouter, administrationsRouter } = require("../modules/medications/medication.routes");
 const { admissionInvestigationRouter, investigationRouter } = require("../modules/investigationOrders/investigationOrder.routes");
+const { admissionLabsRouter, labsRouter } = require("../modules/labResults/labResult.routes");
 
 const router = express.Router();
 
@@ -18,10 +19,12 @@ router.use("/admissions", admissionDiagnosisRouter);
 router.use("/admissions", admissionVitalsRouter);
 router.use("/admissions", admissionMedicationsRouter);
 router.use("/admissions", admissionInvestigationRouter);
+router.use("/admissions", admissionLabsRouter);
 router.use("/diagnoses", diagnosisRouter);
 router.use("/vitals", vitalsRouter);
 router.use("/medications", medicationsRouter);
 router.use("/medication-administrations", administrationsRouter);
 router.use("/investigation-orders", investigationRouter);
+router.use("/labs", labsRouter);
 
 module.exports = router;
