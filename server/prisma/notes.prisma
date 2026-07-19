@@ -1,0 +1,31 @@
+model ClinicalNote {
+  id          String   @id @default(uuid())
+  admissionId String   @map("admission_id")
+  authorId    String   @map("author_id")
+  content     String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@index([admissionId])
+  @@index([authorId])
+  @@map("clinical_notes")
+}
+
+model NursingNote {
+  id          String   @id @default(uuid())
+  admissionId String   @map("admission_id")
+  authorId    String   @map("author_id")
+  note        String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
+
+  @@index([admissionId])
+  @@index([authorId])
+  @@map("nursing_notes")
+}

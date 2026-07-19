@@ -47,6 +47,8 @@ model User {
   orderedInvestigations   InvestigationOrder[]       @relation("InvestigationOrderedBy")
   labResults              LabResult[]
   clinicalExaminations    ClinicalExamination[]
+  clinicalNotes           ClinicalNote[]
+  nursingNotes            NursingNote[]
 
   @@index([role])
   @@index([status])
