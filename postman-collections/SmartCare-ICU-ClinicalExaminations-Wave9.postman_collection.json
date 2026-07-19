@@ -1,0 +1,473 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Clinical Examinations (Wave 9)",
+    "description": "Clinical Examinations endpoints (Wave 9). Run Setup first to get patient/bed/admission fixtures.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "nurse_email",
+      "value": "nurse@smartcare.icu"
+    },
+    {
+      "key": "resident_email",
+      "value": "resident@smartcare.icu"
+    },
+    {
+      "key": "specialist_email",
+      "value": "specialist@smartcare.icu"
+    },
+    {
+      "key": "shared_password",
+      "value": "SuperSecurePassword2026!"
+    },
+    {
+      "key": "patient_id",
+      "value": ""
+    },
+    {
+      "key": "bed_id",
+      "value": ""
+    },
+    {
+      "key": "doctor_id",
+      "value": ""
+    },
+    {
+      "key": "admission_id",
+      "value": ""
+    },
+    {
+      "key": "examination_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('doctor_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Patient into [patients] table",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/patients",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "patients"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-EXAM-{{$timestamp}}\",\n  \"name\": \"Exam Patient\",\n  \"age\": 35\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('patient_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for bed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Bed into [beds] table",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/beds",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "beds"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"EXAM-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('bed_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Resident (for admission)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Admission into [admissions] table",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('admission_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Clinical Examinations",
+      "item": [
+        {
+          "name": "Login Resident",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Examination into [clinical_examinations] table",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/examinations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "examinations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"general_exams\": {\n    \"appearance\": \"Well-nourished, conscious\",\n    \"pallor\": \"Absent\",\n    \"jaundice\": \"Absent\",\n    \"cyanosis\": \"Absent\"\n  },\n  \"local_exams\": {\n    \"chest\": \"Bilateral vesicular breathing\",\n    \"heart\": \"S1, S2 audible, no murmurs\",\n    \"abdomen\": \"Soft, lax, no tenderness\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.collectionVariables.set('examination_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Select from [clinical_examinations] table",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/examinations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "examinations"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns an array', () => pm.expect(res).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Auth Edge Cases",
+      "item": [
+        {
+          "name": "Login Nurse",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attempt Insert into [clinical_examinations] as Nurse (403 Forbidden)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/examinations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "examinations"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"general_exams\": {\n    \"appearance\": \"Conscious\"\n  },\n  \"local_exams\": {\n    \"chest\": \"Clear\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+model ClinicalExamination {
+  id           String   @id @default(uuid())
+  admissionId  String   @map("admission_id")
+  examinerId   String   @map("examiner_id")
+  generalExams Json?    @map("general_exams")
+  localExams   Json?    @map("local_exams")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  isArchived   Boolean  @default(false) @map("is_archived")
+  archivedAt   DateTime? @map("archived_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  examiner  User      @relation(fields: [examinerId], references: [id])
+
+  @@index([admissionId])
+  @@index([examinerId])
+  @@map("clinical_examinations")
+}
