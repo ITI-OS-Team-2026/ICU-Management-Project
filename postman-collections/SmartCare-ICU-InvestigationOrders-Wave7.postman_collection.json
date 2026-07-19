@@ -1,0 +1,792 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Investigation Orders (Wave 7)",
+    "description": "Investigation Orders endpoints (Wave 7). Run '0. Setup' first — it creates patient + bed + ACTIVE admission fixtures and stores IDs as collection variables. Auth is handled via Postman's cookie jar (login requests set the HttpOnly JWT cookie automatically).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "nurse_email",
+      "value": "nurse@smartcare.icu"
+    },
+    {
+      "key": "resident_email",
+      "value": "resident@smartcare.icu"
+    },
+    {
+      "key": "specialist_email",
+      "value": "specialist@smartcare.icu"
+    },
+    {
+      "key": "shared_password",
+      "value": "SuperSecurePassword2026!"
+    },
+    {
+      "key": "patient_id",
+      "value": ""
+    },
+    {
+      "key": "bed_id",
+      "value": ""
+    },
+    {
+      "key": "doctor_id",
+      "value": ""
+    },
+    {
+      "key": "admission_id",
+      "value": ""
+    },
+    {
+      "key": "order_id",
+      "value": ""
+    },
+    {
+      "key": "inactive_admission_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Logs in as ICU Specialist. Cookie jar picks up the JWT automatically. Also captures the doctor_id for use as admission.doctor_id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist - Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('doctor_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Patient Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/patients",
+              "host": ["{{base_url}}"],
+              "path": ["patients"]
+            },
+            "description": "Creates a test patient. MRN uses $timestamp to guarantee uniqueness across runs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-INV-{{$timestamp}}\",\n  \"name\": \"Investigation Orders Patient\",\n  \"age\": 52\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Patient - Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('patient_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for bed creation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Bed creation requires SYSTEM_ADMIN. Logs in as admin so the next request is authorised.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Admin - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Bed Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/beds",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "beds"]
+            },
+            "description": "Creates a unique bed. bed_id is stored for use in admission creation.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"INV-{{$randomInt}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Bed - Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('bed_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Resident (for admission creation)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Admission creation requires ICU_SPECIALIST or MEDICAL_RESIDENT. Logs in as specialist (whose id was captured as doctor_id above).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist (admission) - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ACTIVE Admission Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions",
+              "host": ["{{base_url}}"],
+              "path": ["admissions"]
+            },
+            "description": "Creates the main ACTIVE admission used by the happy-path tests. Stores admission_id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Active Admission - Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('admission_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. POST /admissions/:id/investigation-orders",
+      "item": [
+        {
+          "name": "Login Resident",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Ensures the cookie jar holds a MEDICAL_RESIDENT session before the create calls.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 201 Success (Resident places order)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "Happy path: resident places a Lab order on an ACTIVE admission. Expects 201. Saves order_id for PATCH tests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_name\": \"Complete Blood Count\",\n  \"type\": \"Lab\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Order - Status is 201', () => pm.response.to.have.status(201));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns orderName', () => pm.expect(res.orderName).to.eql('Complete Blood Count'));",
+                  "pm.test('Returns type', () => pm.expect(res.type).to.eql('Lab'));",
+                  "pm.test('Default status is Pending', () => pm.expect(res.status).to.eql('Pending'));",
+                  "pm.test('Returns id', () => pm.expect(res).to.have.property('id'));",
+                  "pm.collectionVariables.set('order_id', res.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 400 Missing order_name",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "Joi validation rejects a body missing order_name. Resident session is still active from prior login.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Lab\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Order (no order_name) - Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 404 Unknown admission_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/00000000-0000-0000-0000-000000000000/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "00000000-0000-0000-0000-000000000000", "investigation-orders"]
+            },
+            "description": "Service returns 404 when the admission UUID does not exist in the DB.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_name\": \"CBC\",\n  \"type\": \"Lab\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Order (unknown admission) - Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Specialist (for 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Logs in as Specialist to gain permission to discharge the admission.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist (for 409) - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 409 Inactive admission",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "Discharge the admission first via the pre-request script, then attempt to place an order — service must reject with 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_name\": \"CBC\",\n  \"type\": \"Lab\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Discharge the admission so it is no longer ACTIVE.",
+                  "const base = pm.collectionVariables.get('base_url');",
+                  "const admId = pm.collectionVariables.get('admission_id');",
+                  "pm.sendRequest({",
+                  "  url: `${base}/admissions/${admId}/discharge`,",
+                  "  method: 'PATCH',",
+                  "  header: { 'Content-Type': 'application/json' }",
+                  "}, (err, res) => {",
+                  "  // We don't assert here — the test request itself will prove 409.",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Order (inactive admission) - Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Switches the cookie jar to an ICU_NURSE session for the 403 test below.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Nurse - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 403 Nurse cannot place order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "restrictTo(['MEDICAL_RESIDENT','ICU_SPECIALIST']) blocks ICU_NURSE. Note: admission may already be DISCHARGED from the 409 test — the 403 check runs at the middleware layer before the service is reached, so the status code is still 403 regardless.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_name\": \"CBC\",\n  \"type\": \"Lab\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Order (nurse) - Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. GET /admissions/:id/investigation-orders",
+      "item": [
+        {
+          "name": "Login Resident (restore session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Re-establishes a clinical session before the GET tests. Resident/Specialist/Nurse are all permitted to list orders.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident (GET setup) - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 200 List orders (any clinical role)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "Expects 200 and a JSON array. Each item should include an orderedBy sub-object from the join. The order placed in the POST section will appear here."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET Orders - Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Response is an array', () => pm.expect(res).to.be.an('array'));",
+                  "if (res.length > 0) {",
+                  "  pm.test('Each order includes orderedBy', () => pm.expect(res[0]).to.have.property('orderedBy'));",
+                  "  pm.test('orderedBy has id', () => pm.expect(res[0].orderedBy).to.have.property('id'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (to clear session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logs out the current user, clearing the HTTP-only cookie."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout - Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 401 No auth cookie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/investigation-orders",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "investigation-orders"]
+            },
+            "description": "Sends the request without any cookie. verifyToken middleware must respond 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET Orders (no cookie) - Status is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. PATCH /investigation-orders/:id",
+      "item": [
+        {
+          "name": "Login Resident (for PATCH)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Re-establishes a MEDICAL_RESIDENT session for the PATCH happy path and error cases.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident (PATCH setup) - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - 200 Mark Pending → Completed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/investigation-orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["investigation-orders", "{{order_id}}"]
+            },
+            "description": "Updates the status of the order created in section 1 from Pending to Completed. Expects 200 with the updated record returned, including orderedBy join.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('PATCH Order - Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Status updated to Completed', () => pm.expect(res.status).to.eql('Completed'));",
+                  "pm.test('ID is unchanged (direct update, not append-only)', () => pm.expect(res.id).to.eql(pm.collectionVariables.get('order_id')));",
+                  "pm.test('Returns orderedBy join', () => pm.expect(res).to.have.property('orderedBy'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - 400 Invalid status value",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/investigation-orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["investigation-orders", "{{order_id}}"]
+            },
+            "description": "Joi schema only allows 'Pending' or 'Completed'. 'Cancelled' must be rejected with 400.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Cancelled\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('PATCH Order (invalid status) - Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - 404 Unknown order_id",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/investigation-orders/00000000-0000-0000-0000-000000000000",
+              "host": ["{{base_url}}"],
+              "path": ["investigation-orders", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Service returns 404 when the order UUID does not exist.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('PATCH Order (unknown id) - Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse (for 403 check)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Switches the session to ICU_NURSE for the next request.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Nurse (PATCH setup) - Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH - 403 Nurse cannot update order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/investigation-orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["investigation-orders", "{{order_id}}"]
+            },
+            "description": "restrictTo(['MEDICAL_RESIDENT','ICU_SPECIALIST']) blocks ICU_NURSE at the middleware layer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('PATCH Order (nurse) - Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+// Investigation orders — lab/radiology orders placed against an admission.
+// Status is intentionally a free-form String (not a Prisma enum) per the ERD;
+// the allowed values are constrained by Joi at the validation layer.
+
+model InvestigationOrder {
+  id          String   @id @default(uuid())
+  admissionId String   @map("admission_id")
+  orderedById String   @map("ordered_by")
+  orderName   String   @map("order_name") @db.VarChar(255)
+  type        String   @db.VarChar(50)
+  status      String   @default("Pending") @db.VarChar(20)
+  orderDate   DateTime @default(now()) @map("order_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  orderedBy User      @relation("InvestigationOrderedBy", fields: [orderedById], references: [id])
+
+  @@index([admissionId])
+  @@index([orderedById])
+  @@index([status])
+  @@map("investigation_orders")
+}
