@@ -45,6 +45,7 @@ model User {
   prescribedMedications   Medication[]               @relation("MedicationPrescriber")
   administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")
   orderedInvestigations   InvestigationOrder[]       @relation("InvestigationOrderedBy")
+  labResults              LabResult[]
 
   @@index([role])
   @@index([status])
