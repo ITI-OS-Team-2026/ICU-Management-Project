@@ -25,3 +25,4 @@ pnpm-debug.log*
 Thumbs.db
 
 /generated/prisma
+.zcode/

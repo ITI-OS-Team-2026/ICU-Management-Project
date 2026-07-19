@@ -33,6 +33,7 @@ model Admission {
   diagnoses Diagnosis[]
   vitalSigns     VitalSign[]
   medications    Medication[]
+  investigationOrders InvestigationOrder[]
 
   @@index([patientId])
   @@index([status])
