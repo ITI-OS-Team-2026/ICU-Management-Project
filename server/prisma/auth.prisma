@@ -49,6 +49,7 @@ model User {
   clinicalExaminations    ClinicalExamination[]
   clinicalNotes           ClinicalNote[]
   nursingNotes            NursingNote[]
+  followUps               FollowUp[]
 
   @@index([role])
   @@index([status])

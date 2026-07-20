@@ -1,0 +1,22 @@
+// ponytail: Minimal follow_ups schema to store daily SOAP progress notes.
+model FollowUp {
+  id          String    @id @default(uuid())
+  admissionId String    @map("admission_id")
+  authorId    String    @map("author_id")
+  subjective  String?   @db.Text
+  objective   String?   @db.Text
+  assessment  String?   @db.Text
+  plan        String?   @db.Text
+  recordedAt  DateTime  @default(now()) @map("recorded_at")
+  isArchived  Boolean   @default(false) @map("is_archived")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id])
+
+  @@index([admissionId])
+  @@index([authorId])
+  @@map("follow_ups")
+}
