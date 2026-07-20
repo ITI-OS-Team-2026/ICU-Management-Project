@@ -1,0 +1,53 @@
+enum AdministrationStatus {
+  ADMINISTERED
+  REFUSED
+  HELD
+  MISSED
+}
+
+model Medication {
+  id              String    @id @default(uuid())
+  admissionId     String    @map("admission_id")
+  prescribedById  String    @map("prescribed_by")
+  drugName        String    @map("drug_name") @db.VarChar(200)
+  dosage          String    @db.VarChar(100)
+  frequency       String    @db.VarChar(100)
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  prescribedAt    DateTime  @default(now()) @map("prescribed_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  isArchived      Boolean   @default(false) @map("is_archived")
+  archivedAt      DateTime? @map("archived_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  admission       Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  prescribedBy    User      @relation("MedicationPrescriber", fields: [prescribedById], references: [id])
+  administrations MedicationAdministration[]
+
+  @@index([admissionId])
+  @@index([isActive])
+  @@map("medications")
+}
+
+model MedicationAdministration {
+  id               String               @id @default(uuid())
+  medicationId     String               @map("medication_id")
+  administeredById String               @map("administered_by")
+  administeredDose String?              @map("administered_dose") @db.VarChar(100)
+  status           AdministrationStatus
+  notes            String?              @db.Text
+  scheduledTime    DateTime             @map("scheduled_time")
+  administeredAt   DateTime?            @map("administered_at")
+  isArchived       Boolean              @default(false) @map("is_archived")
+  archivedAt       DateTime?            @map("archived_at")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
+  medication     Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  administeredBy User       @relation("MedicationAdministeredBy", fields: [administeredById], references: [id])
+
+  @@index([medicationId])
+  @@index([administeredById])
+  @@map("medication_administrations")
+}

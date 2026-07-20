@@ -35,9 +35,20 @@ model User {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  loginAttempts       LoginAttempt[]
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
+  loginAttempts      LoginAttempt[]
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
+  nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
+  diagnoses               Diagnosis[]
+  vitalSigns              VitalSign[]
+  prescribedMedications   Medication[]               @relation("MedicationPrescriber")
+  administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")
+  orderedInvestigations   InvestigationOrder[]       @relation("InvestigationOrderedBy")
+  labResults              LabResult[]
+  clinicalExaminations    ClinicalExamination[]
+  clinicalNotes           ClinicalNote[]
+  nursingNotes            NursingNote[]
 
   @@index([role])
   @@index([status])
@@ -70,4 +81,3 @@ model RefreshToken {
   userAgent String?
   createdAt DateTime  @default(now())
 }
-

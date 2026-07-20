@@ -1,0 +1,1182 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Lab Results (Wave 8)",
+    "description": "Lab Results endpoints (Wave 8 — feature/lab-results branch). Run '0. Setup' first — it creates patient + bed + ACTIVE admission fixtures and stores IDs as collection variables. Auth is handled via Postman's cookie jar (login requests set the HttpOnly JWT cookie automatically).\n\nCleanup: Fixtures use prefixes PM-LAB- (MRN) and LAB- (bed number) for easy identification and purging. The admission is discharged during testing (section 1, 409 test). Lab results are soft-archived via DELETE.\n\nKNOWN GAP: The ?include_archived=true query parameter is NOT implemented in the getLabResults service — archived labs are always excluded from GET results. See section 3 for details.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "nurse_email",
+      "value": "nurse@smartcare.icu"
+    },
+    {
+      "key": "resident_email",
+      "value": "resident@smartcare.icu"
+    },
+    {
+      "key": "specialist_email",
+      "value": "specialist@smartcare.icu"
+    },
+    {
+      "key": "shared_password",
+      "value": "SuperSecurePassword2026!"
+    },
+    {
+      "key": "patient_id",
+      "value": ""
+    },
+    {
+      "key": "bed_id",
+      "value": ""
+    },
+    {
+      "key": "doctor_id",
+      "value": ""
+    },
+    {
+      "key": "admission_id",
+      "value": ""
+    },
+    {
+      "key": "lab_id",
+      "value": ""
+    },
+    {
+      "key": "lab_id_abnormal",
+      "value": ""
+    },
+    {
+      "key": "today_date",
+      "value": ""
+    },
+    {
+      "key": "tomorrow_date",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist - 200', ()=>pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('doctor_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Patient Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/patients",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "patients"
+              ]
+            },
+            "description": "MRN prefix PM-LAB- + $timestamp for cleanup identification.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-LAB-{{$timestamp}}\",\n  \"name\": \"Lab Results Patient\",\n  \"age\": 48\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Patient - 201', ()=>pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('patient_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for bed)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Admin - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Bed Fixture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/beds",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admin",
+                "beds"
+              ]
+            },
+            "description": "Bed prefix LAB- for cleanup identification.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"LAB-{{$randomInt}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Bed - 201', ()=>pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('bed_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Specialist (for admission)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create ACTIVE Admission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions"
+              ]
+            },
+            "description": "Creates the ACTIVE admission used by all tests.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Create Admission - 201', ()=>pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('admission_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. POST /admissions/:id/labs",
+      "item": [
+        {
+          "name": "Login Resident",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 201 Success (Resident records lab)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Happy path: resident records a normal lab result. Captures lab_id and today_date for later filtering.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_name\": \"Hemoglobin\",\n  \"result_value\": \"14.2 g/dL\",\n  \"abnormal\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Lab - 201', ()=>pm.response.to.have.status(201));",
+                  "const r=pm.response.json();",
+                  "pm.test('Returns testName', ()=>pm.expect(r.testName).to.eql('Hemoglobin'));",
+                  "pm.test('Returns resultValue', ()=>pm.expect(r.resultValue).to.eql('14.2 g/dL'));",
+                  "pm.test('abnormal is false', ()=>pm.expect(r.abnormal).to.eql(false));",
+                  "pm.test('Has recordedBy', ()=>pm.expect(r.recordedBy).to.have.property('id'));",
+                  "pm.test('Has id', ()=>pm.expect(r).to.have.property('id'));",
+                  "pm.collectionVariables.set('lab_id', r.id);",
+                  "pm.collectionVariables.set('today_date', new Date().toISOString().split('T')[0]);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 201 Abnormal lab (for filter test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Creates a second lab with abnormal=true for GET filter testing.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_name\": \"Potassium\",\n  \"result_value\": \"6.1 mmol/L\",\n  \"abnormal\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST Abnormal Lab - 201', ()=>pm.response.to.have.status(201));",
+                  "const r=pm.response.json();",
+                  "pm.test('abnormal is true', ()=>pm.expect(r.abnormal).to.eql(true));",
+                  "pm.collectionVariables.set('lab_id_abnormal', r.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 400 Missing test_name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Joi validation rejects body missing required test_name.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"result_value\": \"6.5\",\n  \"abnormal\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST (no test_name) - 400', ()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 404 Unknown admission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/00000000-0000-0000-0000-000000000000/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "00000000-0000-0000-0000-000000000000",
+                "labs"
+              ]
+            },
+            "description": "Returns 404 when admission UUID does not exist.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_name\": \"WBC\",\n  \"result_value\": \"6.5\",\n  \"abnormal\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST (unknown admission) - 404', ()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Admin - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 403 Admin cannot record lab",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "POST /admissions/:id/labs allows ICU_NURSE, MEDICAL_RESIDENT, ICU_SPECIALIST. SYSTEM_ADMIN is denied at the restrictTo middleware layer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_name\": \"WBC\",\n  \"result_value\": \"6.5\",\n  \"abnormal\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST (admin) - 403', ()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Specialist (for 409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Specialist - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST - 409 Inactive admission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Pre-request discharges the admission. Service then rejects with 409 because status !== ACTIVE.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_name\": \"WBC\",\n  \"result_value\": \"6.5\",\n  \"abnormal\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const base = pm.collectionVariables.get('base_url');",
+                  "const admId = pm.collectionVariables.get('admission_id');",
+                  "pm.sendRequest({",
+                  "  url: `${base}/admissions/${admId}/discharge`,",
+                  "  method: 'PATCH',",
+                  "  header: { 'Content-Type': 'application/json' }",
+                  "}, (err, res) => {});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('POST (inactive admission) - 409', ()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. GET /admissions/:id/labs",
+      "item": [
+        {
+          "name": "Login Resident (restore session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 200 List labs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Lists lab results for the admission. Verifies array response and recordedBy join. Admission was discharged in section 1 but GET does not check admission status — only existence."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET Labs - 200', ()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "pm.test('Response is array', ()=>pm.expect(r).to.be.an('array'));",
+                  "pm.test('Has at least 2 results', ()=>pm.expect(r.length).to.be.at.least(2));",
+                  "if(r.length>0){",
+                  "  pm.test('Each item has recordedBy', ()=>pm.expect(r[0]).to.have.property('recordedBy'));",
+                  "  pm.test('recordedBy has id', ()=>pm.expect(r[0].recordedBy).to.have.property('id'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 200 Filter ?abnormal=true",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs?abnormal=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ],
+              "query": [
+                {
+                  "key": "abnormal",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Only abnormal results should be returned."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET abnormal filter - 200', ()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "pm.test('Response is array', ()=>pm.expect(r).to.be.an('array'));",
+                  "pm.test('All results are abnormal', ()=>r.forEach(i=>pm.expect(i.abnormal).to.eql(true)));",
+                  "pm.test('Contains Potassium result', ()=>pm.expect(r.some(i=>i.testName==='Potassium')).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 200 Date range filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs?from={{today_date}}&to={{tomorrow_date}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "{{today_date}}"
+                },
+                {
+                  "key": "to",
+                  "value": "{{tomorrow_date}}"
+                }
+              ]
+            },
+            "description": "Filters by date range. Pre-request computes tomorrow for the upper bound."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const d=new Date(); d.setDate(d.getDate()+1);",
+                  "pm.collectionVariables.set('tomorrow_date', d.toISOString().split('T')[0]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET date filter - 200', ()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "pm.test('Response is array', ()=>pm.expect(r).to.be.an('array'));",
+                  "pm.test('Results returned within range', ()=>pm.expect(r.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (clear session)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the session cookie via server-side logout. Uses POST /auth/logout instead of pm.cookies.jar().clear() to avoid the known async race condition."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout - 204', ()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - 401 No auth cookie",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "After logout the cookie jar is empty. verifyToken middleware must respond 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET (no cookie) - 401', ()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. DELETE /labs/:id (soft-archive)",
+      "item": [
+        {
+          "name": "Login Resident (for DELETE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE - 204 Success",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "labs",
+                "{{lab_id}}"
+              ]
+            },
+            "description": "Resident soft-archives the first lab result created in section 1. Expects 204 No Content."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('DELETE Lab - 204', ()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - Verify deleted lab excluded",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ]
+            },
+            "description": "Immediately re-fetches labs. The deleted lab (Hemoglobin) must NOT appear — proving isArchived filtering works, not just a flag with no effect."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET after delete - 200', ()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "const labId=pm.collectionVariables.get('lab_id');",
+                  "pm.test('Deleted lab excluded from results', ()=>pm.expect(r.every(i=>i.id!==labId)).to.be.true);",
+                  "pm.test('Abnormal lab still present', ()=>pm.expect(r.some(i=>i.id===pm.collectionVariables.get('lab_id_abnormal'))).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET - ?include_archived=true (NOT IMPLEMENTED)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/labs?include_archived=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "admissions",
+                "{{admission_id}}",
+                "labs"
+              ],
+              "query": [
+                {
+                  "key": "include_archived",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "NOTE: The API doc mentions an include_archived convention, but the labResult.service.js getLabResults function always filters isArchived:false with NO support for this query parameter. This request documents that gap. The archived lab will NOT appear even with this param."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('GET include_archived - 200', ()=>pm.response.to.have.status(200));",
+                  "const r=pm.response.json();",
+                  "const labId=pm.collectionVariables.get('lab_id');",
+                  "// NOTE: include_archived is NOT implemented in the service layer.",
+                  "// The archived lab will still be excluded. This is expected current behavior.",
+                  "pm.test('[KNOWN GAP] Archived lab still excluded (include_archived not implemented)', ()=>pm.expect(r.every(i=>i.id!==labId)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Nurse (for 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Nurse - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE - 403 Nurse cannot delete",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/labs/{{lab_id_abnormal}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "labs",
+                "{{lab_id_abnormal}}"
+              ]
+            },
+            "description": "restrictTo([MEDICAL_RESIDENT, ICU_SPECIALIST]) blocks ICU_NURSE at the middleware layer."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('DELETE (nurse) - 403', ()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Resident (for 404 + double-delete)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login Resident - 200', ()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE - 404 Unknown lab_id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/labs/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "labs",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Service returns 404 when the lab UUID does not exist."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('DELETE (unknown id) - 404', ()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE - 409 Double-delete (already archived)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/labs/{{lab_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "labs",
+                "{{lab_id}}"
+              ]
+            },
+            "description": "Attempts to delete the same lab_id that was already soft-archived in the success test above. The service uses findUnique (which still finds the record regardless of isArchived), then checks the isArchived flag and returns 409 \"Lab result is already archived\" — NOT 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('DELETE (double-delete) - 409', ()=>pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

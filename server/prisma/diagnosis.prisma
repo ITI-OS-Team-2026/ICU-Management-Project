@@ -1,0 +1,25 @@
+enum DiagnosisStatus {
+  ACTIVE
+  RESOLVED
+}
+
+model Diagnosis {
+  id            String          @id @default(uuid())
+  admissionId   String          @map("admission_id")
+  conditionName String          @map("condition_name") @db.VarChar(255)
+  status        DiagnosisStatus @default(ACTIVE)
+  diagnosedById String          @map("diagnosed_by")
+  diagnosedAt   DateTime        @default(now()) @map("diagnosed_at")
+  isArchived    Boolean         @default(false) @map("is_archived")
+  archivedAt    DateTime?       @map("archived_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  admission     Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  diagnosedBy   User            @relation(fields: [diagnosedById], references: [id])
+
+  @@map("diagnoses")
+  @@index([admissionId])
+  @@index([diagnosedById])
+  @@index([status])
+}

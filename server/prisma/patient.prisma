@@ -14,44 +14,45 @@ enum Handedness {
 }
 
 model Patient {
-  id            String          @id @default(uuid())
-  mrn           String          @unique @db.VarChar(50)
-  nationalId    String?         @map("national_id") @db.VarChar(50)
-  name          String          @db.VarChar(200)
+  id            String         @id @default(uuid())
+  mrn           String         @unique @db.VarChar(50)
+  nationalId    String?        @map("national_id") @db.VarChar(50)
+  name          String         @db.VarChar(200)
   age           Int
-  gender        String?         @db.VarChar(30)
-  residence     String?         @db.Text
-  occupation    String?         @db.Text
-  maritalStatus MaritalStatus?  @map("marital_status")
+  gender        String?        @db.VarChar(30)
+  residence     String?        @db.Text
+  occupation    String?        @db.Text
+  maritalStatus MaritalStatus? @map("marital_status")
   handedness    Handedness?
-  isArchived    Boolean         @default(false) @map("is_archived")
-  archivedAt    DateTime?       @map("archived_at")
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  isArchived    Boolean        @default(false) @map("is_archived")
+  archivedAt    DateTime?      @map("archived_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
 
   medicalHistory MedicalHistory?
-  allergies     Allergy[]
+  allergies      Allergy[]
+  admissions     Admission[]
 
-  @@map("patients")
   @@index([mrn])
+  @@map("patients")
 }
 
 model MedicalHistory {
-  id                       String    @id @default(uuid())
-  patientId                String    @unique @map("patient_id")
-  diabetesDm               Boolean   @default(false) @map("diabetes_dm")
-  hypertensionHtn          Boolean   @default(false) @map("hypertension_htn")
-  pastSimilarConditions   String?   @map("past_similar_conditions") @db.Text
-  pastDiseases             Json?     @map("past_diseases")
-  previousOperations       Boolean   @default(false) @map("previous_operations")
-  operationsDetails        String?   @map("operations_details") @db.Text
-  hasAllergies             Boolean   @default(false) @map("has_allergies")
-  traveledAbroad           Boolean   @default(false) @map("traveled_abroad")
-  consanguinity            Boolean   @default(false)
-  familySimilarConditions String?   @map("family_similar_conditions") @db.Text
-  inheritedDiseases        Json?     @map("inherited_diseases")
-  createdAt                DateTime  @default(now()) @map("created_at")
-  updatedAt                DateTime  @updatedAt @map("updated_at")
+  id                      String   @id @default(uuid())
+  patientId               String   @unique @map("patient_id")
+  diabetesDm              Boolean  @default(false) @map("diabetes_dm")
+  hypertensionHtn         Boolean  @default(false) @map("hypertension_htn")
+  pastSimilarConditions   String?  @map("past_similar_conditions") @db.Text
+  pastDiseases            Json?    @map("past_diseases")
+  previousOperations      Boolean  @default(false) @map("previous_operations")
+  operationsDetails       String?  @map("operations_details") @db.Text
+  hasAllergies            Boolean  @default(false) @map("has_allergies")
+  traveledAbroad          Boolean  @default(false) @map("traveled_abroad")
+  consanguinity           Boolean  @default(false)
+  familySimilarConditions String?  @map("family_similar_conditions") @db.Text
+  inheritedDiseases       Json?    @map("inherited_diseases")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
@@ -70,6 +71,6 @@ model Allergy {
 
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@map("allergies")
   @@index([patientId])
+  @@map("allergies")
 }

@@ -1,0 +1,28 @@
+model VitalSign {
+  id               String    @id @default(uuid())
+  admissionId      String    @map("admission_id")
+  recordedById     String    @map("recorded_by")
+  
+  temperature      Decimal?  @db.Decimal(4, 1)
+  pulse            Int?
+  systolicBp       Int?      @map("systolic_bp")
+  diastolicBp      Int?      @map("diastolic_bp")
+  respiratoryRate  Int?      @map("respiratory_rate")
+  spo2             Int?
+  
+  isOverride       Boolean   @default(false) @map("is_override")
+  overrideReason   String?   @map("override_reason") @db.Text
+  
+  recordedAt       DateTime  @default(now()) @map("recorded_at")
+  isArchived       Boolean   @default(false) @map("is_archived")
+  archivedAt       DateTime? @map("archived_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  admission        Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  recordedBy       User      @relation(fields: [recordedById], references: [id])
+
+  @@index([admissionId])
+  @@index([recordedAt])
+  @@map("vital_signs")
+}

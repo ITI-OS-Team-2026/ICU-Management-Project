@@ -112,6 +112,95 @@ async function main() {
     console.warn("Skipping ICU Specialist seed — SEED_SPECIALIST_EMAIL/PASSWORD not set");
   }
 
+  // 5. Seed Clinical Data (Patient, Bed, Admission, Investigation Orders)
+  if (residentEmail && specialistEmail) {
+    const specialistUser = await prisma.user.findUnique({ where: { email: specialistEmail.toLowerCase() } });
+    const residentUser = await prisma.user.findUnique({ where: { email: residentEmail.toLowerCase() } });
+
+    if (specialistUser && residentUser) {
+      // Seed Patient (Idempotent)
+      const patient = await prisma.patient.upsert({
+        where: { mrn: "SEED-PAT-001" },
+        update: { name: "Seed Patient", age: 45 },
+        create: { mrn: "SEED-PAT-001", name: "Seed Patient", age: 45 },
+      });
+      console.log(`Patient successfully seeded/updated (ID: ${patient.id})`);
+
+      // Seed Bed (Idempotent)
+      const bed = await prisma.bed.upsert({
+        where: { bedNumber: "SEED-BED-01" },
+        update: { status: "OCCUPIED" },
+        create: { bedNumber: "SEED-BED-01", status: "OCCUPIED" },
+      });
+      console.log(`Bed successfully seeded/updated (ID: ${bed.id})`);
+
+      // Seed Admission (Find existing ACTIVE admission or create one)
+      let admission = await prisma.admission.findFirst({
+        where: { patientId: patient.id, status: "ACTIVE" }
+      });
+      
+      if (!admission) {
+        admission = await prisma.admission.create({
+          data: {
+            patientId: patient.id,
+            bedId: bed.id,
+            doctorId: specialistUser.id,
+            status: "ACTIVE",
+          }
+        });
+        console.log(`Admission successfully seeded (ID: ${admission.id})`);
+      } else {
+        // Ensure it's correctly linked and active
+        admission = await prisma.admission.update({
+          where: { id: admission.id },
+          data: {
+            bedId: bed.id,
+            doctorId: specialistUser.id,
+          }
+        });
+        console.log(`Admission successfully updated (ID: ${admission.id})`);
+      }
+
+      // Seed Investigation Orders (Idempotent based on existence for this admission)
+      const existingOrdersCount = await prisma.investigationOrder.count({
+        where: { admissionId: admission.id }
+      });
+
+      if (existingOrdersCount === 0) {
+        const order1 = await prisma.investigationOrder.create({
+          data: {
+            admissionId: admission.id,
+            orderedById: residentUser.id,
+            orderName: "Complete Blood Count (CBC)",
+            type: "Lab",
+            status: "Completed",
+          }
+        });
+        const order2 = await prisma.investigationOrder.create({
+          data: {
+            admissionId: admission.id,
+            orderedById: residentUser.id,
+            orderName: "Chest X-Ray",
+            type: "Imaging",
+            status: "Pending",
+          }
+        });
+        const order3 = await prisma.investigationOrder.create({
+          data: {
+            admissionId: admission.id,
+            orderedById: residentUser.id,
+            orderName: "Electrolyte Panel",
+            type: "Lab",
+            status: "Pending",
+          }
+        });
+        console.log(`Investigation Orders successfully seeded (IDs: ${order1.id}, ${order2.id}, ${order3.id})`);
+      } else {
+        console.log(`Investigation Orders already seeded for admission (Count: ${existingOrdersCount})`);
+      }
+    }
+  }
+
   console.log("Database seeding completed.");
 }
 
