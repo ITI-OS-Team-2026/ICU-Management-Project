@@ -15,7 +15,7 @@ const router = express.Router();
 
 // Patients
 router.post(
-  "/patients",
+  "/",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   validate({ body: patientCreateSchema }),
@@ -23,7 +23,7 @@ router.post(
 );
 
 router.get(
-  "/patients",
+  "/",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   validate({ query: patientQuerySchema }),
@@ -31,14 +31,14 @@ router.get(
 );
 
 router.get(
-  "/patients/:id",
+  "/:id",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   patientController.getPatientById
 );
 
 router.delete(
-  "/patients/:id",
+  "/:id",
   verifyToken,
   restrictTo(["ICU_SPECIALIST"]),
   patientController.deletePatient
@@ -46,7 +46,7 @@ router.delete(
 
 // Allergies
 router.post(
-  "/patients/:id/allergies",
+  "/:id/allergies",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   validate({ body: allergyCreateSchema }),
@@ -54,7 +54,7 @@ router.post(
 );
 
 router.get(
-  "/patients/:id/allergies",
+  "/:id/allergies",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   patientController.getAllergies
@@ -69,7 +69,7 @@ router.delete(
 
 // Medical History
 router.post(
-  "/patients/:id/medical-history",
+  "/:id/medical-history",
   verifyToken,
   restrictTo(["MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   validate({ body: medicalHistoryCreateSchema }),
@@ -77,14 +77,14 @@ router.post(
 );
 
 router.get(
-  "/patients/:id/medical-history",
+  "/:id/medical-history",
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   patientController.getMedicalHistory
 );
 
 router.patch(
-  "/patients/:id/medical-history",
+  "/:id/medical-history",
   verifyToken,
   restrictTo(["MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   validate({ body: medicalHistoryUpdateSchema }),

@@ -38,6 +38,7 @@ model Admission {
   clinicalExaminations ClinicalExamination[]
   clinicalNotes       ClinicalNote[]
   nursingNotes        NursingNote[]
+  followUps           FollowUp[]
 
   @@index([patientId])
   @@index([status])
