@@ -1,0 +1,43 @@
+enum EmbeddingStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// ponytail: Minimal medical_documents model to support upload metadata and RAG embeddings.
+model MedicalDocument {
+  id               String              @id @default(uuid())
+  admissionId      String              @map("admission_id")
+  uploadedBy       String              @map("uploaded_by")
+  documentType     String              @map("document_type") @db.VarChar(100)
+  originalFilename String              @map("original_filename") @db.VarChar(255)
+  filePath         String              @map("file_path") @db.Text
+  embeddingStatus  EmbeddingStatus     @default(PENDING) @map("embedding_status")
+  isArchived       Boolean             @default(false) @map("is_archived")
+  archivedAt       DateTime?           @map("archived_at")
+  createdAt        DateTime            @default(now()) @map("uploaded_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  admission        Admission           @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  uploader         User                @relation(fields: [uploadedBy], references: [id])
+  embeddings       DocumentEmbedding[]
+
+  @@index([admissionId])
+  @@index([uploadedBy])
+  @@map("medical_documents")
+}
+
+model DocumentEmbedding {
+  id          String   @id @default(uuid())
+  documentId  String   @map("document_id")
+  admissionId String   @map("admission_id")
+  chunkText   String   @map("chunk_text") @db.Text
+  embedding   Unsupported("vector(768)")
+
+  document    MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  admission   Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([admissionId])
+  @@map("document_embeddings")
+}

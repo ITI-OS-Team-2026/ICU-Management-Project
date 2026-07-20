@@ -39,6 +39,8 @@ model Admission {
   clinicalNotes       ClinicalNote[]
   nursingNotes        NursingNote[]
   followUps           FollowUp[]
+  documents           MedicalDocument[]
+  documentEmbeddings  DocumentEmbedding[]
 
   @@index([patientId])
   @@index([status])

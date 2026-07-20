@@ -50,6 +50,7 @@ model User {
   clinicalNotes           ClinicalNote[]
   nursingNotes            NursingNote[]
   followUps               FollowUp[]
+  uploadedDocuments       MedicalDocument[]
 
   @@index([role])
   @@index([status])
