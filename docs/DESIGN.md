@@ -2,28 +2,16 @@
 name: "SmartCare ICU"
 description: "Paperless intensive care management and AI decision-support dashboard"
 colors:
-  surface-dark: "oklch(18% 0.015 250)"
-  surface-dark-card: "oklch(22% 0.02 250)"
-  surface-dark-elevated: "oklch(26% 0.025 250)"
-  surface-light: "oklch(97% 0.005 230)"
-  surface-light-card: "oklch(99% 0.002 230)"
-  surface-light-elevated: "oklch(95% 0.008 230)"
-  ink-dark: "oklch(95% 0.01 240)"
-  ink-dark-muted: "oklch(76% 0.015 240)"
-  ink-light: "oklch(20% 0.02 250)"
-  ink-light-muted: "oklch(42% 0.02 250)"
-  cyan-base: "oklch(72% 0.14 200)"
-  cyan-hover: "oklch(65% 0.14 200)"
-  cyan-subtle: "oklch(72% 0.14 200 / 15%)"
-  emergency-base: "oklch(60% 0.22 28)"
-  emergency-hover: "oklch(53% 0.22 28)"
-  emergency-subtle: "oklch(60% 0.22 28 / 18%)"
-  warning-base: "oklch(78% 0.18 70)"
-  warning-subtle: "oklch(78% 0.18 70 / 15%)"
-  stable-base: "oklch(72% 0.17 155)"
-  stable-subtle: "oklch(72% 0.17 155 / 15%)"
-  border-dark: "oklch(32% 0.02 250)"
-  border-light: "oklch(88% 0.01 230)"
+  background: "oklch(1.0000 0 0)"
+  foreground: "oklch(0.3211 0 0)"
+  card: "oklch(1.0000 0 0)"
+  popover: "oklch(1.0000 0 0)"
+  primary: "oklch(0.6225 0.2041 259.9027)"
+  secondary: "oklch(0.9665 0.0045 258.3247)"
+  muted: "oklch(0.9846 0.0017 247.8389)"
+  accent: "oklch(0.9510 0.0267 237.5723)"
+  destructive: "oklch(0.6496 0.2362 26.9032)"
+  border: "oklch(0.9271 0.0075 260.7315)"
 typography:
   display:
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
@@ -67,21 +55,8 @@ spacing:
   md: "16px"
   lg: "24px"
 components:
-  btn-primary:
-    backgroundColor: "{colors.cyan-base}"
-    textColor: "{colors.surface-dark}"
-    rounded: "{rounded.md}"
-    padding: "10px 20px"
-  btn-emergency:
-    backgroundColor: "{colors.emergency-base}"
-    textColor: "#ffffff"
-    rounded: "{rounded.md}"
-    padding: "10px 20px"
-  btn-secondary:
-    backgroundColor: "{colors.surface-dark-card}"
-    textColor: "{colors.ink-dark}"
-    rounded: "{rounded.md}"
-    padding: "10px 20px"
+  use-shadcn: true
+  shadcn-preset: "https://tweakcn.com/r/themes/cmn5czngq000204l4hydwhlao"
 ---
 
 # Design System: SmartCare ICU
@@ -102,25 +77,25 @@ Our motion energy is **Restrained (State Changes & Feedback Only)**. Transitions
 
 ## 2. Colors
 
-Our color strategy follows a **Full Palette (Deliberate Roles)** approach anchored by deep slate/charcoal neutral backgrounds with 4 rigorous clinical roles (`Medical Cyan/Teal` for primary telemetry, `Emergency Oxblood/Red` for P0 emergency alerts, `Amber` for P1 warnings, and `Emerald` for stable physiological status). Canonical values are defined using OKLCH inside `client/src/index.css`.
+Our color strategy strictly follows the Shadcn UI preset theme configured in `client/src/index.css`. We map logical components to Shadcn's semantic color variables to ensure consistency and immediate visual hierarchy.
 
 ### Primary
-- **Medical Cyan/Teal (`oklch(72% 0.14 200)`)**: Primary interactive telemetry, active navigation states, and baseline sparkline paths. Used deliberately (`bg-cyan-base`, `border-cyan-base`, `text-cyan-base`) to signal interactive focus without visual fatigue.
+- **Primary (`--primary`)**: Used for primary interactive actions, active navigation states, and highlights. Ensures strong contrast and clear affordance (`bg-primary`, `text-primary`).
 
-### Secondary
-- **Emergency Oxblood/Red (`oklch(60% 0.22 28)`)**: Reserved strictly for `P0 Emergency` notifications (`badge-p0`), critical vital sign violations, and destructive/archival actions (`btn-emergency`).
-- **Clinical Amber (`oklch(78% 0.18 70)`)**: Reserved strictly for `P1 Clinical Warnings` (`badge-p1`), out-of-range physiological shifts, and pending diagnostic verifications.
-- **Stable Emerald (`oklch(72% 0.17 155)`)**: Reserved strictly for normal physiological ranges (`badge-stable`), confirmed AI reasoning verifications, and successful vital persistence.
+### Secondary & Muted
+- **Secondary (`--secondary`)**: Used for less prominent buttons, badges, and alternative backgrounds (`bg-secondary`).
+- **Muted (`--muted`)**: Used for background panels, disabled states, and secondary text where lower contrast is acceptable but legible (`text-muted-foreground`).
 
-### Neutral
-- **Deep Slate/Charcoal Surface (`oklch(18% 0.015 250)`)**: Primary background (`bg-surface-dark`) and surface containers (`bg-surface-dark-card` / `bg-surface-dark-elevated`) for dark mode, providing calm contrast without OLED black eye-strain.
-- **Clinical Paper Surface (`oklch(97% 0.005 230)`)**: Primary background and surface containers (`bg-surface-light` / `bg-surface-light-card`) for day-shift light mode.
-- **High-Contrast Ink (`oklch(95% 0.01 240)`)**: Primary body text (`text-ink-dark` / `text-ink-dark-muted`), guaranteeing `≥4.5:1` WCAG AA contrast.
+### Status
+- **Destructive (`--destructive`)**: Reserved strictly for `P0 Emergency` notifications, critical vital sign violations, and destructive actions.
+
+### Neutral (Surfaces)
+- **Background (`--background`)**: The deepest root background layer.
+- **Card (`--card`)**: Used for clinical data containers and grouping related information.
+- **Foreground (`--foreground`)**: Primary text color ensuring ≥4.5:1 WCAG AA contrast.
 
 ### Named Rules
-**The Full Palette Rule.** Each color role (`Cyan`, `Oxblood`, `Amber`, `Emerald`) carries exact clinical semantic meaning. Colors are never used decoratively to make a card "look interesting." If a metric is colored `Oxblood/Red`, it must represent a genuine P0 clinical emergency or destructive action.
-
-**The No-Contrast-Compromise Rule.** Gray or muted text on tinted backgrounds that falls below `4.5:1` contrast (`3:1` for large bold text `≥18px`) is treated as a P0 clinical safety defect. Readability at 4:00 AM under dim ICU lighting is non-negotiable.
+**The No-Contrast-Compromise Rule.** Text on backgrounds must maintain high legibility. Avoid low-contrast color combinations that fail WCAG standards, ensuring readability under ICU lighting conditions.
 
 ## 3. Typography
 
@@ -157,34 +132,17 @@ In alignment with our **Restrained** motion and `product` focus, surfaces are **
 
 ## 5. Components
 
-The following canonical clinical primitives are pre-configured in `client/src/index.css` via Tailwind `@utility` and `@layer utilities`:
+The SmartCare ICU interface is built strictly using **Shadcn UI** components. We do not use ad-hoc CSS utility classes for complex components. The design tokens (colors, typography, radii) defined in `client/src/index.css` are natively ingested by Shadcn's Tailwind configuration.
 
-### Buttons
-- **Shape:** `border-radius: 6px` (`--radius-md`), minimum target size `48×48px` (`min-h-[48px] min-w-[48px]`) with `gap: 0.5rem`.
-- **Primary (`.btn-primary`):** Medical Cyan surface (`bg-cyan-base text-surface-dark font-semibold px-5 py-2.5 rounded-md`), smooth 150ms ease-out hover (`hover:bg-cyan-hover`) and `2px` focus ring (`focus-visible:outline-cyan-base`).
-- **Emergency (`.btn-emergency`):** Oxblood P0 destructive/alarm action (`bg-emergency-base text-white font-semibold px-5 py-2.5 rounded-md`), 150ms hover (`hover:bg-emergency-hover`).
-- **Secondary (`.btn-secondary`):** Flat high-contrast border button (`bg-surface-dark-card text-ink-dark border border-border-dark font-medium`), hover lift to elevated surface (`hover:bg-surface-dark-elevated`).
-
-### Status Badges & Pills (`.badge-p0`, `.badge-p1`, `.badge-stable`)
-- **Style:** Translucent semantic background (`bg-emergency-subtle`, `bg-warning-subtle`, `bg-stable-subtle`) paired with bold uppercase `13px` label (`text-label font-bold uppercase tracking-wider border`).
-- **State:** Provides unmistakable, immediate color-coded visual triage without visual clutter.
-
-### Cards / Containers (`.clinical-card`, `.clinical-card-light`)
-- **Corner Style:** `border-radius: 6px` (`--radius-md`).
-- **Background & Border:** Flat container (`bg-surface-dark-card border border-border-dark` for dark mode, `bg-surface-light-card border border-border-light` for light mode).
-- **Shadow Strategy:** Flat at rest (`The Flat-By-Default Rule`).
-
-### Inputs / Fields (`.clinical-input`)
-- **Style:** Flat 1px outline (`bg-surface-dark border border-border-dark rounded-md px-3 py-2 text-ink-dark min-h-[48px] font-tnum`).
-- **Focus:** Crisp Cyan focus border and ring (`focus:border-cyan-base focus:ring-1 focus:ring-cyan-base`).
-
-### Sticky Context Header (`.sticky-context-bar`)
-- **Style:** Top-anchored situational bar (`sticky top-0 z-sticky bg-surface-dark border-b border-border-dark px-5 py-3 box-shadow-sticky flex items-center justify-between`).
-- **Scope Rule:** Use ONLY on the main multi-patient or intensive care monitoring views. Do NOT include on simple screens (Login, Settings, single-task forms).
+### Always Use Shadcn Primitives
+- **Buttons (`Button`)**: Use Shadcn's `<Button>` component for all actions. Rely on `variant="default"`, `variant="destructive"`, `variant="outline"`, and `variant="secondary"`. Do not write custom button CSS.
+- **Badges (`Badge`)**: Use Shadcn's `<Badge>` for status pills and triage indicators (`variant="default"`, `variant="secondary"`, `variant="destructive"`).
+- **Cards (`Card`)**: Use Shadcn's `<Card>`, `<CardHeader>`, `<CardTitle>`, and `<CardContent>` to group clinical data. 
+- **Tables (`Table`)**: Use Shadcn's `<Table>` components for dense data views, ensuring tabular numbers (`font-tnum`) are used for vital values.
 
 ### Screen-Type Scope Rules & Component Budgeting
-- **The Minimal Component Budget:** For simple screens (e.g., Login, Settings, User Profile, Single-Task Forms), do NOT use `.sticky-context-bar`, status badges (`.badge-p0/p1`), sparklines, or multi-color accents. Use a clean container (`.clinical-card`), clear labels, primary buttons (`.btn-primary`), and generous padding (`p-8 gap-6`).
-- **Whitespace Over Density:** Never cram multiple widgets, secondary data tables, or decorative borders into a single view. Let whitespace group elements naturally.
+- **The Minimal Component Budget:** For simple screens (e.g., Login, Settings, User Profile, Single-Task Forms), keep the UI minimal. Use clean Shadcn Cards, inputs, and primary buttons with generous padding.
+- **Whitespace Over Density:** Never cram multiple widgets or decorative borders into a single view. Let whitespace group elements naturally.
 
 ## 6. Do's and Don'ts
 
@@ -194,8 +152,9 @@ The following canonical clinical primitives are pre-configured in `client/src/in
 - **Do** provide generous minimum touch targets (`≥48×48px` for touch tablets, `≥44×44px` on native mobile endpoints) with at least `8px` breathing room between adjacent clinical buttons.
 - **Do** support `@media (prefers-reduced-motion: reduce)` on every alert pulse, sparkline render, and modal drawer by instantly switching to crisp, static crossfades.
 - **Do** prioritize clean whitespace, simple component hierarchy, and minimal copy. Keep labels and descriptions short and human-readable. Do NOT generate multi-paragraph mock text or verbose explanations unless explicitly requested.
-- **Do** apply "Screen-Type Scope Rules": For simple forms, modals, or authentication screens, keep the UI minimal (centered layout, clean inputs, zero badges/sparklines, no sticky headers).
+- **Do** apply "Screen-Type Scope Rules": For simple forms, modals, or authentication screens, keep the UI minimal. Use Shadcn components strictly.
 - **Do** ensure all critical clinical actions and alert explanations are accessible without requiring mouse hover over hidden triggers (`focus-visible` rings and direct click/touch targets required).
+- **Do** strictly use Shadcn components rather than writing custom utility CSS or standard HTML elements. Always build layouts composing `<Card>`, `<Button>`, `<Badge>`, and other primitives from `@/components/ui`.
 
 ### Don't:
 - **Don't** use low-contrast muted or gray body text on white or tinted backgrounds (`<4.5:1` is prohibited).
