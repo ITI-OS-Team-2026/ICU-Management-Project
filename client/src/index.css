@@ -3,11 +3,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1.0000 0 0);
+  --background: oklch(0.99 0.01 260);
   --foreground: oklch(0.3211 0 0);
-  --card: oklch(1.0000 0 0);
+  --card: oklch(0.99 0.01 260);
   --card-foreground: oklch(0.3211 0 0);
-  --popover: oklch(1.0000 0 0);
+  --popover: oklch(0.99 0.01 260);
   --popover-foreground: oklch(0.3211 0 0);
   --primary: oklch(0.6225 0.2041 259.9027);
   --primary-foreground: oklch(1.0000 0 0);
@@ -36,6 +36,7 @@
   --sidebar-border: oklch(0.9271 0.0075 260.7315);
   --sidebar-ring: oklch(0.6225 0.2041 259.9027);
   --font-sans: Inter, sans-serif;
+  --font-display: Outfit, sans-serif;
   --font-serif: Source Serif 4, serif;
   --font-mono: JetBrains Mono, monospace;
   --radius: 1.15rem;
@@ -91,6 +92,7 @@
   --sidebar-border: oklch(0.3715 0 0);
   --sidebar-ring: oklch(0.6225 0.2041 259.9027);
   --font-sans: Inter, sans-serif;
+  --font-display: Outfit, sans-serif;
   --font-serif: Source Serif 4, serif;
   --font-mono: JetBrains Mono, monospace;
   --radius: 1.15rem;
@@ -145,6 +147,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
 

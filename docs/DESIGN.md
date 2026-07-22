@@ -14,17 +14,17 @@ colors:
   border: "oklch(0.9271 0.0075 260.7315)"
 typography:
   display:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "2rem"
     fontWeight: 700
     lineHeight: 1.15
   headline:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: 1.25
   title:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.3
@@ -99,8 +99,11 @@ Our color strategy strictly follows the Shadcn UI preset theme configured in `cl
 
 ## 3. Typography
 
-**Display Font:** `'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif`
-**Body Font:** `'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif`
+**Display Font:** `'Outfit', sans-serif`
+**Body Font:** `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`
+**Label/Mono Font:** `'JetBrains Mono', 'SF Mono', monospace`
+
+**Character:** A high-precision, ultra-legible aesthetic where the geometric display face (`Outfit`) pairs with a super-crisp body face (`Inter`) governed by a tight `1.125–1.2` scale ratio.
 **Label/Mono Font:** `'JetBrains Mono', 'SF Mono', 'Roboto Mono', monospace`
 
 **Character:** A high-precision, ultra-legible technical sans where labels, vital signs, data tables, and body prose share one unified, super-crisp family governed by a tight `1.125–1.2` scale ratio (`product` register standard).
@@ -130,7 +133,18 @@ In alignment with our **Restrained** motion and `product` focus, surfaces are **
 ### Named Rules
 **The Flat-By-Default Rule.** Surfaces are flat at rest. Drop shadows and blurs do not exist as static decoration. Elevation only appears when an element dynamically lifts off the canvas to command immediate, exclusive user interaction.
 
-## 5. Components
+## 5. Anti-Slop Safeguards (Hallmark Rules)
+
+These rules are strictly enforced to avoid common AI-generated template anti-patterns.
+
+### Named Rules
+**The No-Pure-Neutrals Rule.** `--background` and surface colors must ALWAYS be tinted slightly towards the primary hue (e.g., `oklch(0.99 0.01 260)`). Never use pure `#ffffff` or `#000000` which reads as flat and synthetic.
+
+**The Typography Pairing Rule.** Never use "Inter-everywhere". Display typography (headings, hero text) must use a dedicated display face (e.g., `Outfit`), paired with `Inter` strictly for body copy.
+
+**The Locked Tokens Rule (No Improvisation).** Never use inline literal color utility classes (e.g., `bg-slate-950`, `text-blue-500`). Every single color class used in the application MUST consume a semantic design token defined in `index.css` (e.g., `bg-primary`, `text-muted-foreground`).
+
+## 6. Components
 
 The SmartCare ICU interface is built strictly using **Shadcn UI** components. We do not use ad-hoc CSS utility classes for complex components. The design tokens (colors, typography, radii) defined in `client/src/index.css` are natively ingested by Shadcn's Tailwind configuration.
 
