@@ -124,14 +124,28 @@ const Login = () => {
       {/* Right Column: Branding / Information Panel */}
       <div className="hidden lg:flex w-1/2 bg-primary flex-col items-start justify-between p-12 lg:p-24 relative overflow-hidden">
         
-        {/* Subtle grid pattern background */}
-        <div 
-          className="absolute inset-0 opacity-20 pointer-events-none" 
-          style={{ 
-            backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)', 
-            backgroundSize: '32px 32px' 
-          }}
-        />
+        {/* E7 Tactile Texture (Abstract Background) */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, color-mix(in oklch, var(--color-primary) 100%, var(--color-accent) 20%) 100%)'
+            }}
+          />
+          <svg width="0" height="0" className="absolute">
+            <filter id="grain">
+              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" />
+            </filter>
+          </svg>
+          <div 
+            className="absolute inset-0" 
+            style={{ 
+              filter: 'url(#grain)', 
+              opacity: 0.08, 
+              mixBlendMode: 'multiply' 
+            }} 
+          />
+        </div>
 
         {/* Top left branding */}
         <div className="flex items-center space-x-3 text-primary-foreground z-10">
@@ -141,14 +155,14 @@ const Login = () => {
           <span className="text-title font-bold tracking-tight">SmartCare ICU</span>
         </div>
 
+        {/* Tier A: Custom CSS Art (EKG Trace) */}
+        <div className="css-ekg" aria-hidden="true"></div>
+
         {/* Center message / abstract data representation */}
         <div className="space-y-6 z-10 max-w-lg mt-20">
           <h1 className="text-display font-bold text-primary-foreground leading-tight">
             High-Precision Clinical Intelligence.
           </h1>
-          <p className="text-headline text-primary-foreground/80 font-normal leading-snug">
-            Streamlining intensive care decision-making with real-time telemetry and paperless charting.
-          </p>
         </div>
 
         {/* Bottom features indicator */}
