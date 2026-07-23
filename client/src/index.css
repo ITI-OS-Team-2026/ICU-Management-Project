@@ -68,6 +68,8 @@
   --login-page-line: oklch(0.55 0.04 260 / 0.09);
   --login-page-spot: oklch(0.72 0.12 255 / 0.18);
   --login-page-spot-2: oklch(0.88 0.04 230 / 0.45);
+  --login-motif: oklch(0.45 0.08 260 / 0.14);
+  --login-motif-strong: oklch(0.50 0.12 260 / 0.22);
 }
 
 .dark {
@@ -128,11 +130,13 @@
   --login-brand-muted: oklch(0.68 0.025 260);
   --login-brand-ring: oklch(0.40 0.05 260);
 
-  /* Login page canvas — dark: deep indigo night */
-  --login-page: oklch(0.145 0.028 265);
-  --login-page-line: oklch(0.92 0.02 260 / 0.06);
-  --login-page-spot: oklch(0.45 0.14 260 / 0.28);
-  --login-page-spot-2: oklch(0.22 0.05 240 / 0.55);
+  /* Login page canvas — dark: deep clinical night */
+  --login-page: oklch(0.135 0.032 265);
+  --login-page-line: oklch(0.78 0.05 260 / 0.10);
+  --login-page-spot: oklch(0.42 0.16 260 / 0.32);
+  --login-page-spot-2: oklch(0.20 0.06 245 / 0.60);
+  --login-motif: oklch(0.72 0.08 260 / 0.16);
+  --login-motif-strong: oklch(0.68 0.14 260 / 0.28);
 }
 
 @theme inline {
@@ -196,6 +200,8 @@
   --color-login-page-line: var(--login-page-line);
   --color-login-page-spot: var(--login-page-spot);
   --color-login-page-spot-2: var(--login-page-spot-2);
+  --color-login-motif: var(--login-motif);
+  --color-login-motif-strong: var(--login-motif-strong);
 }
 
 @layer base {
@@ -344,13 +350,6 @@
 .login-monitor__spoke--4 { transform: translateX(-50%) rotate(216deg); }
 .login-monitor__spoke--5 { transform: translateX(-50%) rotate(288deg); }
 
-.login-page-grid {
-  background-image:
-    linear-gradient(var(--login-page-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--login-page-line) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
 .login-brand-grid {
   background-image:
     linear-gradient(
@@ -383,5 +382,264 @@
       color-mix(in oklch, var(--primary) 12%, transparent),
       transparent 70%
     );
+}
+
+/*
+ * Hallmark · enrichment: medical motifs (Tier A CSS + inline SVG paths)
+ * Replaces square grid — crosses, pulse rings, EKG traces, capsule outlines
+ */
+.login-page-motifs {
+  overflow: hidden;
+  color: var(--login-motif);
+}
+
+.login-motif {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Medical cross (plus) via two bars */
+.login-motif--cross {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.login-motif--cross::before,
+.login-motif--cross::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  background: var(--login-motif-strong);
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.login-motif--cross::before {
+  width: 28%;
+  height: 100%;
+}
+
+.login-motif--cross::after {
+  width: 100%;
+  height: 28%;
+}
+
+.login-motif--cross-a {
+  top: 8%;
+  left: 7%;
+  width: 3.25rem;
+  height: 3.25rem;
+  opacity: 0.85;
+  animation: login-motif-float 9s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--cross-b {
+  top: 62%;
+  right: 9%;
+  width: 2.25rem;
+  height: 2.25rem;
+  opacity: 0.65;
+  animation: login-motif-float 11s var(--ease-in-out, ease-in-out) 1.2s infinite reverse;
+}
+
+.login-motif--cross-c {
+  bottom: 14%;
+  left: 18%;
+  width: 1.75rem;
+  height: 1.75rem;
+  opacity: 0.5;
+  animation: login-motif-float 10s var(--ease-in-out, ease-in-out) 0.6s infinite;
+}
+
+/* Pulse / vitals rings */
+.login-motif--ring {
+  border-radius: 9999px;
+  border: 1.5px solid var(--login-motif-strong);
+  aspect-ratio: 1;
+}
+
+.login-motif--ring-a {
+  top: 18%;
+  right: 14%;
+  width: min(11rem, 28vw);
+  opacity: 0.55;
+  animation: login-motif-pulse 6.5s var(--ease-out, ease-out) infinite;
+}
+
+.login-motif--ring-b {
+  bottom: 10%;
+  left: 6%;
+  width: min(8.5rem, 22vw);
+  opacity: 0.4;
+  animation: login-motif-pulse 8s var(--ease-out, ease-out) 1.8s infinite;
+}
+
+.login-motif--ring-c {
+  top: 42%;
+  left: 72%;
+  width: min(5.5rem, 16vw);
+  opacity: 0.35;
+  border-width: 1px;
+  animation: login-motif-pulse 7s var(--ease-out, ease-out) 0.9s infinite;
+}
+
+/* EKG path motifs */
+.login-motif--ekg {
+  width: min(16rem, 42vw);
+  height: auto;
+  color: var(--login-motif-strong);
+}
+
+.login-motif--ekg-a {
+  top: 28%;
+  left: 4%;
+  opacity: 0.7;
+  transform: rotate(-6deg);
+  animation: login-motif-drift 12s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--ekg-b {
+  bottom: 22%;
+  right: 5%;
+  width: min(13rem, 34vw);
+  opacity: 0.55;
+  transform: rotate(4deg);
+  animation: login-motif-drift 14s var(--ease-in-out, ease-in-out) 2s infinite reverse;
+}
+
+/* Soft vital dots */
+.login-motif--dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--login-motif-strong);
+}
+
+.login-motif--dot-a {
+  top: 14%;
+  left: 42%;
+  opacity: 0.7;
+  animation: login-motif-blink 4.5s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--dot-b {
+  top: 48%;
+  left: 12%;
+  width: 0.3rem;
+  height: 0.3rem;
+  opacity: 0.55;
+  animation: login-motif-blink 5.5s var(--ease-in-out, ease-in-out) 1s infinite;
+}
+
+.login-motif--dot-c {
+  bottom: 18%;
+  right: 28%;
+  width: 0.35rem;
+  height: 0.35rem;
+  opacity: 0.6;
+  animation: login-motif-blink 6s var(--ease-in-out, ease-in-out) 2.2s infinite;
+}
+
+/* Capsule / pill outlines */
+.login-motif--capsule {
+  width: 2.75rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--login-motif-strong);
+}
+
+.login-motif--capsule-a {
+  top: 72%;
+  left: 48%;
+  opacity: 0.45;
+  transform: rotate(-28deg);
+  animation: login-motif-float 13s var(--ease-in-out, ease-in-out) 0.4s infinite;
+}
+
+.login-motif--capsule-b {
+  top: 12%;
+  right: 32%;
+  width: 2.1rem;
+  height: 0.9rem;
+  opacity: 0.4;
+  transform: rotate(18deg);
+  animation: login-motif-float 15s var(--ease-in-out, ease-in-out) 1.5s infinite reverse;
+}
+
+@keyframes login-motif-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -0.4rem;
+  }
+}
+
+@keyframes login-motif-drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0.35rem -0.25rem;
+  }
+}
+
+@keyframes login-motif-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes login-motif-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-motif--cross-a,
+  .login-motif--cross-b,
+  .login-motif--cross-c,
+  .login-motif--ring-a,
+  .login-motif--ring-b,
+  .login-motif--ring-c,
+  .login-motif--ekg-a,
+  .login-motif--ekg-b,
+  .login-motif--dot-a,
+  .login-motif--dot-b,
+  .login-motif--dot-c,
+  .login-motif--capsule-a,
+  .login-motif--capsule-b {
+    animation: none;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .login-motif--ring-c,
+  .login-motif--capsule-b,
+  .login-motif--ekg-b,
+  .login-motif--cross-c {
+    display: none;
+  }
+
+  .login-motif--ring-a {
+    width: min(8rem, 36vw);
+  }
+
+  .login-motif--ekg-a {
+    width: min(11rem, 55vw);
+  }
 }
 

@@ -56,6 +56,52 @@ function readRememberedEmail() {
   }
 }
 
+function LoginMedicalMotifs() {
+  return (
+    <div className="login-page-motifs pointer-events-none absolute inset-0" aria-hidden>
+      <span className="login-motif login-motif--cross login-motif--cross-a" />
+      <span className="login-motif login-motif--cross login-motif--cross-b" />
+      <span className="login-motif login-motif--cross login-motif--cross-c" />
+      <span className="login-motif login-motif--ring login-motif--ring-a" />
+      <span className="login-motif login-motif--ring login-motif--ring-b" />
+      <span className="login-motif login-motif--ring login-motif--ring-c" />
+      <svg
+        className="login-motif login-motif--ekg login-motif--ekg-a"
+        viewBox="0 0 240 48"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M0 24h42l8-14 10 28 12-22 8 14h40l7-12 11 26 13-28 8 14h81"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <svg
+        className="login-motif login-motif--ekg login-motif--ekg-b"
+        viewBox="0 0 200 40"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M0 20h28l6-10 8 22 9-18 6 10h36l5-8 8 18 10-22 6 12h68"
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className="login-motif login-motif--dot login-motif--dot-a" />
+      <span className="login-motif login-motif--dot login-motif--dot-b" />
+      <span className="login-motif login-motif--dot login-motif--dot-c" />
+      <span className="login-motif login-motif--capsule login-motif--capsule-a" />
+      <span className="login-motif login-motif--capsule login-motif--capsule-b" />
+    </div>
+  );
+}
+
 function LoginBrandPanel() {
   return (
     <aside className="relative hidden min-h-0 min-w-0 flex-col justify-between overflow-hidden bg-login-brand p-10 text-login-brand-foreground xl:flex">
@@ -160,11 +206,11 @@ export default function LoginPage() {
 
   return (
     /* Hallmark · macrostructure: Workbench · tone: utilitarian · theme: design.md
-     * responsive: centered card < xl · split panel from xl
+     * enrichment: medical motifs (cross / EKG / pulse rings) · responsive: card < xl · split ≥ xl
      */
     <div className="relative flex min-h-svh items-center justify-center overflow-x-clip bg-login-page px-4 py-16 sm:px-6 sm:py-20 md:px-8 xl:p-8">
       <div className="login-page-atmosphere pointer-events-none absolute inset-0" aria-hidden />
-      <div className="login-page-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden />
+      <LoginMedicalMotifs />
 
       <div className="absolute top-4 right-4 z-20 sm:top-5 sm:right-5">
         <ThemeToggle />
