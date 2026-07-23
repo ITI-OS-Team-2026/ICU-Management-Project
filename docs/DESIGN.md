@@ -14,17 +14,17 @@ colors:
   border: "oklch(0.9271 0.0075 260.7315)"
 typography:
   display:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "2rem"
     fontWeight: 700
     lineHeight: 1.15
   headline:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 600
     lineHeight: 1.25
   title:
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif"
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.3
@@ -57,6 +57,138 @@ spacing:
 components:
   use-shadcn: true
   shadcn-preset: "https://tweakcn.com/r/themes/cmn5czngq000204l4hydwhlao"
+---
+
+## 0. AI Code Generation Rules (READ THIS FIRST — MANDATORY)
+
+> **This section is not optional.** Every AI model and every developer generating UI for SmartCare ICU must read and pass this checklist before emitting a single line of JSX. Violations will be rejected in code review.
+
+---
+
+### 0.1 The Shadcn Component Mandate (Non-Negotiable)
+
+This project uses **Shadcn UI** as the **exclusive component foundation**. All components are pre-installed in `client/src/components/ui/`. You must import from there.
+
+#### Canonical Component Map
+
+Every UI need maps to exactly one source. Check this table before writing any JSX.
+
+| UI Need | Required Import | Forbidden Alternative |
+|---|---|---|
+| Any clickable action | `<Button>` from `@/components/ui/button` | `<button>`, `<a>` styled as button |
+| Status pills / labels | `<Badge>` from `@/components/ui/badge` | Raw `<span className="rounded-full ...">` |
+| Data containers | `<Card>`, `<CardHeader>`, `<CardContent>` from `@/components/ui/card` | Raw `<div className="border rounded ...">` |
+| Any data grid / list | `<Table>`, `<TableHeader>`, `<TableRow>`, `<TableCell>` from `@/components/ui/table` | Raw `<table>`, hand-rolled grid divs |
+| Form fields | `<Input>` from `@/components/ui/input` | Raw `<input>` |
+| Dropdown selections | `<Select>`, `<SelectTrigger>`, `<SelectContent>` from `@/components/ui/select` | Native `<select>`, custom dropdown divs |
+| Multi-line text | `<Textarea>` from `@/components/ui/textarea` | Raw `<textarea>` |
+| Field labels | `<Label>` from `@/components/ui/label` | Raw `<label>` |
+| Form validation wrapper | `<Form>`, `<FormField>`, `<FormItem>`, `<FormMessage>` from `@/components/ui/form` | Manual error state divs |
+| Modal / overlay | `<Dialog>`, `<DialogContent>`, `<DialogHeader>` from `@/components/ui/dialog` | Raw `<div>` with `fixed` positioning |
+| Slide-out panel | `<Sheet>`, `<SheetContent>` from `@/components/ui/sheet` | Custom drawer divs |
+| Bottom drawer | `<Drawer>` from `@/components/ui/drawer` | Custom slide-up divs |
+| Tab navigation | `<Tabs>`, `<TabsList>`, `<TabsTrigger>`, `<TabsContent>` from `@/components/ui/tabs` | Custom tab implementations |
+| Top-level / mega navigation | `<NavigationMenu>`, `<NavigationMenuItem>`, `<NavigationMenuContent>` from `@/components/ui/navigation-menu` | Custom nav bars, raw `<nav>` |
+| Sidebar navigation | `<Sidebar>` from `@/components/ui/sidebar` | Custom sidebar divs |
+| Checkbox / toggle | `<Checkbox>` from `@/components/ui/checkbox` | Raw `<input type="checkbox">` |
+| On/Off switch | `<Switch>` from `@/components/ui/switch` | Custom toggle divs |
+| Loading skeleton | `<Skeleton>` from `@/components/ui/skeleton` | Animated placeholder divs |
+| Progress bar | `<Progress>` from `@/components/ui/progress` | Raw `<div>` width trick |
+| Alert / banner | `<Alert>`, `<AlertTitle>`, `<AlertDescription>` from `@/components/ui/alert` | Raw `<div className="bg-red-...">` |
+| Overflow scrollable area | `<ScrollArea>` from `@/components/ui/scroll-area` | `overflow-y-auto` on a raw div |
+| Date picker | `<Calendar>` + `<Popover>` from `@/components/ui/calendar` + `popover` | Third-party date picker libraries |
+| Autocomplete / search | `<Command>`, `<CommandInput>`, `<CommandList>` from `@/components/ui/command` | Custom autocomplete implementations |
+| Context menu / actions | `<DropdownMenu>` from `@/components/ui/dropdown-menu` | Custom dropdown divs |
+| Hover info | `<Tooltip>` from `@/components/ui/tooltip` | `title=""` attribute, custom tooltip divs |
+| User avatar | `<Avatar>`, `<AvatarImage>`, `<AvatarFallback>` from `@/components/ui/avatar` | Custom rounded-image divs |
+| Expandable section | `<Collapsible>` from `@/components/ui/collapsible` | Raw `show/hide` div logic |
+| Page navigation | `<Pagination>` from `@/components/ui/pagination` | Custom page number divs |
+| Visual divider | `<Separator>` from `@/components/ui/separator` | Raw `<hr>` or `border-t` div |
+| Popover anchored to trigger | `<Popover>`, `<PopoverTrigger>`, `<PopoverContent>` from `@/components/ui/popover` | Custom absolutely-positioned divs |
+
+---
+
+### 0.2 The Composite Component Rule (Shadcn-First for Non-Native Components)
+
+Some UI patterns are not single Shadcn components — they are **compositions**. Even when no single Shadcn component covers the need, **you must compose exclusively from Shadcn primitives**. You never reach for raw HTML or a third-party library when a Shadcn composition works.
+
+#### Required Compositions for SmartCare ICU
+
+**Multi-Step Admission Form** *(Shadcn has no native stepper)*
+Compose from: `<Card>` + `<Form>` + `<Progress>` + `<Button>` + `<Separator>`
+- Each step lives in its own `<CardContent>`.
+- `<Progress>` renders the step indicator (e.g., step 2 of 5 = `value={40}`).
+- Navigation uses `<Button variant="outline">` (Back) + `<Button>` (Next / Submit).
+- Never use a third-party stepper library.
+
+**Mega Menu** *(Shadcn has no dedicated mega menu)*
+Compose from: `<NavigationMenu>` + `<NavigationMenuContent>` + `<Card>` + `<Separator>`
+- The trigger is always `<NavigationMenuTrigger>`.
+- The expanded panel is `<NavigationMenuContent>` containing a `<Card>` grid of links.
+- Never build a mega menu with raw `<nav>` + custom hover state management.
+
+**Data Table with Filters** *(Shadcn Table has no built-in filter row)*
+Compose from: `<Table>` + `<Input>` + `<Select>` + `<Button>` + `<Badge>`
+- Filter row above the table uses `<Input>` for search and `<Select>` for column filters.
+- Row actions use `<DropdownMenu>`.
+- Never use third-party table UI components; use headless logic only if needed, rendered into `<Table>` primitives.
+
+**Vital Signs Monitor Card** *(custom clinical display)*
+Compose from: `<Card>` + `<Badge>` + `<Progress>` + `<Separator>`
+- Numeric vitals use the `font-tnum` utility class only.
+- Alert state uses `<Badge variant="destructive">`.
+- Never build a custom vital card with raw divs and hardcoded colors.
+
+**Notification / Alert Feed**
+Compose from: `<ScrollArea>` + `<Alert>` + `<Badge>` + `<Separator>` + `<Sheet>`
+- Individual notifications are `<Alert>` blocks inside a `<ScrollArea>`.
+- The feed panel is a `<Sheet>` triggered from the topbar bell icon.
+
+---
+
+### 0.3 The Token Mandate (Zero Exceptions)
+
+**No raw color value may appear anywhere in JSX or CSS outside of `index.css`.**
+
+| Forbidden | Required Replacement |
+|---|---|
+| `bg-blue-500`, `bg-blue-600`, `text-blue-700` | `bg-primary`, `text-primary` |
+| `bg-red-500`, `text-red-600` | `bg-destructive`, `text-destructive` |
+| `bg-gray-100`, `bg-slate-50` | `bg-muted`, `bg-secondary` |
+| `text-gray-500`, `text-slate-400` | `text-muted-foreground` |
+| `bg-white`, `bg-[#ffffff]` | `bg-background` or `bg-card` |
+| `border-gray-200` | `border-border` |
+| Any `style={{ color: '#...' }}` | Move value to `index.css` as a CSS variable, reference via token class |
+| Any inline `oklch(...)` value in JSX | Not permitted. Define in `index.css` `:root {}` block only |
+
+**No raw font-family string may appear in JSX or inline styles.**
+
+| Forbidden | Required Replacement |
+|---|---|
+| `style={{ fontFamily: 'Outfit' }}` | `className="font-display"` |
+| `style={{ fontFamily: 'Inter' }}` | `className="font-sans"` |
+| `style={{ fontFamily: 'JetBrains Mono' }}` | `className="font-mono"` |
+| `font-family: 'Outfit'` in a `<style>` tag | Not permitted in JSX files |
+
+---
+
+### 0.4 Pre-Emit AI Checklist
+
+Before outputting any JSX, verify every item below. A single `NO` means you must revise before emitting.
+
+```
+[ ] Every interactive element uses a Shadcn primitive from §0.1 — no raw HTML equivalents
+[ ] Every composite pattern uses only Shadcn primitives per §0.2 — no third-party UI libraries
+[ ] No Tailwind literal color class (bg-blue-*, text-red-*, bg-gray-*) appears anywhere
+[ ] No inline hex, rgb(), or oklch() color value appears in JSX
+[ ] No hardcoded font-family string appears in JSX or inline styles
+[ ] All typography uses font-display, font-sans, or font-mono utility classes
+[ ] All numeric vitals, lab values, and timestamps use the font-tnum utility class
+[ ] Shadows only appear on floating/elevated elements — never as static decoration
+[ ] No backdrop-blur, glassmorphism, or gradient text effects appear anywhere
+[ ] Every button is <Button> with an explicit variant prop
+```
+
 ---
 
 # Design System: SmartCare ICU
@@ -99,8 +231,11 @@ Our color strategy strictly follows the Shadcn UI preset theme configured in `cl
 
 ## 3. Typography
 
-**Display Font:** `'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif`
-**Body Font:** `'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif`
+**Display Font:** `'Outfit', sans-serif`
+**Body Font:** `'Inter', -apple-system, BlinkMacSystemFont, sans-serif`
+**Label/Mono Font:** `'JetBrains Mono', 'SF Mono', monospace`
+
+**Character:** A high-precision, ultra-legible aesthetic where the geometric display face (`Outfit`) pairs with a super-crisp body face (`Inter`) governed by a tight `1.125–1.2` scale ratio.
 **Label/Mono Font:** `'JetBrains Mono', 'SF Mono', 'Roboto Mono', monospace`
 
 **Character:** A high-precision, ultra-legible technical sans where labels, vital signs, data tables, and body prose share one unified, super-crisp family governed by a tight `1.125–1.2` scale ratio (`product` register standard).
@@ -130,7 +265,18 @@ In alignment with our **Restrained** motion and `product` focus, surfaces are **
 ### Named Rules
 **The Flat-By-Default Rule.** Surfaces are flat at rest. Drop shadows and blurs do not exist as static decoration. Elevation only appears when an element dynamically lifts off the canvas to command immediate, exclusive user interaction.
 
-## 5. Components
+## 5. Anti-Slop Safeguards (Hallmark Rules)
+
+These rules are strictly enforced to avoid common AI-generated template anti-patterns.
+
+### Named Rules
+**The No-Pure-Neutrals Rule.** `--background` and surface colors must ALWAYS be tinted slightly towards the primary hue (e.g., `oklch(0.99 0.01 260)`). Never use pure `#ffffff` or `#000000` which reads as flat and synthetic.
+
+**The Typography Pairing Rule.** Never use "Inter-everywhere". Display typography (headings, hero text) must use a dedicated display face (e.g., `Outfit`), paired with `Inter` strictly for body copy.
+
+**The Locked Tokens Rule (No Improvisation).** Never use inline literal color utility classes (e.g., `bg-slate-950`, `text-blue-500`). Every single color class used in the application MUST consume a semantic design token defined in `index.css` (e.g., `bg-primary`, `text-muted-foreground`).
+
+## 6. Components
 
 The SmartCare ICU interface is built strictly using **Shadcn UI** components. We do not use ad-hoc CSS utility classes for complex components. The design tokens (colors, typography, radii) defined in `client/src/index.css` are natively ingested by Shadcn's Tailwind configuration.
 
