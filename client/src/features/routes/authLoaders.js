@@ -37,3 +37,21 @@ export async function requireAuthLoader() {
   }
   return { user };
 }
+
+/**
+ * Role guard factory — wraps requireAuthLoader with a role check.
+ * Redirects to '/' (not a 403 page) if the user's role is not allowed.
+ * Usage: loader: roleGuardLoader(['SYSTEM_ADMIN'])
+ */
+export function roleGuardLoader(allowedRoles) {
+  return async function () {
+    const user = await resolveSession();
+    if (!user) {
+      throw redirect('/login');
+    }
+    if (!allowedRoles.includes(user.role)) {
+      throw redirect('/');
+    }
+    return { user };
+  };
+}
