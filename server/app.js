@@ -1,6 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
-// const cors = require("cors");
+const cors = require("cors");
 // const helmet = require("helmet");
 // var hpp = require("hpp");
 // const { xss } = require("express-xss-sanitizer");
@@ -15,7 +15,12 @@ const app = express();
 
 app.use(express.json());
 app.use(cookieParser());
-// app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  })
+);
 // app.use(helmet());
 // app.use(hpp());
 // app.use(xss());

@@ -1,14 +1,11 @@
-import React from 'react';
+import { RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeProvider';
+import { router } from './features/routes/router';
 
-const App = () => {
+export default function App() {
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <h1 className="text-display font-bold">app</h1>
-      </div>
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
-};
-
-export default App;
+}

@@ -1,0 +1,9 @@
+[
+  {
+    "date": "2026-07-23",
+    "macrostructure": "Workbench",
+    "theme": "design.md (SmartCare ICU)",
+    "enrichment": "EKG craft (index.css)",
+    "brief": "Auth login page — cookie JWT + React Router loaders"
+  }
+]

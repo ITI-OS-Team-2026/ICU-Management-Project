@@ -56,6 +56,18 @@
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Login brand panel (split auth layout) */
+  --login-brand: oklch(0.22 0.035 260);
+  --login-brand-foreground: oklch(0.97 0.01 260);
+  --login-brand-muted: oklch(0.72 0.025 260);
+  --login-brand-ring: oklch(0.45 0.06 260);
+
+  /* Login page canvas — light: soft clinical paper */
+  --login-page: oklch(0.955 0.014 245);
+  --login-page-line: oklch(0.55 0.04 260 / 0.09);
+  --login-page-spot: oklch(0.72 0.12 255 / 0.18);
+  --login-page-spot-2: oklch(0.88 0.04 230 / 0.45);
 }
 
 .dark {
@@ -110,6 +122,17 @@
   --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+
+  --login-brand: oklch(0.18 0.03 260);
+  --login-brand-foreground: oklch(0.96 0.01 260);
+  --login-brand-muted: oklch(0.68 0.025 260);
+  --login-brand-ring: oklch(0.40 0.05 260);
+
+  /* Login page canvas — dark: deep indigo night */
+  --login-page: oklch(0.145 0.028 265);
+  --login-page-line: oklch(0.92 0.02 260 / 0.06);
+  --login-page-spot: oklch(0.45 0.14 260 / 0.28);
+  --login-page-spot-2: oklch(0.22 0.05 240 / 0.55);
 }
 
 @theme inline {
@@ -164,14 +187,45 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+
+  --color-login-brand: var(--login-brand);
+  --color-login-brand-foreground: var(--login-brand-foreground);
+  --color-login-brand-muted: var(--login-brand-muted);
+  --color-login-brand-ring: var(--login-brand-ring);
+  --color-login-page: var(--login-page);
+  --color-login-page-line: var(--login-page-line);
+  --color-login-page-spot: var(--login-page-spot);
+  --color-login-page-spot-2: var(--login-page-spot-2);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html,
   body {
-    @apply bg-background text-foreground;
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .font-tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-display {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .text-headline {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.25;
   }
 }
 
@@ -223,5 +277,111 @@
     animation: none; 
     --sweep: 50%;
   }
+}
+
+/* Login brand panel — concentric monitor rings (CSS craft) */
+.login-monitor {
+  position: relative;
+  width: min(100%, 17.5rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .login-monitor {
+    width: min(100%, 17.5rem);
+  }
+}
+
+@media (min-width: 80rem) {
+  .login-monitor {
+    width: min(100%, 19rem);
+  }
+}
+
+.login-monitor__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--login-brand-ring) 70%, transparent);
+}
+
+.login-monitor__ring--mid {
+  inset: 12%;
+  border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+.login-monitor__ring--inner {
+  inset: 26%;
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+.login-monitor__core {
+  position: absolute;
+  inset: 38%;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 22%, var(--login-brand));
+  color: var(--login-brand-foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent);
+}
+
+.login-monitor__spoke {
+  position: absolute;
+  width: 1px;
+  height: 18%;
+  top: 8%;
+  left: 50%;
+  transform-origin: bottom center;
+  background: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.login-monitor__spoke--1 { transform: translateX(-50%) rotate(0deg); }
+.login-monitor__spoke--2 { transform: translateX(-50%) rotate(72deg); }
+.login-monitor__spoke--3 { transform: translateX(-50%) rotate(144deg); }
+.login-monitor__spoke--4 { transform: translateX(-50%) rotate(216deg); }
+.login-monitor__spoke--5 { transform: translateX(-50%) rotate(288deg); }
+
+.login-page-grid {
+  background-image:
+    linear-gradient(var(--login-page-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--login-page-line) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-brand-grid {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--login-brand-foreground) 5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--login-brand-foreground) 5%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+}
+
+/* Soft clinical atmosphere behind the login card */
+.login-page-atmosphere {
+  background:
+    radial-gradient(
+      55% 45% at 12% 18%,
+      var(--login-page-spot),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 40% at 88% 82%,
+      var(--login-page-spot-2),
+      transparent 72%
+    ),
+    radial-gradient(
+      40% 35% at 70% 20%,
+      color-mix(in oklch, var(--primary) 12%, transparent),
+      transparent 70%
+    );
 }
 
