@@ -1,9 +1,11 @@
-import React from 'react'
+import { RouterProvider } from 'react-router-dom';
+import { ThemeProvider } from './components/ThemeProvider';
+import { router } from './features/routes/router';
 
-const App = () => {
+export default function App() {
   return (
-    <div>App</div>
-  )
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  );
 }
-
-export default App

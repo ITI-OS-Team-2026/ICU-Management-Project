@@ -1,0 +1,16 @@
+[
+  {
+    "date": "2026-07-23",
+    "macrostructure": "Workbench",
+    "theme": "design.md (SmartCare ICU)",
+    "enrichment": "medical motifs (cross/EKG/rings)",
+    "brief": "Login dark canvas — replace square grid with clinical shapes"
+  },
+  {
+    "date": "2026-07-23",
+    "macrostructure": "Workbench",
+    "theme": "design.md (SmartCare ICU)",
+    "enrichment": "EKG craft (index.css)",
+    "brief": "Auth login page — cookie JWT + React Router loaders"
+  }
+]

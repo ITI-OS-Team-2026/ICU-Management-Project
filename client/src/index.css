@@ -1,311 +1,645 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
-@theme {
-  /* ==========================================================================
-     SmartCare ICU — Clean, High-Precision & Minimalist UI Design Tokens
-     Governed by DESIGN.md & PRODUCT.md specifications (Whitespace & Simplicity First)
-     ========================================================================== */
+@custom-variant dark (&:is(.dark *));
 
-  /* Font Families */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Roboto', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Roboto Mono', monospace;
+:root {
+  --background: oklch(0.99 0.01 260);
+  --foreground: oklch(0.3211 0 0);
+  --card: oklch(0.99 0.01 260);
+  --card-foreground: oklch(0.3211 0 0);
+  --popover: oklch(0.99 0.01 260);
+  --popover-foreground: oklch(0.3211 0 0);
+  --primary: oklch(0.6225 0.2041 259.9027);
+  --primary-foreground: oklch(1.0000 0 0);
+  --secondary: oklch(0.9665 0.0045 258.3247);
+  --secondary-foreground: oklch(0.4419 0.0375 257.2811);
+  --muted: oklch(0.9846 0.0017 247.8389);
+  --muted-foreground: oklch(0.5471 0.0321 263.2921);
+  --accent: oklch(0.9510 0.0267 237.5723);
+  --accent-foreground: oklch(0.3742 0.1844 263.9420);
+  --destructive: oklch(0.6496 0.2362 26.9032);
+  --destructive-foreground: oklch(1.0000 0 0);
+  --border: oklch(0.85 0.015 260);
+  --input: oklch(0.85 0.015 260);
+  --ring: oklch(0.6225 0.2041 259.9027);
+  --chart-1: oklch(0.6225 0.2041 259.9027);
+  --chart-2: oklch(0.5469 0.2507 262.8085);
+  --chart-3: oklch(0.4902 0.2693 263.7106);
+  --chart-4: oklch(0.4234 0.2370 263.9162);
+  --chart-5: oklch(0.3742 0.1844 263.9420);
+  --sidebar: oklch(0.9846 0.0017 247.8389);
+  --sidebar-foreground: oklch(0.3211 0 0);
+  --sidebar-primary: oklch(0.6225 0.2041 259.9027);
+  --sidebar-primary-foreground: oklch(1.0000 0 0);
+  --sidebar-accent: oklch(0.9510 0.0267 237.5723);
+  --sidebar-accent-foreground: oklch(0.3742 0.1844 263.9420);
+  --sidebar-border: oklch(0.85 0.015 260);
+  --sidebar-ring: oklch(0.6225 0.2041 259.9027);
+  --font-sans: Inter, sans-serif;
+  --font-display: Outfit, sans-serif;
+  --font-serif: Source Serif 4, serif;
+  --font-mono: JetBrains Mono, monospace;
+  --radius: 1.15rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
 
-  /* Color Palette: Full Palette (Deliberate Roles) */
-  /* Surfaces - Dark Mode (Clean Minimalist Slate) */
-  --color-surface-dark: oklch(18% 0.015 250);          /* #161a1d */
-  --color-surface-dark-card: oklch(22% 0.02 250);     /* #1f2428 */
-  --color-surface-dark-elevated: oklch(26% 0.025 250); /* #292e33 */
-  
-  /* Surfaces - Light Mode (Hospital Day Shift Option) */
-  --color-surface-light: oklch(97% 0.005 230);         /* #f6f7f9 */
-  --color-surface-light-card: oklch(99% 0.002 230);    /* #ffffff */
-  --color-surface-light-elevated: oklch(95% 0.008 230);/* #f0f2f5 */
+  /* Login brand panel (split auth layout) */
+  --login-brand: oklch(0.22 0.035 260);
+  --login-brand-foreground: oklch(0.97 0.01 260);
+  --login-brand-muted: oklch(0.72 0.025 260);
+  --login-brand-ring: oklch(0.45 0.06 260);
 
-  /* High-Contrast Ink (Strict ≥4.5:1 WCAG AA Compliance) */
-  --color-ink-dark: oklch(95% 0.01 240);               /* Primary text on dark backgrounds */
-  --color-ink-dark-muted: oklch(76% 0.015 240);        /* Secondary/label text on dark (≥4.5:1) */
-  --color-ink-light: oklch(20% 0.02 250);              /* Primary text on light backgrounds */
-  --color-ink-light-muted: oklch(42% 0.02 250);        /* Secondary/label text on light (≥4.5:1) */
-
-  /* Semantic Clinical Roles */
-  /* Primary Telemetry (Medical Cyan/Teal) */
-  --color-cyan-base: oklch(72% 0.14 200);              /* Active telemetry, primary focus ring */
-  --color-cyan-hover: oklch(65% 0.14 200);             /* Hover/active state */
-  --color-cyan-subtle: oklch(72% 0.14 200 / 15%);      /* Translucent active container */
-
-  /* P0 Emergency Alerts & Critical Vitals (Emergency Oxblood/Red) */
-  --color-emergency-base: oklch(60% 0.22 28);          /* P0 critical alarm, destructive action */
-  --color-emergency-hover: oklch(53% 0.22 28);         /* Hover state */
-  --color-emergency-subtle: oklch(60% 0.22 28 / 18%);  /* Translucent P0 alarm banner */
-
-  /* P1 Warnings & Out-of-Range Shifts (Clinical Amber) */
-  --color-warning-base: oklch(78% 0.18 70);            /* P1 warning, vitals out of baseline */
-  --color-warning-subtle: oklch(78% 0.18 70 / 15%);    /* Translucent P1 warning badge */
-
-  /* Stable & Confirmed AI Reasoning (Stable Emerald) */
-  --color-stable-base: oklch(72% 0.17 155);            /* Normal range, AI reasoning confirmation */
-  --color-stable-subtle: oklch(72% 0.17 155 / 15%);    /* Translucent stable badge */
-
-  /* Borders & Separators */
-  --color-border-dark: oklch(32% 0.02 250);            /* Crisp 1px container outline on dark */
-  --color-border-light: oklch(88% 0.01 230);           /* Crisp 1px container outline on light */
-
-  /* Fixed Rem Typography Hierarchy (The Fixed Rem Scale Rule) */
-  --text-display: 2rem;                                /* 32px - Bedside monitor hero callouts */
-  --text-headline: 1.5rem;                             /* 24px - Dashboard section titles */
-  --text-title: 1.125rem;                              /* 18px - Panel headers, modal titles */
-  --text-body: 0.9375rem;                              /* 15px - Clinical notes, reasoning prose */
-  --text-label: 0.8125rem;                             /* 13px - Table headers, status badge text */
-  --text-vital-number: 1.75rem;                        /* 28px - Large numerical vitals display */
-
-  /* Shape & Corner Radii (Restrained & High Precision) */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-full: 9999px;
-
-  /* Elevation Shadows (Restrained: Active Elevation Only, Flat by Default) */
-  --shadow-popover: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 0 1px 1px rgba(255, 255, 255, 0.08);
-  --shadow-modal: 0 12px 36px -4px rgba(0, 0, 0, 0.65), 0 0 1px 1px rgba(255, 255, 255, 0.12);
-  --shadow-sticky: 0 2px 12px -2px rgba(0, 0, 0, 0.35);
-
-  /* Semantic Z-Index Scale */
-  --z-dropdown: 40;
-  --z-sticky: 50;
-  --z-modal-backdrop: 60;
-  --z-modal: 70;
-  --z-toast: 80;
-  --z-tooltip: 90;
-
-  /* Motion Timing & Easing (Restrained: 150-200ms ease-out-quart) */
-  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-  --duration-fast: 150ms;
-  --duration-normal: 200ms;
+  /* Login page canvas — light: soft clinical paper */
+  --login-page: oklch(0.955 0.014 245);
+  --login-page-line: oklch(0.55 0.04 260 / 0.09);
+  --login-page-spot: oklch(0.72 0.12 255 / 0.18);
+  --login-page-spot-2: oklch(0.88 0.04 230 / 0.45);
+  --login-motif: oklch(0.45 0.08 260 / 0.14);
+  --login-motif-strong: oklch(0.50 0.12 260 / 0.22);
 }
 
-/* ==========================================================================
-   Base Layer & Tabular Precision Defaults
-   ========================================================================== */
+.dark {
+  --background: oklch(0.14 0.01 260);
+  --foreground: oklch(0.92 0.01 260);
+  --card: oklch(0.18 0.01 260);
+  --card-foreground: oklch(0.92 0.01 260);
+  --popover: oklch(0.18 0.01 260);
+  --popover-foreground: oklch(0.92 0.01 260);
+  --primary: oklch(0.6225 0.2041 259.9027);
+  --primary-foreground: oklch(0.96 0.01 260);
+  --secondary: oklch(0.22 0.01 260);
+  --secondary-foreground: oklch(0.92 0.01 260);
+  --muted: oklch(0.20 0.01 260);
+  --muted-foreground: oklch(0.65 0.01 260);
+  --accent: oklch(0.5802 0.1915 259.7416);
+  --accent-foreground: oklch(0.88 0.05 260);
+  --destructive: oklch(0.6496 0.2362 26.9032);
+  --destructive-foreground: oklch(0.96 0.01 260);
+  --border: oklch(0.24 0.01 260);
+  --input: oklch(0.24 0.01 260);
+  --ring: oklch(0.6225 0.2041 259.9027);
+  --chart-1: oklch(0.7122 0.1526 254.9868);
+  --chart-2: oklch(0.6225 0.2041 259.9027);
+  --chart-3: oklch(0.5739 0.2334 262.7735);
+  --chart-4: oklch(0.6225 0.2041 259.9027);
+  --chart-5: oklch(0.6225 0.2041 259.9027);
+  --sidebar: oklch(0.14 0.01 260);
+  --sidebar-foreground: oklch(0.92 0.01 260);
+  --sidebar-primary: oklch(0.6225 0.2041 259.9027);
+  --sidebar-primary-foreground: oklch(0.96 0.01 260);
+  --sidebar-accent: oklch(0.6225 0.2041 259.9027);
+  --sidebar-accent-foreground: oklch(0.88 0.05 260);
+  --sidebar-border: oklch(0.24 0.01 260);
+  --sidebar-ring: oklch(0.6225 0.2041 259.9027);
+  --font-sans: Inter, sans-serif;
+  --font-display: Outfit, sans-serif;
+  --font-serif: Source Serif 4, serif;
+  --font-mono: JetBrains Mono, monospace;
+  --radius: 1.15rem;
+  --shadow-x: 0;
+  --shadow-y: 1px;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
+  --shadow-sm: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 1px 2px -1px hsl(0 0% 0% / 0.10);
+  --shadow-md: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 2px 4px -1px hsl(0 0% 0% / 0.10);
+  --shadow-lg: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 4px 6px -1px hsl(0 0% 0% / 0.10);
+  --shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
+  --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
+
+  --login-brand: oklch(0.18 0.03 260);
+  --login-brand-foreground: oklch(0.96 0.01 260);
+  --login-brand-muted: oklch(0.68 0.025 260);
+  --login-brand-ring: oklch(0.40 0.05 260);
+
+  /* Login page canvas — dark: deep clinical night */
+  --login-page: oklch(0.135 0.032 265);
+  --login-page-line: oklch(0.78 0.05 260 / 0.10);
+  --login-page-spot: oklch(0.42 0.16 260 / 0.32);
+  --login-page-spot-2: oklch(0.20 0.06 245 / 0.60);
+  --login-motif: oklch(0.72 0.08 260 / 0.16);
+  --login-motif-strong: oklch(0.68 0.14 260 / 0.28);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+
+  --color-login-brand: var(--login-brand);
+  --color-login-brand-foreground: var(--login-brand-foreground);
+  --color-login-brand-muted: var(--login-brand-muted);
+  --color-login-brand-ring: var(--login-brand-ring);
+  --color-login-page: var(--login-page);
+  --color-login-page-line: var(--login-page-line);
+  --color-login-page-spot: var(--login-page-spot);
+  --color-login-page-spot-2: var(--login-page-spot-2);
+  --color-login-motif: var(--login-motif);
+  --color-login-motif-strong: var(--login-motif-strong);
+}
 
 @layer base {
-  html {
-    font-family: var(--font-sans);
-    background-color: var(--color-surface-dark);
-    color: var(--color-ink-dark);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  * {
+    @apply border-border outline-ring/50;
   }
-
-  /* Strict Reduced Motion Enforcement */
-  @media (prefers-reduced-motion: reduce) {
-    *, ::before, ::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
+  html,
+  body {
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
   }
 }
 
-/* ==========================================================================
-   Clinical Utility & Component Classes (Tailwind v4 @utility / @layer)
-   ========================================================================== */
-
 @layer utilities {
-  /* Tabular Precision for all Vitals, Timestamps, and Fluid Volumes */
   .font-tnum {
     font-variant-numeric: tabular-nums;
   }
-
-  /* Clinical Container Primitives (Flat by Default, High Contrast Borders) */
-  .clinical-card {
-    background-color: var(--color-surface-dark-card);
-    border: 1px solid var(--color-border-dark);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-  }
-
-  .clinical-card-light {
-    background-color: var(--color-surface-light-card);
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-md);
-    padding: 1rem;
-    color: var(--color-ink-light);
-  }
-
-  /* Clean Minimalist Page Layouts (Use for simple pages, forms, settings, and auth) */
-  .clinical-page {
-    min-height: 100vh;
-    background-color: var(--color-surface-dark);
-    color: var(--color-ink-dark);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 1.5rem;
-  }
-
-  .clinical-page-container {
-    width: 100%;
-    max-width: 28rem;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Sticky Clinical Context Header (Use ONLY on main multi-patient monitoring dashboard. Do NOT use on simple forms or auth screens) */
-  .sticky-context-bar {
-    position: sticky;
-    top: 0;
-    z-index: var(--z-sticky);
-    background-color: var(--color-surface-dark);
-    border-bottom: 1px solid var(--color-border-dark);
-    padding: 0.75rem 1.25rem;
-    box-shadow: var(--shadow-sticky);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  /* Status Badges & Alert Pills (Use ONLY for active telemetry or triage. Do NOT use as decorative slop on simple forms) */
-  .badge-p0 {
-    background-color: var(--color-emergency-subtle);
-    color: var(--color-emergency-base);
-    border: 1px solid oklch(60% 0.22 28 / 40%);
-    padding: 0.25rem 0.625rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--text-label);
+  .text-display {
+    font-family: var(--font-display);
+    font-size: 2rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
+    line-height: 1.15;
   }
-
-  .badge-p1 {
-    background-color: var(--color-warning-subtle);
-    color: var(--color-warning-base);
-    border: 1px solid oklch(78% 0.18 70 / 40%);
-    padding: 0.25rem 0.625rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--text-label);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-
-  .badge-stable {
-    background-color: var(--color-stable-subtle);
-    color: var(--color-stable-base);
-    border: 1px solid oklch(72% 0.17 155 / 40%);
-    padding: 0.25rem 0.625rem;
-    border-radius: var(--radius-sm);
-    font-size: var(--text-label);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-
-  /* Interactive Buttons (Min 44x44 / 48x48 Touch Targets for Bedside Tablets) */
-  .btn-primary {
-    background-color: var(--color-cyan-base);
-    color: var(--color-surface-dark);
+  .text-headline {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
     font-weight: 600;
-    font-size: var(--text-body);
-    padding: 0.625rem 1.25rem;
-    border-radius: var(--radius-md);
-    transition: background-color var(--duration-fast) var(--ease-out-quart),
-                transform var(--duration-fast) var(--ease-out-quart);
-    min-height: 48px;
-    min-width: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    cursor: pointer;
-  }
-
-  .btn-primary:hover {
-    background-color: var(--color-cyan-hover);
-  }
-
-  .btn-primary:focus-visible {
-    outline: 2px solid var(--color-cyan-base);
-    outline-offset: 2px;
-  }
-
-  .btn-emergency {
-    background-color: var(--color-emergency-base);
-    color: #ffffff;
-    font-weight: 600;
-    font-size: var(--text-body);
-    padding: 0.625rem 1.25rem;
-    border-radius: var(--radius-md);
-    transition: background-color var(--duration-fast) var(--ease-out-quart);
-    min-height: 48px;
-    min-width: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    cursor: pointer;
-  }
-
-  .btn-emergency:hover {
-    background-color: var(--color-emergency-hover);
-  }
-
-  .btn-secondary {
-    background-color: var(--color-surface-dark-card);
-    color: var(--color-ink-dark);
-    border: 1px solid var(--color-border-dark);
-    font-weight: 500;
-    font-size: var(--text-body);
-    padding: 0.625rem 1.25rem;
-    border-radius: var(--radius-md);
-    transition: background-color var(--duration-fast) var(--ease-out-quart);
-    min-height: 48px;
-    min-width: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    cursor: pointer;
-  }
-
-  .btn-secondary:hover {
-    background-color: var(--color-surface-dark-elevated);
-  }
-
-  /* High-Precision Form Controls (Adaptive Touch & Keyboard Tabbing) */
-  .clinical-input {
-    background-color: var(--color-surface-dark);
-    border: 1px solid var(--color-border-dark);
-    border-radius: var(--radius-md);
-    padding: 0.625rem 0.875rem;
-    color: var(--color-ink-dark);
-    font-family: var(--font-sans);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--text-body);
-    min-height: 48px;
-    width: 100%;
-    transition: border-color var(--duration-fast) var(--ease-out-quart),
-                box-shadow var(--duration-fast) var(--ease-out-quart);
-  }
-
-  .clinical-input:focus {
-    outline: none;
-    border-color: var(--color-cyan-base);
-    box-shadow: 0 0 0 1px var(--color-cyan-base);
-  }
-
-  .clinical-input::placeholder {
-    color: var(--color-ink-dark-muted);
+    line-height: 1.25;
   }
 }
+
+/* Tier A: Custom CSS Art - Clinical EKG Trace */
+@property --sweep {
+  syntax: "<percentage>";
+  initial-value: -20%;
+  inherits: false;
+}
+
+.css-ekg {
+  width: 140%;
+  height: 140px;
+  position: absolute;
+  right: -20%;
+  top: 45%;
+  transform: translateY(-50%) rotate(-1.5deg);
+  pointer-events: none;
+  background: linear-gradient(90deg, 
+    color-mix(in oklch, var(--color-primary-foreground) 10%, transparent) 0%, 
+    color-mix(in oklch, var(--color-primary-foreground) 10%, transparent) calc(var(--sweep) - 15%),
+    var(--color-primary-foreground) var(--sweep), 
+    color-mix(in oklch, var(--color-primary-foreground) 10%, transparent) calc(var(--sweep) + 5%),
+    color-mix(in oklch, var(--color-primary-foreground) 10%, transparent) 100%
+  );
+  clip-path: polygon(
+    0% 49%, 
+    15% 49%, 17% 35%, 19% 49%,
+    28% 49%, 31% 20%, 35% 90%, 39% 10%, 43% 70%, 46% 49%, 
+    55% 49%, 60% 35%, 65% 49%,
+    100% 49%, 
+    100% 51%, 
+    64% 51%, 60% 40%, 56% 51%,
+    47% 51%, 43% 75%, 39% 16%, 35% 95%, 31% 26%, 27% 51%, 
+    20% 51%, 17% 40%, 14% 51%,
+    0% 51%
+  );
+  animation: ekg-sweep 3.5s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes ekg-sweep {
+  0% { --sweep: -20%; }
+  100% { --sweep: 120%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .css-ekg { 
+    animation: none; 
+    --sweep: 50%;
+  }
+}
+
+/* Login brand panel — concentric monitor rings (CSS craft) */
+.login-monitor {
+  position: relative;
+  width: min(100%, 17.5rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+@media (min-width: 64rem) {
+  .login-monitor {
+    width: min(100%, 17.5rem);
+  }
+}
+
+@media (min-width: 80rem) {
+  .login-monitor {
+    width: min(100%, 19rem);
+  }
+}
+
+.login-monitor__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklch, var(--login-brand-ring) 70%, transparent);
+}
+
+.login-monitor__ring--mid {
+  inset: 12%;
+  border-color: color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+.login-monitor__ring--inner {
+  inset: 26%;
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+}
+
+.login-monitor__core {
+  position: absolute;
+  inset: 38%;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--primary) 22%, var(--login-brand));
+  color: var(--login-brand-foreground);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent);
+}
+
+.login-monitor__spoke {
+  position: absolute;
+  width: 1px;
+  height: 18%;
+  top: 8%;
+  left: 50%;
+  transform-origin: bottom center;
+  background: color-mix(in oklch, var(--primary) 45%, transparent);
+}
+
+.login-monitor__spoke--1 { transform: translateX(-50%) rotate(0deg); }
+.login-monitor__spoke--2 { transform: translateX(-50%) rotate(72deg); }
+.login-monitor__spoke--3 { transform: translateX(-50%) rotate(144deg); }
+.login-monitor__spoke--4 { transform: translateX(-50%) rotate(216deg); }
+.login-monitor__spoke--5 { transform: translateX(-50%) rotate(288deg); }
+
+.login-brand-grid {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--login-brand-foreground) 5%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--login-brand-foreground) 5%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+}
+
+/* Soft clinical atmosphere behind the login card */
+.login-page-atmosphere {
+  background:
+    radial-gradient(
+      55% 45% at 12% 18%,
+      var(--login-page-spot),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 40% at 88% 82%,
+      var(--login-page-spot-2),
+      transparent 72%
+    ),
+    radial-gradient(
+      40% 35% at 70% 20%,
+      color-mix(in oklch, var(--primary) 12%, transparent),
+      transparent 70%
+    );
+}
+
+/*
+ * Hallmark · enrichment: medical motifs (Tier A CSS + inline SVG paths)
+ * Replaces square grid — crosses, pulse rings, EKG traces, capsule outlines
+ */
+.login-page-motifs {
+  overflow: hidden;
+  color: var(--login-motif);
+}
+
+.login-motif {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Medical cross (plus) via two bars */
+.login-motif--cross {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.login-motif--cross::before,
+.login-motif--cross::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  background: var(--login-motif-strong);
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.login-motif--cross::before {
+  width: 28%;
+  height: 100%;
+}
+
+.login-motif--cross::after {
+  width: 100%;
+  height: 28%;
+}
+
+.login-motif--cross-a {
+  top: 8%;
+  left: 7%;
+  width: 3.25rem;
+  height: 3.25rem;
+  opacity: 0.85;
+  animation: login-motif-float 9s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--cross-b {
+  top: 62%;
+  right: 9%;
+  width: 2.25rem;
+  height: 2.25rem;
+  opacity: 0.65;
+  animation: login-motif-float 11s var(--ease-in-out, ease-in-out) 1.2s infinite reverse;
+}
+
+.login-motif--cross-c {
+  bottom: 14%;
+  left: 18%;
+  width: 1.75rem;
+  height: 1.75rem;
+  opacity: 0.5;
+  animation: login-motif-float 10s var(--ease-in-out, ease-in-out) 0.6s infinite;
+}
+
+/* Pulse / vitals rings */
+.login-motif--ring {
+  border-radius: 9999px;
+  border: 1.5px solid var(--login-motif-strong);
+  aspect-ratio: 1;
+}
+
+.login-motif--ring-a {
+  top: 18%;
+  right: 14%;
+  width: min(11rem, 28vw);
+  opacity: 0.55;
+  animation: login-motif-pulse 6.5s var(--ease-out, ease-out) infinite;
+}
+
+.login-motif--ring-b {
+  bottom: 10%;
+  left: 6%;
+  width: min(8.5rem, 22vw);
+  opacity: 0.4;
+  animation: login-motif-pulse 8s var(--ease-out, ease-out) 1.8s infinite;
+}
+
+.login-motif--ring-c {
+  top: 42%;
+  left: 72%;
+  width: min(5.5rem, 16vw);
+  opacity: 0.35;
+  border-width: 1px;
+  animation: login-motif-pulse 7s var(--ease-out, ease-out) 0.9s infinite;
+}
+
+/* EKG path motifs */
+.login-motif--ekg {
+  width: min(16rem, 42vw);
+  height: auto;
+  color: var(--login-motif-strong);
+}
+
+.login-motif--ekg-a {
+  top: 28%;
+  left: 4%;
+  opacity: 0.7;
+  transform: rotate(-6deg);
+  animation: login-motif-drift 12s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--ekg-b {
+  bottom: 22%;
+  right: 5%;
+  width: min(13rem, 34vw);
+  opacity: 0.55;
+  transform: rotate(4deg);
+  animation: login-motif-drift 14s var(--ease-in-out, ease-in-out) 2s infinite reverse;
+}
+
+/* Soft vital dots */
+.login-motif--dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--login-motif-strong);
+}
+
+.login-motif--dot-a {
+  top: 14%;
+  left: 42%;
+  opacity: 0.7;
+  animation: login-motif-blink 4.5s var(--ease-in-out, ease-in-out) infinite;
+}
+
+.login-motif--dot-b {
+  top: 48%;
+  left: 12%;
+  width: 0.3rem;
+  height: 0.3rem;
+  opacity: 0.55;
+  animation: login-motif-blink 5.5s var(--ease-in-out, ease-in-out) 1s infinite;
+}
+
+.login-motif--dot-c {
+  bottom: 18%;
+  right: 28%;
+  width: 0.35rem;
+  height: 0.35rem;
+  opacity: 0.6;
+  animation: login-motif-blink 6s var(--ease-in-out, ease-in-out) 2.2s infinite;
+}
+
+/* Capsule / pill outlines */
+.login-motif--capsule {
+  width: 2.75rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--login-motif-strong);
+}
+
+.login-motif--capsule-a {
+  top: 72%;
+  left: 48%;
+  opacity: 0.45;
+  transform: rotate(-28deg);
+  animation: login-motif-float 13s var(--ease-in-out, ease-in-out) 0.4s infinite;
+}
+
+.login-motif--capsule-b {
+  top: 12%;
+  right: 32%;
+  width: 2.1rem;
+  height: 0.9rem;
+  opacity: 0.4;
+  transform: rotate(18deg);
+  animation: login-motif-float 15s var(--ease-in-out, ease-in-out) 1.5s infinite reverse;
+}
+
+@keyframes login-motif-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -0.4rem;
+  }
+}
+
+@keyframes login-motif-drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0.35rem -0.25rem;
+  }
+}
+
+@keyframes login-motif-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes login-motif-blink {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-motif--cross-a,
+  .login-motif--cross-b,
+  .login-motif--cross-c,
+  .login-motif--ring-a,
+  .login-motif--ring-b,
+  .login-motif--ring-c,
+  .login-motif--ekg-a,
+  .login-motif--ekg-b,
+  .login-motif--dot-a,
+  .login-motif--dot-b,
+  .login-motif--dot-c,
+  .login-motif--capsule-a,
+  .login-motif--capsule-b {
+    animation: none;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .login-motif--ring-c,
+  .login-motif--capsule-b,
+  .login-motif--ekg-b,
+  .login-motif--cross-c {
+    display: none;
+  }
+
+  .login-motif--ring-a {
+    width: min(8rem, 36vw);
+  }
+
+  .login-motif--ekg-a {
+    width: min(11rem, 55vw);
+  }
+}
+
