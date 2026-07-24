@@ -23,6 +23,18 @@ const formatAdmission = (a) => ({
   archived_at: a.archivedAt,
   created_at: a.createdAt,
   updated_at: a.updatedAt,
+  patient: a.patient ? {
+    id: a.patient.id,
+    mrn: a.patient.mrn,
+    name: a.patient.name,
+    age: a.patient.age,
+    gender: a.patient.gender,
+  } : null,
+  bed: a.bed ? {
+    id: a.bed.id,
+    bed_number: a.bed.bedNumber,
+    status: a.bed.status,
+  } : null,
 });
 
 const formatNurseAssignment = (n) => ({
@@ -131,6 +143,10 @@ const getAdmissions = async (query) => {
       skip,
       take: limit,
       orderBy: { admittedAt: "desc" },
+      include: {
+        patient: true,
+        bed: true,
+      },
     }),
     prisma.admission.count({ where }),
   ]);
@@ -142,7 +158,13 @@ const getAdmissions = async (query) => {
 };
 
 const getAdmissionById = async (id) => {
-  const admission = await prisma.admission.findUnique({ where: { id } });
+  const admission = await prisma.admission.findUnique({
+    where: { id },
+    include: {
+      patient: true,
+      bed: true,
+    },
+  });
   if (!admission || admission.isArchived) {
     throw new APIError("Admission not found", 404);
   }
