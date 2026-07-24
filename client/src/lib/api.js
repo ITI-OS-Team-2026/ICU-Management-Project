@@ -14,12 +14,14 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // If the error is a 401 and we're not already on the login page, we might want to redirect.
-    // The actual redirection is typically handled in the AuthStore or a top-level component, 
-    // but returning a rejected promise allows the caller to handle it.
+    // If the error is a 401 and we're not already on the login page, redirect.
     if (error.response && error.response.status === 401) {
-      console.warn("Unauthorized access detected (401). Please log in again.");
-      // Optional: trigger a custom event that authStore can listen to, or just let components handle it
+      if (window.location.pathname !== '/login') {
+        console.warn("Unauthorized access detected (401). Redirecting to login.");
+        // Clear zustand session by triggering a custom event or modifying localStorage directly if persisted.
+        // Easiest is just redirecting, the route loader will try to fetch /auth/me, fail, and clear state.
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);
