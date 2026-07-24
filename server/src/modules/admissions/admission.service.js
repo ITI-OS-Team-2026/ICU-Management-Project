@@ -36,6 +36,14 @@ const formatAdmission = (a) => ({
     bed_number: a.bed.bedNumber,
     status: a.bed.status,
   } : null,
+  doctor: a.doctor ? {
+    id: a.doctor.id,
+    first_name: a.doctor.firstName,
+    last_name: a.doctor.lastName,
+    email: a.doctor.email,
+    role: a.doctor.role,
+  } : null,
+  nurses: a.nurses ? a.nurses.map(formatNurseAssignment) : [],
 });
 
 const formatNurseAssignment = (n) => ({
@@ -260,6 +268,13 @@ const getAdmissions = async (query) => {
       include: {
         patient: true,
         bed: true,
+        doctor: true,
+        nurses: {
+          where: { isArchived: false },
+          include: {
+            nurse: true,
+          },
+        },
       },
     }),
     prisma.admission.count({ where }),
@@ -277,6 +292,13 @@ const getAdmissionById = async (id) => {
     include: {
       patient: true,
       bed: true,
+      doctor: true,
+      nurses: {
+        where: { isArchived: false },
+        include: {
+          nurse: true,
+        },
+      },
     },
   });
   if (!admission || admission.isArchived) {
