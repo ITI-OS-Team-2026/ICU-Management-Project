@@ -37,6 +37,8 @@ const medicalHistoryCreateSchema = Joi.object({
   consanguinity: Joi.boolean().optional(),
   family_similar_conditions: Joi.string().allow(null, "").optional(),
   inherited_diseases: Joi.alternatives().try(Joi.array(), Joi.object()).allow(null).optional(),
+  free_text: Joi.string().allow(null, "").optional(),
+  custom_fields: Joi.object().allow(null).optional(),
 });
 
 const medicalHistoryUpdateSchema = Joi.object({
@@ -51,6 +53,8 @@ const medicalHistoryUpdateSchema = Joi.object({
   consanguinity: Joi.boolean().optional(),
   family_similar_conditions: Joi.string().allow(null, "").optional(),
   inherited_diseases: Joi.alternatives().try(Joi.array(), Joi.object()).allow(null).optional(),
+  free_text: Joi.string().allow(null, "").optional(),
+  custom_fields: Joi.object().allow(null).optional(),
 }).min(1);
 
 module.exports = {
