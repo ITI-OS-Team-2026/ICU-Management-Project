@@ -1,7 +1,7 @@
 import React from 'react';
 import { useThemeStore } from '../store/themeStore';
 import { Sun, Moon, Monitor } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,16 +14,10 @@ export function ThemeToggle() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="icon" 
-          className="rounded-full w-10 h-10 border-border bg-background shadow-sm hover:bg-muted"
-        >
-          <Sun className="h-4 w-4 text-primary rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 text-primary rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
+      <DropdownMenuTrigger className={buttonVariants({ variant: "outline", size: "icon" }) + " rounded-full w-10 h-10 border-border bg-background shadow-sm hover:bg-muted"}>
+        <Sun className="h-4 w-4 text-primary rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-4 w-4 text-primary rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <span className="sr-only">Toggle theme</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="bg-popover border-border">
         <DropdownMenuItem onClick={() => setTheme('light')} className="cursor-pointer">
