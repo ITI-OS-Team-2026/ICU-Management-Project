@@ -41,6 +41,8 @@ model Admission {
   followUps           FollowUp[]
   documents           MedicalDocument[]
   documentEmbeddings  DocumentEmbedding[]
+  aiSummaries         AiSummary[]
+  aiQueryLogs         AiQueryLog[]
 
   @@index([patientId])
   @@index([status])

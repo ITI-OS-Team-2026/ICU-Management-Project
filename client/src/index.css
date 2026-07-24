@@ -70,6 +70,11 @@
   --login-page-spot-2: oklch(0.88 0.04 230 / 0.45);
   --login-motif: oklch(0.45 0.08 260 / 0.14);
   --login-motif-strong: oklch(0.50 0.12 260 / 0.22);
+
+  --status-occupied: oklch(0.35 0.15 260);
+  --status-available: oklch(0.40 0.11 150);
+  --status-maintenance: oklch(0.55 0.16 50);
+  --status-reserved: oklch(0.45 0.18 300);
 }
 
 .dark {
@@ -137,6 +142,11 @@
   --login-page-spot-2: oklch(0.20 0.06 245 / 0.60);
   --login-motif: oklch(0.72 0.08 260 / 0.16);
   --login-motif-strong: oklch(0.68 0.14 260 / 0.28);
+
+  --status-occupied: oklch(0.60 0.15 260);
+  --status-available: oklch(0.65 0.15 150);
+  --status-maintenance: oklch(0.70 0.18 50);
+  --status-reserved: oklch(0.65 0.18 300);
 }
 
 @theme inline {
@@ -202,6 +212,11 @@
   --color-login-page-spot-2: var(--login-page-spot-2);
   --color-login-motif: var(--login-motif);
   --color-login-motif-strong: var(--login-motif-strong);
+
+  --color-status-occupied: var(--status-occupied);
+  --color-status-available: var(--status-available);
+  --color-status-maintenance: var(--status-maintenance);
+  --color-status-reserved: var(--status-reserved);
 }
 
 @layer base {

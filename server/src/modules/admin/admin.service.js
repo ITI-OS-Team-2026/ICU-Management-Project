@@ -218,12 +218,59 @@ const getBeds = async ({ status }) => {
   const where = {};
   if (status) where.status = status;
 
-  const beds = await prisma.bed.findMany({ where });
-  return beds.map(b => ({
-    id: b.id,
-    bed_number: b.bedNumber,
-    status: b.status
-  }));
+  const beds = await prisma.bed.findMany({
+    where,
+    select: {
+      id: true,
+      bedNumber: true,
+      status: true,
+      admissions: {
+        where: { status: "ACTIVE" },
+        select: {
+          id: true,
+          patient: {
+            select: {
+              name: true,
+            }
+          },
+          vitalSigns: {
+            orderBy: { recordedAt: "desc" },
+            take: 1,
+            select: {
+              pulse: true
+            }
+          },
+          diagnoses: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            select: {
+              conditionName: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return beds.map(b => {
+    const activeAdmission = b.admissions?.[0] || null;
+    const patientName = activeAdmission?.patient 
+      ? activeAdmission.patient.name 
+      : null;
+    const latestVitals = activeAdmission?.vitalSigns?.[0] || null;
+    const primaryDiagnosis = activeAdmission?.diagnoses?.[0]?.conditionName || null;
+
+    return {
+      id: b.id,
+      bed_number: b.bedNumber,
+      status: b.status,
+      admissionId: activeAdmission?.id || null,
+      patientName,
+      diagnosis: primaryDiagnosis,
+      heartRate: latestVitals?.pulse || null,
+      spo2: latestVitals?.spo2 || null,
+    };
+  });
 };
 
 const updateBed = async (req, id, data) => {

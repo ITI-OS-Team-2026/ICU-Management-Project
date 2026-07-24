@@ -1,0 +1,43 @@
+// Artificial Intelligence — summaries and RAG query logs (Wave 7 / API §14).
+
+enum AiSummaryType {
+  TWENTY_FOUR_HOUR @map("24_HOUR")
+  ON_DEMAND        @map("ON_DEMAND")
+}
+
+model AiSummary {
+  id             String        @id @default(uuid())
+  admissionId    String        @map("admission_id")
+  requestedById  String        @map("requested_by")
+  summaryType    AiSummaryType @map("summary_type")
+  overallSummary String        @map("overall_summary") @db.Text
+  generatedAt    DateTime      @default(now()) @map("generated_at")
+  isArchived     Boolean       @default(false) @map("is_archived")
+  archivedAt     DateTime?     @map("archived_at")
+
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  requestedBy User      @relation("AiSummaryRequester", fields: [requestedById], references: [id])
+
+  @@index([admissionId])
+  @@index([requestedById])
+  @@index([generatedAt])
+  @@map("ai_summaries")
+}
+
+model AiQueryLog {
+  id           String   @id @default(uuid())
+  admissionId  String   @map("admission_id")
+  askedById    String   @map("asked_by")
+  question     String   @db.Text
+  aiResponse   String   @map("ai_response") @db.Text
+  citedSources Json?    @map("cited_sources")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  askedBy   User      @relation("AiQueryAsker", fields: [askedById], references: [id])
+
+  @@index([admissionId])
+  @@index([askedById])
+  @@index([createdAt])
+  @@map("ai_query_logs")
+}
