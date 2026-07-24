@@ -10,4 +10,8 @@ module.exports = {
   cookieMaxAge: 12 * 60 * 60 * 1000, // 12 hours in ms
   lockoutThreshold: 5,
   lockoutDurationMinutes: 15,
+  // AI orchestration (n8n) — FR-3.1 / FR-3.2 graceful degradation at 6s
+  n8nSummaryWebhookUrl: process.env.N8N_SUMMARY_WEBHOOK_URL || "",
+  n8nQueryWebhookUrl: process.env.N8N_QUERY_WEBHOOK_URL || "",
+  n8nTimeoutMs: Number(process.env.N8N_TIMEOUT_MS) || 6000,
 };
