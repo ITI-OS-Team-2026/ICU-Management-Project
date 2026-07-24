@@ -25,7 +25,7 @@ router.post(
 router.get(
   "/users",
   verifyToken,
-  restrictTo(["SYSTEM_ADMIN"]),
+  restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT"]),
   adminController.getUsers
 );
 
