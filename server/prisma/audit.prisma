@@ -8,6 +8,8 @@ enum AuditAction {
   ARCHIVE
   VIEW
   ACCOUNT_LOCKED
+  GENERATE_SUMMARY
+  QUERY_RAG
 }
 
 model AuditLog {

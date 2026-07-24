@@ -12,6 +12,7 @@ const { admissionExaminationsRouter } = require("../modules/clinicalExaminations
 const { admissionNotesRouter, baseNotesRouter } = require("../modules/notes/note.routes");
 const { admissionFollowUpRouter, followUpRouter } = require("../modules/followUps/followUp.routes");
 const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/medicalDocuments/document.routes");
+const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
 
 const router = express.Router();
 
@@ -37,5 +38,7 @@ router.use("/admissions", admissionFollowUpRouter);
 router.use("/follow-ups", followUpRouter);
 router.use("/admissions", admissionDocumentsRouter);
 router.use("/documents", baseDocumentsRouter);
+router.use("/ai", aiRouter);
+router.use("/admissions", admissionAiRouter);
 
 module.exports = router;

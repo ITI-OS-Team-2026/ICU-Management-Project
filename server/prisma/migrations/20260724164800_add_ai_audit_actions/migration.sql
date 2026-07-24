@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "AuditAction" ADD VALUE 'GENERATE_SUMMARY';
+ALTER TYPE "AuditAction" ADD VALUE 'QUERY_RAG';

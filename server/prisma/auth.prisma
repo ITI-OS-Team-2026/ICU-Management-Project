@@ -51,6 +51,8 @@ model User {
   nursingNotes            NursingNote[]
   followUps               FollowUp[]
   uploadedDocuments       MedicalDocument[]
+  aiSummariesRequested    AiSummary[]  @relation("AiSummaryRequester")
+  aiQueriesAsked          AiQueryLog[] @relation("AiQueryAsker")
 
   @@index([role])
   @@index([status])
