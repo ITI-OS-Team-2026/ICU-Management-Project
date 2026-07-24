@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, useRouteError } from 'react-router-dom';
 
 import { loginLoader, requireAuthLoader, roleGuardLoader } from './authLoaders';
 
@@ -16,8 +16,11 @@ import LabResultsPage from '../pages/LabResultsPage';
 import DischargePage from '../pages/DischargePage';
 import AdminUsersPage from '../pages/AdminUsersPage';
 import AdminBedsPage from '../pages/AdminBedsPage';
+import NotFoundPage from '../pages/NotFoundPage';
 
 function RouteError() {
+  const error = useRouteError();
+  console.error("ROUTE ERROR:", error);
   return (
     <div className="flex min-h-svh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -27,6 +30,11 @@ function RouteError() {
         <p className="mt-2 text-sm text-muted-foreground">
           We could not load this page. Refresh and try again.
         </p>
+        <div className="mt-4 text-xs text-red-500 max-w-lg text-left overflow-auto p-2 bg-red-500/10 rounded">
+          {error?.message || error?.statusText || "Unknown error"}
+          <br/>
+          {error?.stack}
+        </div>
       </div>
     </div>
   );
@@ -72,5 +80,11 @@ export const router = createBrowserRouter([
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
     ],
+  },
+  
+  // ── 404 Catch-all ────────────────────────────────────────────────────────
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ]);

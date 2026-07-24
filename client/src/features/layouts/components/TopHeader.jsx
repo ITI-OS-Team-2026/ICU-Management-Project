@@ -4,6 +4,8 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 
+import { MobileSidebar } from './MobileSidebar';
+
 const ROUTE_TITLES = {
   '/': 'Dashboard',
   '/patients': 'Patient List',
@@ -26,15 +28,18 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
   return (
     <header className="relative flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-6">
       <div className="flex items-center gap-4">
+        {/* Desktop Toggle */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground -ml-2"
+          className="hidden md:flex h-8 w-8 text-muted-foreground hover:text-foreground -ml-2"
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </Button>
+        {/* Mobile Toggle */}
+        <MobileSidebar />
       </div>
 
       <h1 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-lg font-semibold text-foreground">

@@ -254,7 +254,9 @@ const createMedicalHistory = async (req, patientId, data) => {
         traveledAbroad: data.traveled_abroad ?? false,
         consanguinity: data.consanguinity ?? false,
         familySimilarConditions: data.family_similar_conditions || null,
-        inheritedDiseases: data.inherited_diseases || null
+        inheritedDiseases: data.inherited_diseases || null,
+        freeText: data.free_text || null,
+        customFields: data.custom_fields || null,
       }
     });
 
@@ -275,6 +277,8 @@ const createMedicalHistory = async (req, patientId, data) => {
         consanguinity: history.consanguinity,
         family_similar_conditions: history.familySimilarConditions,
         inherited_diseases: history.inheritedDiseases,
+        free_text: history.freeText,
+        custom_fields: history.customFields,
         created_at: history.createdAt,
         updated_at: history.updatedAt
       }
@@ -309,6 +313,8 @@ const getMedicalHistory = async (patientId) => {
     consanguinity: history.consanguinity,
     family_similar_conditions: history.familySimilarConditions,
     inherited_diseases: history.inheritedDiseases,
+    free_text: history.freeText,
+    custom_fields: history.customFields,
     created_at: history.createdAt,
     updated_at: history.updatedAt
   };
@@ -339,6 +345,8 @@ const updateMedicalHistory = async (req, patientId, data) => {
   if (data.consanguinity !== undefined) updateData.consanguinity = data.consanguinity;
   if (data.family_similar_conditions !== undefined) updateData.familySimilarConditions = data.family_similar_conditions;
   if (data.inherited_diseases !== undefined) updateData.inheritedDiseases = data.inherited_diseases;
+  if (data.free_text !== undefined) updateData.freeText = data.free_text;
+  if (data.custom_fields !== undefined) updateData.customFields = data.custom_fields;
 
   return auditedTransaction(req, { action: "UPDATE", targetTable: "MedicalHistory" }, async (tx) => {
     const updated = await tx.medicalHistory.update({
@@ -364,6 +372,8 @@ const updateMedicalHistory = async (req, patientId, data) => {
         consanguinity: updated.consanguinity,
         family_similar_conditions: updated.familySimilarConditions,
         inherited_diseases: updated.inheritedDiseases,
+        free_text: updated.freeText,
+        custom_fields: updated.customFields,
         created_at: updated.createdAt,
         updated_at: updated.updatedAt
       }

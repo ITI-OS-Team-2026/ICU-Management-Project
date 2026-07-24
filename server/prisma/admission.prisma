@@ -9,13 +9,14 @@ model Admission {
   patientId              String          @map("patient_id")
   bedId                  String          @map("bed_id")
   doctorId               String          @map("doctor_id")
-  admissionReason        String?         @map("admission_reason") @db.Text
+  transferReason         String?         @map("transfer_reason") @db.Text
   placeOfTransfer        String?         @map("place_of_transfer") @db.Text
   transferDoctorName     String?         @map("transfer_doctor_name") @db.Text
   chiefComplaint         String?         @map("chief_complaint") @db.Text
+  complaintAnalysis      String?         @map("complaint_analysis") @db.Text
   symptomsRelatedSystem  String?         @map("symptoms_related_system") @db.Text
   symptomsOtherSystems   String?         @map("symptoms_other_systems") @db.Text
-  previousInvestigations String?         @map("previous_investigations") @db.Text
+  previousInvestigations Json?           @map("previous_investigations")
   previousTreatments     String?         @map("previous_treatments") @db.Text
   provisionalDiagnosis   String?         @map("provisional_diagnosis") @db.Text
   status                 AdmissionStatus @default(ACTIVE)

@@ -7,6 +7,7 @@ const {
   admissionCreateSchema,
   admissionQuerySchema,
   nurseAssignSchema,
+  fullAdmissionCreateSchema,
 } = require("./admission.schema");
 
 const router = express.Router();
@@ -20,6 +21,14 @@ router.post(
   restrictTo(clinicalRoles),
   validate({ body: admissionCreateSchema }),
   admissionController.createAdmission
+);
+
+router.post(
+  "/full",
+  verifyToken,
+  restrictTo(clinicalRoles),
+  validate({ body: fullAdmissionCreateSchema }),
+  admissionController.createFullAdmission
 );
 
 router.get(

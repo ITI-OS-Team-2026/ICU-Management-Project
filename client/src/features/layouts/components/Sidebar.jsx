@@ -64,7 +64,7 @@ const ROLE_META = {
   ICU_SPECIALIST:   { label: 'ICU Specialist',    variant: 'default' },
 };
 
-function SidebarLink({ to, label, icon: Icon, isCollapsed }) {
+function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
   const content = (
     <NavLink
       to={to}
@@ -78,6 +78,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed }) {
             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         ].join(' ')
       }
+      onClick={onNavClick}
     >
       <Icon size={16} aria-hidden />
       {!isCollapsed && <span>{label}</span>}
@@ -90,7 +91,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed }) {
   return content;
 }
 
-export function Sidebar({ isCollapsed }) {
+export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
@@ -111,7 +112,7 @@ export function Sidebar({ isCollapsed }) {
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'User';
 
   return (
-    <aside className={`flex flex-shrink-0 flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16' : 'w-60'}`}>
+    <aside className={`flex flex-shrink-0 flex-col bg-card transition-all duration-300 ease-in-out ${isMobile ? 'w-full h-full border-none' : `border-r border-border ${isCollapsed ? 'w-16' : 'w-60'}`}`}>
       {/* Brand */}
       <div className={`flex h-16 items-center border-b border-border overflow-hidden ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-5'}`}>
         <HeartPulse size={20} className="text-primary flex-shrink-0" aria-hidden />
@@ -125,15 +126,15 @@ export function Sidebar({ isCollapsed }) {
       {/* Nav links */}
       <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4 gap-1" aria-label="Main navigation">
         {links.map((link) => (
-          isCollapsed ? (
+          isCollapsed && !isMobile ? (
             <Tooltip key={link.to} delayDuration={0}>
-              <SidebarLink {...link} isCollapsed={isCollapsed} />
+              <SidebarLink {...link} isCollapsed={isCollapsed} onNavClick={onNavClick} />
               <TooltipContent side="right" className="text-xs">
                 {link.label}
               </TooltipContent>
             </Tooltip>
           ) : (
-            <SidebarLink key={link.to} {...link} isCollapsed={isCollapsed} />
+            <SidebarLink key={link.to} {...link} isCollapsed={isCollapsed && !isMobile} onNavClick={onNavClick} />
           )
         ))}
       </nav>
@@ -156,10 +157,10 @@ export function Sidebar({ isCollapsed }) {
           )}
         </div>
         
-        {isCollapsed ? (
+        {isCollapsed && !isMobile ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button variant="default" className="w-full justify-center px-0" onClick={handleLogout} aria-label="Sign out">
+              <Button variant="outline" className="w-full justify-center px-0" onClick={handleLogout} aria-label="Sign out">
                 <LogOut size={16} />
               </Button>
             </TooltipTrigger>
@@ -168,7 +169,7 @@ export function Sidebar({ isCollapsed }) {
             </TooltipContent>
           </Tooltip>
         ) : (
-          <Button variant="default" className="w-full justify-start gap-3 px-3" onClick={handleLogout}>
+          <Button variant="outline" className="w-full justify-start gap-3 px-3" onClick={handleLogout}>
             <LogOut size={16} />
             <span>Sign out</span>
           </Button>
