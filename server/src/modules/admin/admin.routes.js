@@ -23,6 +23,13 @@ router.post(
 );
 
 router.get(
+  "/users/stats",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  adminController.getUserStats
+);
+
+router.get(
   "/users",
   verifyToken,
   restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT"]),

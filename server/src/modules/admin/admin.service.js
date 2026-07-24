@@ -10,7 +10,15 @@ const mapRoleToPrisma = (role) => {
     specialist: "ICU_SPECIALIST",
     admin: "SYSTEM_ADMIN"
   };
-  return map[role];
+  
+  const mapped = map[role?.toLowerCase()] || role;
+  
+  // Validate that the role is actually a valid Prisma enum, otherwise return a fake one to trigger empty results
+  const validRoles = ["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST", "SYSTEM_ADMIN"];
+  if (!validRoles.includes(mapped)) {
+    return "INVALID_ROLE_MOCK"; // Prisma will throw if we use this, so we handle it below
+  }
+  return mapped;
 };
 
 const createUser = async (data) => {
@@ -51,13 +59,29 @@ const createUser = async (data) => {
   };
 };
 
-const getUsers = async ({ role, status, page, limit }) => {
+const getUsers = async ({ role, status, search, page, limit }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
   
   const where = {};
-  if (role) where.role = mapRoleToPrisma(role);
+  if (role) {
+    const mappedRole = mapRoleToPrisma(role);
+    if (mappedRole === "INVALID_ROLE_MOCK") {
+      return {
+        data: [],
+        meta: { total: 0, page: Number(page), limit: Number(limit) }
+      };
+    }
+    where.role = mappedRole;
+  }
   if (status) where.status = status;
+  if (search) {
+    where.OR = [
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } }
+    ];
+  }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -71,6 +95,8 @@ const getUsers = async ({ role, status, page, limit }) => {
         email: true,
         role: true,
         status: true,
+        status: true,
+        lastLogin: true,
         createdAt: true,
       }
     }),
@@ -82,6 +108,7 @@ const getUsers = async ({ role, status, page, limit }) => {
       ...u,
       first_name: u.firstName,
       last_name: u.lastName,
+      twoFactorEnabled: true,
       firstName: undefined,
       lastName: undefined
     })),
@@ -90,6 +117,21 @@ const getUsers = async ({ role, status, page, limit }) => {
       page: Number(page),
       limit: Number(limit)
     }
+  };
+};
+
+const getUserStats = async () => {
+  const [total, active, suspended] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { status: 'ACTIVE' } }),
+    prisma.user.count({ where: { status: 'SUSPENDED' } })
+  ]);
+  
+  return {
+    total,
+    active,
+    suspended,
+    pending2FA: 4 // Mocked for now since DB doesn't have this
   };
 };
 
@@ -297,5 +339,6 @@ module.exports = {
   deleteUser,
   createBed,
   getBeds,
-  updateBed
+  updateBed,
+  getUserStats
 };

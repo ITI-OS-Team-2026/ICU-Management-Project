@@ -1,9 +1,14 @@
 import api from '@/lib/api';
 
 export const usersService = {
-  async getUsers() {
-    const { data } = await api.get('/admin/users');
+  async getUsers(params = {}) {
+    const { data } = await api.get('/admin/users', { params });
     return data.data;
+  },
+
+  async getUserStats() {
+    const { data } = await api.get('/admin/users/stats');
+    return data;
   },
 
   async createUser(userData) {
