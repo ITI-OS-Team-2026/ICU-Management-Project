@@ -57,16 +57,55 @@ export const router = createBrowserRouter([
     errorElement: <RouteError />,
     children: [
       // Shared across all clinical roles
-      { index: true,                      element: <DashboardPage /> },
-      { path: 'patients',                 element: <PatientListPage /> },
-      { path: 'patients/admit',           element: <AdmitPatientPage /> },
-      { path: 'beds',                     element: <BedOverviewPage /> },
-      { path: 'vitals/monitor',           element: <VitalsMonitorPage /> },
-      { path: 'vitals/entry',             element: <VitalsEntryPage /> },
-      { path: 'medications',              element: <MedicationsPage /> },
-      { path: 'medications/administration', element: <MedAdministrationPage /> },
-      { path: 'labs',                     element: <LabResultsPage /> },
-      { path: 'discharge',               element: <DischargePage /> },
+      { 
+        index: true, 
+        element: <DashboardPage /> 
+      },
+      { 
+        path: 'patients', 
+        element: <PatientListPage />,
+        loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'patients/admit', 
+        element: <AdmitPatientPage />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'beds', 
+        element: <BedOverviewPage />,
+        loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'vitals/monitor', 
+        element: <VitalsMonitorPage />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'vitals/entry', 
+        element: <VitalsEntryPage />,
+        loader: roleGuardLoader(['ICU_NURSE']),
+      },
+      { 
+        path: 'medications', 
+        element: <MedicationsPage />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'medications/administration', 
+        element: <MedAdministrationPage />,
+        loader: roleGuardLoader(['ICU_NURSE']),
+      },
+      { 
+        path: 'labs', 
+        element: <LabResultsPage />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      { 
+        path: 'discharge', 
+        element: <DischargePage />,
+        loader: roleGuardLoader(['ICU_SPECIALIST']),
+      },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /
       {
