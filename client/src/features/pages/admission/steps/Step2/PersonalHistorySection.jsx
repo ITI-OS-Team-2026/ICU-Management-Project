@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function PersonalHistorySection({ form }) {
-  // name is auto-filled from Step 1, we can display it read-only
   const patientName = form.watch("name");
 
   return (
@@ -25,9 +24,22 @@ export default function PersonalHistorySection({ form }) {
             name="age"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Age</FormLabel>
+                <FormLabel>Age <span className="text-destructive">*</span></FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="Enter age" {...field} />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={3}
+                    placeholder="Enter age"
+                    value={field.value ?? ""}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 3);
+                      field.onChange(digitsOnly);
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -42,15 +54,18 @@ export default function PersonalHistorySection({ form }) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Gender</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  value={field.value || null}
+                  onValueChange={(val) => field.onChange(val ?? "")}
+                >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -63,15 +78,21 @@ export default function PersonalHistorySection({ form }) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Marital Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  value={field.value || null}
+                  onValueChange={(val) => field.onChange(val ?? "")}
+                >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Single">Single</SelectItem>
-                    <SelectItem value="Married">Married</SelectItem>
+                    <SelectItem value="SINGLE">Single</SelectItem>
+                    <SelectItem value="MARRIED">Married</SelectItem>
+                    <SelectItem value="DIVORCED">Divorced</SelectItem>
+                    <SelectItem value="WIDOWED">Widowed</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -84,15 +105,20 @@ export default function PersonalHistorySection({ form }) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Handedness</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  value={field.value || null}
+                  onValueChange={(val) => field.onChange(val ?? "")}
+                >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Right">Right</SelectItem>
-                    <SelectItem value="Left">Left</SelectItem>
+                    <SelectItem value="RIGHT">Right</SelectItem>
+                    <SelectItem value="LEFT">Left</SelectItem>
+                    <SelectItem value="AMBIDEXTROUS">Ambidextrous</SelectItem>
+                    <SelectItem value="UNKNOWN">Unknown</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

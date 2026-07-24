@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useNavigate } from "react-router-dom";
 import api from "../../lib/api";
-import { useAuthStore } from "../store/authStore";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,102 +14,191 @@ import AdmissionProgress from "./admission/AdmissionProgress";
 import Step0Setup from "./admission/steps/Step0Setup";
 import Step1AdmissionInfo from "./admission/steps/Step1AdmissionInfo";
 import Step2HistoryTaking from "./admission/steps/Step2HistoryTaking";
-import Step3VitalSigns from "./admission/steps/Step3VitalSigns";
+import Step3VitalSigns, {
+  VITAL_ABSOLUTE_RANGES,
+  getCriticalVitalFields,
+} from "./admission/steps/Step3VitalSigns";
 import Step4GeneralExamination from "./admission/steps/Step4GeneralExamination";
 import Step5LocalExamination from "./admission/steps/Step5LocalExamination";
 import Step6ProvisionalDiagnosis from "./admission/steps/Step6ProvisionalDiagnosis";
 import Step7Investigations from "./admission/steps/Step7Investigations";
 import Step8TreatmentPlan from "./admission/steps/Step8TreatmentPlan";
 
-// Define the comprehensive schema for the admission flow
-const admissionSchema = z.object({
-  // Step 0
-  bed_id: z.string().min(1, "Bed selection is required"),
-  doctor_id: z.string().min(1, "Doctor selection is required"),
+const optionalEnum = (values) =>
+  z.union([z.literal(""), z.enum(values)]).optional();
 
-  // Step 1
-  national_id: z.string().min(1, "National ID is required"),
-  name: z.string().min(1, "Patient name is required"),
-  place_of_transfer: z.string().optional(),
-  transfer_doctor_name: z.string().optional(),
-  transfer_reason: z.string().optional(),
+const optionalNumberInRange = (min, max, label, { integer = false } = {}) =>
+  z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (val === undefined || val === null || String(val).trim() === "") return true;
+      const num = integer ? parseInt(val, 10) : parseFloat(val);
+      if (Number.isNaN(num)) return false;
+      if (integer && String(val).includes(".")) return false;
+      return num >= min && num <= max;
+    }, `${label} must be between ${min} and ${max}${integer ? " (whole number)" : ""}`);
 
-  // Step 2
-  age: z.string().optional(),
-  gender: z.string().optional(),
-  residence: z.string().optional(),
-  occupation: z.string().optional(),
-  marital_status: z.string().optional(),
-  handedness: z.string().optional(),
-  chief_complaint: z.string().min(1, "Chief complaint is required"),
-  complaint_analysis: z.string().optional(),
-  related_system_symptoms: z.string().optional(),
-  other_system_symptoms: z.string().optional(),
-  previous_investigations: z.object({
-    labs: z.string().optional(),
-    radiology: z.string().optional(),
-  }).optional(),
-  previous_treatments: z.string().optional(),
-  dm: z.boolean().default(false),
-  htn: z.boolean().default(false),
-  past_history_paragraph: z.string().optional(),
-  similar_conditions: z.boolean().default(false),
-  similar_conditions_detail: z.string().optional(),
-  past_diseases: z.array(z.string()).default([]),
-  previous_operations: z.boolean().default(false),
-  has_allergies: z.boolean().default(false),
-  traveled_abroad: z.boolean().default(false),
-  custom_fields: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
-  consanguinity: z.boolean().default(false),
-  family_similar_conditions: z.string().optional(),
-  inherited_diseases: z.string().optional(),
+// Aligned with server fullAdmissionCreateSchema + vitalSign.schema.js
+const admissionSchema = z
+  .object({
+    bed_id: z
+      .string()
+      .min(1, "Bed selection is required")
+      .uuid("Select a valid bed"),
+    doctor_id: z
+      .string()
+      .min(1, "Attending specialist is required")
+      .uuid("Select a valid attending specialist"),
 
-  // Step 3 (at least one vital sign is checked in step validation)
-  temperature: z.string().optional(),
-  pulse: z.string().optional(),
-  systolic_bp: z.string().optional(),
-  diastolic_bp: z.string().optional(),
-  respiratory_rate: z.string().optional(),
-  spo2: z.string().optional(),
+    national_id: z
+      .string()
+      .min(1, "National ID is required")
+      .regex(/^\d{14}$/, "National ID must be exactly 14 digits"),
+    name: z.string().min(1, "Patient name is required"),
+    place_of_transfer: z.string().optional(),
+    transfer_doctor_name: z.string().optional(),
+    transfer_reason: z.string().optional(),
 
-  // Step 4
-  general_exam: z.object({
-    appearance_consciousness: z.object({ result: z.string(), notes: z.string().optional() }),
-    built_nutrition: z.object({ result: z.string(), notes: z.string().optional() }),
-    complexion: z.object({ result: z.string(), notes: z.string().optional() }),
-    decubitus_attitude: z.object({ result: z.string(), notes: z.string().optional() }),
-    head_neck: z.object({ result: z.string(), notes: z.string().optional() }),
-    upper_lower_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
-    skin_lymph_nodes: z.object({ result: z.string(), notes: z.string().optional() }),
-    other_systems: z.object({ result: z.string(), notes: z.string().optional() }),
-  }),
+    age: z
+      .string({ required_error: "Age is required" })
+      .trim()
+      .min(1, "Age is required")
+      .regex(/^\d+$/, "Age must be a whole number")
+      .refine((val) => {
+        const n = Number(val);
+        return n >= 0 && n <= 150;
+      }, "Age must be between 0 and 150"),
+    gender: optionalEnum(["MALE", "FEMALE"]),
+    residence: z.string().optional(),
+    occupation: z.string().optional(),
+    marital_status: optionalEnum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER"]),
+    handedness: optionalEnum(["RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN"]),
+    chief_complaint: z.string().min(1, "Chief complaint is required"),
+    complaint_analysis: z.string().optional(),
+    related_system_symptoms: z.string().optional(),
+    other_system_symptoms: z.string().optional(),
+    previous_investigations: z
+      .object({
+        labs: z.string().optional(),
+        radiology: z.string().optional(),
+      })
+      .optional(),
+    previous_treatments: z.string().optional(),
+    dm: z.boolean().default(false),
+    htn: z.boolean().default(false),
+    past_history_paragraph: z.string().optional(),
+    similar_conditions: z.boolean().default(false),
+    similar_conditions_detail: z.string().optional(),
+    past_diseases: z.array(z.string()).default([]),
+    previous_operations: z.boolean().default(false),
+    has_allergies: z.boolean().default(false),
+    traveled_abroad: z.boolean().default(false),
+    custom_fields: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+    consanguinity: z.boolean().default(false),
+    family_similar_conditions: z.string().optional(),
+    inherited_diseases: z.string().optional(),
 
-  // Step 5
-  local_exam: z.object({
-    inspection: z.string().optional(),
-    palpation: z.string().optional(),
-    percussion: z.string().optional(),
-    auscultation: z.string().optional(),
-  }),
+    temperature: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.temperature.min,
+      VITAL_ABSOLUTE_RANGES.temperature.max,
+      "Temperature"
+    ),
+    pulse: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.pulse.min,
+      VITAL_ABSOLUTE_RANGES.pulse.max,
+      "Heart rate",
+      { integer: true }
+    ),
+    systolic_bp: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.systolic_bp.min,
+      VITAL_ABSOLUTE_RANGES.systolic_bp.max,
+      "Systolic BP",
+      { integer: true }
+    ),
+    diastolic_bp: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.diastolic_bp.min,
+      VITAL_ABSOLUTE_RANGES.diastolic_bp.max,
+      "Diastolic BP",
+      { integer: true }
+    ),
+    respiratory_rate: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.respiratory_rate.min,
+      VITAL_ABSOLUTE_RANGES.respiratory_rate.max,
+      "Respiratory rate",
+      { integer: true }
+    ),
+    spo2: optionalNumberInRange(
+      VITAL_ABSOLUTE_RANGES.spo2.min,
+      VITAL_ABSOLUTE_RANGES.spo2.max,
+      "SpO2",
+      { integer: true }
+    ),
+    is_override: z.boolean().default(false),
+    override_reason: z.string().optional(),
 
-  // Step 6
-  provisional_diagnosis: z.string().optional(),
+    general_exam: z.object({
+      appearance_consciousness: z.object({ result: z.string(), notes: z.string().optional() }),
+      built_nutrition: z.object({ result: z.string(), notes: z.string().optional() }),
+      complexion: z.object({ result: z.string(), notes: z.string().optional() }),
+      decubitus_attitude: z.object({ result: z.string(), notes: z.string().optional() }),
+      head_neck: z.object({ result: z.string(), notes: z.string().optional() }),
+      upper_lower_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
+      skin_lymph_nodes: z.object({ result: z.string(), notes: z.string().optional() }),
+      other_systems: z.object({ result: z.string(), notes: z.string().optional() }),
+    }),
 
-  // Step 7
-  investigations: z.array(z.object({
-    type: z.string().min(1, "Type is required"),
-    order_date: z.date().optional(),
-  })).default([]),
+    local_exam: z.object({
+      inspection: z.string().optional(),
+      palpation: z.string().optional(),
+      percussion: z.string().optional(),
+      auscultation: z.string().optional(),
+    }),
 
-  // Step 8
-  medications: z.array(z.object({
-    drug_name: z.string().min(1, "Drug name is required"),
-    dosage: z.string().min(1, "Dosage is required"),
-    frequency: z.string().min(1, "Frequency is required"),
-    start_date: z.date().optional(),
-    end_date: z.date().optional(),
-  })).default([]),
-});
+    provisional_diagnosis: z.string().optional(),
+
+    investigations: z
+      .array(
+        z.object({
+          type: z.string().min(1, "Type is required"),
+          order_date: z.date().optional(),
+        })
+      )
+      .default([]),
+
+    medications: z
+      .array(
+        z.object({
+          drug_name: z.string().min(1, "Drug name is required"),
+          dosage: z.string().min(1, "Dosage is required"),
+          frequency: z.string().min(1, "Frequency is required"),
+          start_date: z.date().optional(),
+          end_date: z.date().optional(),
+        })
+      )
+      .default([]),
+  })
+  .superRefine((data, ctx) => {
+    const critical = getCriticalVitalFields(data);
+    if (critical.length === 0) return;
+
+    if (!data.is_override) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["is_override"],
+        message: `Critical abnormal values detected: ${critical.join(", ")}. Confirm override to continue.`,
+      });
+      return;
+    }
+
+    if (!data.override_reason?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["override_reason"],
+        message: "Override reason is required for critical vital signs.",
+      });
+    }
+  });
 
 const defaultValues = {
   bed_id: "",
@@ -151,6 +239,8 @@ const defaultValues = {
   diastolic_bp: "",
   respiratory_rate: "",
   spo2: "",
+  is_override: false,
+  override_reason: "",
   general_exam: {
     appearance_consciousness: { result: "negative", notes: "" },
     built_nutrition: { result: "negative", notes: "" },
@@ -172,11 +262,22 @@ const defaultValues = {
   medications: [],
 };
 
+const VITAL_FIELDS = [
+  "temperature",
+  "pulse",
+  "systolic_bp",
+  "diastolic_bp",
+  "respiratory_rate",
+  "spo2",
+  "is_override",
+  "override_reason",
+];
+
 const steps = [
   { title: "Setup", component: Step0Setup, fields: ["bed_id", "doctor_id"] },
   { title: "Admission Info", component: Step1AdmissionInfo, fields: ["national_id", "name"] },
-  { title: "History Taking", component: Step2HistoryTaking, fields: ["chief_complaint"] },
-  { title: "Vital Signs", component: Step3VitalSigns, fields: ["temperature", "pulse", "systolic_bp", "diastolic_bp", "respiratory_rate", "spo2"] },
+  { title: "History Taking", component: Step2HistoryTaking, fields: ["age", "chief_complaint"] },
+  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS },
   { title: "General Examination", component: Step4GeneralExamination, fields: [] },
   { title: "Local Examination", component: Step5LocalExamination, fields: [] },
   { title: "Provisional Diagnosis", component: Step6ProvisionalDiagnosis, fields: [] },
@@ -184,50 +285,148 @@ const steps = [
   { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [] },
 ];
 
+function parseOptionalInt(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function parseOptionalFloat(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  const n = parseFloat(value);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function emptyToUndefined(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  return value;
+}
+
+const DRAFT_KEY = "smartcare:admit-patient-draft";
+
+function loadDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.values || typeof parsed.values !== "object") return null;
+
+    // Revive Date fields in investigations / medications
+    const values = { ...parsed.values };
+    if (Array.isArray(values.investigations)) {
+      values.investigations = values.investigations.map((inv) => ({
+        ...inv,
+        order_date: inv.order_date ? new Date(inv.order_date) : undefined,
+      }));
+    }
+    if (Array.isArray(values.medications)) {
+      values.medications = values.medications.map((med) => ({
+        ...med,
+        start_date: med.start_date ? new Date(med.start_date) : undefined,
+        end_date: med.end_date ? new Date(med.end_date) : undefined,
+      }));
+    }
+
+    return {
+      values: { ...defaultValues, ...values },
+      step: Number.isInteger(parsed.step) ? parsed.step : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(values, step) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values, step, savedAt: Date.now() }));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export default function AdmitPatientPage() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const draft = useRef(loadDraft()).current;
+  const [currentStep, setCurrentStep] = useState(draft?.step ?? 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const submittingRef = useRef(false);
-  
+
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
 
   const form = useForm({
     resolver: zodResolver(admissionSchema),
-    defaultValues,
-    mode: "onChange",
+    defaultValues: draft?.values ?? defaultValues,
+    mode: "onTouched",
+    shouldUnregister: false,
   });
 
-  // Pre-fill doctor_id if ICU_SPECIALIST
+  // Keep draft in sync so submit errors / accidental navigation don't lose data
   useEffect(() => {
-    if (user?.role === "ICU_SPECIALIST") {
-      form.setValue("doctor_id", user.id);
-    }
-  }, [user, form]);
+    const subscription = form.watch((values) => {
+      saveDraft(values, currentStep);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, currentStep]);
+
+  useEffect(() => {
+    saveDraft(form.getValues(), currentStep);
+  }, [currentStep, form]);
+
+  const scrollToFirstError = () => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector("[data-slot=form-message], [aria-invalid=true]");
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
 
   const handleNext = async () => {
     const fieldsToValidate = steps[currentStep].fields;
-    
-    // Step 3 custom validation: at least one vital sign
+
     if (currentStep === 3) {
       const values = form.getValues();
-      const hasOneVital = ["temperature", "pulse", "systolic_bp", "diastolic_bp", "respiratory_rate", "spo2"]
-        .some(key => values[key] && values[key].trim() !== "");
+      const hasOneVital = [
+        "temperature",
+        "pulse",
+        "systolic_bp",
+        "diastolic_bp",
+        "respiratory_rate",
+        "spo2",
+      ].some((key) => values[key] && String(values[key]).trim() !== "");
+
       if (!hasOneVital) {
-        form.setError("temperature", { type: "manual", message: "At least one vital sign is required to proceed." });
+        form.setError("temperature", {
+          type: "manual",
+          message: "At least one vital sign is required to proceed.",
+        });
+        scrollToFirstError();
         return;
-      } else {
-        form.clearErrors("temperature");
       }
+      form.clearErrors("temperature");
     }
 
-    const isValid = await form.trigger(fieldsToValidate);
-    
-    if (isValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
-      window.scrollTo(0, 0);
+    const isValid =
+      fieldsToValidate.length === 0
+        ? true
+        : await form.trigger(fieldsToValidate, { shouldFocus: true });
+
+    if (!isValid) {
+      // Wait a tick so collapsible sections can open around error fields
+      setTimeout(() => {
+        scrollToFirstError();
+      }, 50);
+      return;
     }
+
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+    window.scrollTo(0, 0);
   };
 
   const handleBack = () => {
@@ -236,83 +435,94 @@ export default function AdmitPatientPage() {
   };
 
   const onSubmit = async (data) => {
-    // Guard against React StrictMode double-invocation
     if (submittingRef.current) return;
     submittingRef.current = true;
     setIsSubmitting(true);
     setSubmitError(null);
+
+    // Snapshot before submit so a failure never loses the draft
+    saveDraft(data, currentStep);
+
     try {
-      // 1. Transactional Admission
-      const customFieldsObj = data.custom_fields.reduce((acc, curr) => {
+      const customFieldsObj = (data.custom_fields || []).reduce((acc, curr) => {
         if (curr.label && curr.value) acc[curr.label] = curr.value;
         return acc;
       }, {});
 
-      const hasVitals = data.temperature || data.pulse || data.systolic_bp || data.diastolic_bp || data.respiratory_rate || data.spo2;
+      const vitalPayload = {
+        temperature: parseOptionalFloat(data.temperature),
+        pulse: parseOptionalInt(data.pulse),
+        systolic_bp: parseOptionalInt(data.systolic_bp),
+        diastolic_bp: parseOptionalInt(data.diastolic_bp),
+        respiratory_rate: parseOptionalInt(data.respiratory_rate),
+        spo2: parseOptionalInt(data.spo2),
+      };
+      const hasVitals = Object.values(vitalPayload).some((v) => v !== undefined);
 
       const fullPayload = {
         patient: {
-          mrn: data.national_id || `MRN-${Date.now()}`,
-          national_id: data.national_id || undefined,
+          mrn: data.national_id,
+          national_id: emptyToUndefined(data.national_id),
           name: data.name,
-          age: parseInt(data.age) || 0,
-          gender: data.gender ? data.gender.toUpperCase() : undefined,
-          residence: data.residence || undefined,
-          occupation: data.occupation || undefined,
-          marital_status: data.marital_status ? data.marital_status.toUpperCase() : undefined,
-          handedness: data.handedness ? data.handedness.toUpperCase() : undefined,
+          age: parseInt(data.age, 10),
+          gender: emptyToUndefined(data.gender),
+          residence: emptyToUndefined(data.residence),
+          occupation: emptyToUndefined(data.occupation),
+          marital_status: emptyToUndefined(data.marital_status),
+          handedness: emptyToUndefined(data.handedness),
         },
         medical_history: {
           diabetes_dm: data.dm,
           hypertension_htn: data.htn,
-          past_similar_conditions: data.similar_conditions ? data.similar_conditions_detail : undefined,
-          past_diseases: data.past_diseases.length > 0 ? data.past_diseases : undefined,
+          past_similar_conditions: data.similar_conditions
+            ? emptyToUndefined(data.similar_conditions_detail)
+            : undefined,
+          past_diseases: data.past_diseases?.length > 0 ? data.past_diseases : undefined,
           previous_operations: !!data.previous_operations,
           has_allergies: !!data.has_allergies,
           traveled_abroad: !!data.traveled_abroad,
           consanguinity: !!data.consanguinity,
-          family_similar_conditions: data.family_similar_conditions || undefined,
+          family_similar_conditions: emptyToUndefined(data.family_similar_conditions),
           inherited_diseases: data.inherited_diseases ? [data.inherited_diseases] : undefined,
-          free_text: data.past_history_paragraph || undefined,
+          free_text: emptyToUndefined(data.past_history_paragraph),
           custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
         },
         admission: {
           bed_id: data.bed_id,
           doctor_id: data.doctor_id,
-          transfer_reason: data.transfer_reason || undefined,
-          place_of_transfer: data.place_of_transfer || undefined,
-          transfer_doctor_name: data.transfer_doctor_name || undefined,
+          transfer_reason: emptyToUndefined(data.transfer_reason),
+          place_of_transfer: emptyToUndefined(data.place_of_transfer),
+          transfer_doctor_name: emptyToUndefined(data.transfer_doctor_name),
           chief_complaint: data.chief_complaint,
-          complaint_analysis: data.complaint_analysis || undefined,
-          symptoms_related_system: data.related_system_symptoms || undefined,
-          symptoms_other_systems: data.other_system_symptoms || undefined,
-          previous_investigations: data.previous_investigations?.labs || data.previous_investigations?.radiology ? data.previous_investigations : undefined,
-          previous_treatments: data.previous_treatments || undefined,
-          provisional_diagnosis: data.provisional_diagnosis || undefined,
+          complaint_analysis: emptyToUndefined(data.complaint_analysis),
+          symptoms_related_system: emptyToUndefined(data.related_system_symptoms),
+          symptoms_other_systems: emptyToUndefined(data.other_system_symptoms),
+          previous_investigations:
+            data.previous_investigations?.labs || data.previous_investigations?.radiology
+              ? data.previous_investigations
+              : undefined,
+          previous_treatments: emptyToUndefined(data.previous_treatments),
+          provisional_diagnosis: emptyToUndefined(data.provisional_diagnosis),
         },
-        vital_signs: hasVitals ? {
-          temperature: data.temperature ? parseFloat(data.temperature) : undefined,
-          pulse: data.pulse ? parseInt(data.pulse) : undefined,
-          systolic_bp: data.systolic_bp ? parseInt(data.systolic_bp) : undefined,
-          diastolic_bp: data.diastolic_bp ? parseInt(data.diastolic_bp) : undefined,
-          respiratory_rate: data.respiratory_rate ? parseInt(data.respiratory_rate) : undefined,
-          spo2: data.spo2 ? parseFloat(data.spo2) : undefined,
-        } : undefined,
+        vital_signs: hasVitals
+          ? {
+              ...vitalPayload,
+              is_override: !!data.is_override,
+              override_reason: data.is_override
+                ? emptyToUndefined(data.override_reason)
+                : undefined,
+            }
+          : undefined,
       };
 
       const admissionRes = await api.post("/admissions/full", fullPayload);
-      // Support both wrapped {data: {id: ...}} and direct {id: ...} formats
       const resultData = admissionRes.data.data || admissionRes.data;
       const admissionId = resultData.id;
-      const patientId = resultData.patient_id || resultData.patient?.id || resultData.patientId;
 
       if (!admissionId) {
         throw new Error("Failed to extract admission ID from response");
       }
 
-      // 5. General Exam & Local Exam 
-      // Assuming examinations endpoints exist or we skip them if not. 
-      // The backend plan said: POST /admissions/:id/examinations
       try {
         await api.post(`/admissions/${admissionId}/examinations`, {
           general_exams: data.general_exam,
@@ -322,8 +532,7 @@ export default function AdmitPatientPage() {
         console.warn("Examinations endpoint might not exist yet", err);
       }
 
-      // 6. Investigations
-      const validInvestigations = data.investigations?.filter(inv => inv.type?.trim()) || [];
+      const validInvestigations = data.investigations?.filter((inv) => inv.type?.trim()) || [];
       for (const inv of validInvestigations) {
         await api.post(`/admissions/${admissionId}/investigation-orders`, {
           order_name: inv.type,
@@ -332,8 +541,7 @@ export default function AdmitPatientPage() {
         });
       }
 
-      // 7. Medications
-      const validMedications = data.medications?.filter(med => med.drug_name?.trim()) || [];
+      const validMedications = data.medications?.filter((med) => med.drug_name?.trim()) || [];
       for (const med of validMedications) {
         await api.post(`/admissions/${admissionId}/medications`, {
           drug_name: med.drug_name,
@@ -344,13 +552,32 @@ export default function AdmitPatientPage() {
         });
       }
 
-      // After successful submission, redirect to the patient list
-      // (The /patients/:id page is not yet implemented)
+      clearDraft();
       navigate(`/patients`);
     } catch (err) {
       submittingRef.current = false;
       setIsSubmitting(false);
-      setSubmitError(err.response?.data?.error?.message || err.response?.data?.message || "Failed to submit admission. Please try again.");
+      // Preserve all entered values after a failed submit
+      saveDraft(form.getValues(), currentStep);
+      const serverMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error?.message ||
+        err.message ||
+        "Failed to submit admission. Please try again.";
+      setSubmitError(serverMessage);
+
+      // Surface common field-level server validation messages on the form
+      const lower = String(serverMessage).toLowerCase();
+      if (lower.includes("bed")) form.setError("bed_id", { type: "server", message: serverMessage });
+      if (lower.includes("doctor")) form.setError("doctor_id", { type: "server", message: serverMessage });
+      if (lower.includes("age")) form.setError("age", { type: "server", message: serverMessage });
+      if (lower.includes("marital")) form.setError("marital_status", { type: "server", message: serverMessage });
+      if (lower.includes("handedness")) form.setError("handedness", { type: "server", message: serverMessage });
+      if (lower.includes("vital") || lower.includes("critical") || lower.includes("override")) {
+        form.setError("temperature", { type: "server", message: serverMessage });
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -362,10 +589,13 @@ export default function AdmitPatientPage() {
         <h1 className="font-display text-headline font-bold text-foreground">
           Admit Patient
         </h1>
-        <Button 
+        <Button
           variant="ghost"
-          onClick={() => navigate(-1)}
-          className="text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            saveDraft(form.getValues(), currentStep);
+            navigate(-1);
+          }}
+          className="cursor-pointer text-muted-foreground hover:text-foreground"
         >
           Cancel
         </Button>
@@ -375,31 +605,34 @@ export default function AdmitPatientPage() {
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{submitError}</AlertDescription>
+          <AlertDescription>
+            {submitError}
+            <span className="mt-1 block text-sm opacity-90">
+              Your entered data has been kept. Fix the issue and submit again.
+            </span>
+          </AlertDescription>
         </Alert>
       )}
 
       <div className="flex flex-col md:flex-row gap-8">
-        <AdmissionStepper 
-          steps={steps} 
-          currentStep={currentStep} 
-          onStepClick={(stepIndex) => setCurrentStep(stepIndex)} 
+        <AdmissionStepper
+          steps={steps}
+          currentStep={currentStep}
+          onStepClick={(stepIndex) => setCurrentStep(stepIndex)}
         />
-        
+
         <div className="flex-1 max-w-4xl">
           <AdmissionProgress steps={steps} currentStep={currentStep} />
-          
+
           <Form {...form}>
-            <form 
-              onSubmit={(e) => e.preventDefault()}
-              className="space-y-6"
-            >
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
               <CurrentStepComponent form={form} />
-              
+
               <div className="flex items-center justify-between pt-6 mt-6 border-t border-border">
                 <Button
                   type="button"
                   variant="outline"
+                  className="cursor-pointer"
                   onClick={handleBack}
                   disabled={currentStep === 0 || isSubmitting}
                 >
@@ -409,16 +642,14 @@ export default function AdmitPatientPage() {
                 {currentStep === steps.length - 1 ? (
                   <Button
                     type="button"
+                    className="cursor-pointer"
                     disabled={isSubmitting}
-                    onClick={() => form.handleSubmit(onSubmit)()}
+                    onClick={() => form.handleSubmit(onSubmit, scrollToFirstError)()}
                   >
                     {isSubmitting ? "Submitting..." : "Submit Admission"}
                   </Button>
                 ) : (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                  >
+                  <Button type="button" className="cursor-pointer" onClick={handleNext}>
                     Next
                   </Button>
                 )}

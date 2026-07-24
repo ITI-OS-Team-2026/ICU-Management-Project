@@ -33,9 +33,12 @@ export default function Step4GeneralExamination({ form }) {
                   render={({ field }) => (
                     <FormItem className="sm:col-span-1">
                       <FormLabel className="sr-only">Result</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        value={field.value || null}
+                        onValueChange={(val) => field.onChange(val ?? "")}
+                      >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Result" />
                           </SelectTrigger>
                         </FormControl>

@@ -27,7 +27,7 @@ export default function Step7Investigations({ form }) {
                   name={`investigations.${index}.type`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Investigation Name</FormLabel>
+                      <FormLabel>Investigation Name <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. CBC, Chest X-Ray..." {...field} />
                       </FormControl>
