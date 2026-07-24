@@ -68,10 +68,11 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
   const content = (
     <NavLink
       to={to}
-      end={to === '/'}
+      // Exact match so /patients is not active on /patients/admit
+      end
       className={({ isActive }) =>
         [
-          'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full',
+          'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer',
           isCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           isActive
             ? 'bg-primary/10 text-primary'
@@ -160,18 +161,27 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
         {isCollapsed && !isMobile ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button variant="outline" className="w-full justify-center px-0" onClick={handleLogout} aria-label="Sign out">
+              <Button
+                variant="ghost"
+                className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                onClick={handleLogout}
+                aria-label="Log out"
+              >
                 <LogOut size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
-              Sign out
+              Log out
             </TooltipContent>
           </Tooltip>
         ) : (
-          <Button variant="outline" className="w-full justify-start gap-3 px-3" onClick={handleLogout}>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 px-3 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleLogout}
+          >
             <LogOut size={16} />
-            <span>Sign out</span>
+            <span>Log out</span>
           </Button>
         )}
       </div>

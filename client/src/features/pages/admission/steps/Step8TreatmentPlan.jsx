@@ -27,7 +27,7 @@ export default function Step8TreatmentPlan({ form }) {
                   name={`medications.${index}.drug_name`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Drug Name</FormLabel>
+                      <FormLabel>Drug Name <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. Paracetamol" {...field} />
                       </FormControl>
@@ -40,7 +40,7 @@ export default function Step8TreatmentPlan({ form }) {
                   name={`medications.${index}.dosage`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Dosage</FormLabel>
+                      <FormLabel>Dosage <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. 500mg" {...field} />
                       </FormControl>
@@ -53,7 +53,7 @@ export default function Step8TreatmentPlan({ form }) {
                   name={`medications.${index}.frequency`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Frequency</FormLabel>
+                      <FormLabel>Frequency <span className="text-destructive">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. TDS, PRN" {...field} />
                       </FormControl>

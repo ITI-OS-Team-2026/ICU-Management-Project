@@ -17,9 +17,18 @@ export default function Step1AdmissionInfo({ form }) {
             name="national_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>National ID</FormLabel>
+                <FormLabel>National ID <span className="text-destructive">*</span></FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter 14-digit ID" {...field} />
+                  <Input
+                    inputMode="numeric"
+                    maxLength={14}
+                    placeholder="Enter 14-digit ID"
+                    {...field}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 14);
+                      field.onChange(digitsOnly);
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -30,7 +39,7 @@ export default function Step1AdmissionInfo({ form }) {
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Patient Full Name</FormLabel>
+                <FormLabel>Patient Full Name <span className="text-destructive">*</span></FormLabel>
                 <FormControl>
                   <Input placeholder="Enter patient name" {...field} />
                 </FormControl>
