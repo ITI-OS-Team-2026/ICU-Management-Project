@@ -223,7 +223,7 @@ function BedCard({ bed }) {
 
 function BedCardSkeleton() {
   return (
-    <Card className="h-[180px] flex flex-col shadow-sm rounded-[1.25rem] bg-card border-transparent">
+    <Card className="h-[180px] flex flex-col shadow-sm rounded-[1.25rem] bg-card border-border/50">
       <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between">
         <Skeleton className="h-4 w-14" />
       </CardHeader>
