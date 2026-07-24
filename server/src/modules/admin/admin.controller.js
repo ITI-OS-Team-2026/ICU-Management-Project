@@ -11,8 +11,8 @@ const createUser = async (req, res, next) => {
 
 const getUsers = async (req, res, next) => {
   try {
-    const { role, status, page = 1, limit = 10 } = req.query;
-    const result = await adminService.getUsers({ role, status, page, limit });
+    const { role, status, search, page = 1, limit = 10 } = req.query;
+    const result = await adminService.getUsers({ role, status, search, page, limit });
     res.status(200).json(result);
   } catch (error) {
     next(error);
@@ -41,6 +41,15 @@ const deleteUser = async (req, res, next) => {
   try {
     await adminService.deleteUser(req, req.params.id);
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUserStats = async (req, res, next) => {
+  try {
+    const stats = await adminService.getUserStats();
+    res.status(200).json(stats);
   } catch (error) {
     next(error);
   }
@@ -82,5 +91,6 @@ module.exports = {
   deleteUser,
   createBed,
   getBeds,
-  updateBed
+  updateBed,
+  getUserStats
 };

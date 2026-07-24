@@ -51,13 +51,20 @@ const createUser = async (data) => {
   };
 };
 
-const getUsers = async ({ role, status, page, limit }) => {
+const getUsers = async ({ role, status, search, page, limit }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
   
   const where = {};
   if (role) where.role = mapRoleToPrisma(role);
   if (status) where.status = status;
+  if (search) {
+    where.OR = [
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } }
+    ];
+  }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -71,6 +78,8 @@ const getUsers = async ({ role, status, page, limit }) => {
         email: true,
         role: true,
         status: true,
+        status: true,
+        lastLogin: true,
         createdAt: true,
       }
     }),
@@ -82,6 +91,8 @@ const getUsers = async ({ role, status, page, limit }) => {
       ...u,
       first_name: u.firstName,
       last_name: u.lastName,
+      department: "Critical Care",
+      twoFactorEnabled: true,
       firstName: undefined,
       lastName: undefined
     })),
@@ -90,6 +101,21 @@ const getUsers = async ({ role, status, page, limit }) => {
       page: Number(page),
       limit: Number(limit)
     }
+  };
+};
+
+const getUserStats = async () => {
+  const [total, active, suspended] = await Promise.all([
+    prisma.user.count(),
+    prisma.user.count({ where: { status: 'ACTIVE' } }),
+    prisma.user.count({ where: { status: 'SUSPENDED' } })
+  ]);
+  
+  return {
+    total,
+    active,
+    suspended,
+    pending2FA: 4 // Mocked for now since DB doesn't have this
   };
 };
 
@@ -297,5 +323,6 @@ module.exports = {
   deleteUser,
   createBed,
   getBeds,
-  updateBed
+  updateBed,
+  getUserStats
 };
