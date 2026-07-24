@@ -1,31 +1,39 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usersService } from '../services/usersService';
 
-export function useUsers() {
+export function useUsers(initialFilters = {}) {
   const [users, setUsers] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [filters, setFilters] = useState(initialFilters);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchUsers = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await usersService.getUsers();
-      setUsers(data);
+      
+      const [usersData, statsData] = await Promise.all([
+        usersService.getUsers(filters),
+        usersService.getUserStats()
+      ]);
+      
+      setUsers(usersData);
+      setStats(statsData);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Failed to fetch users');
+      setError(err?.response?.data?.message || 'Failed to fetch users data');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchData();
+  }, [fetchData]);
 
   const createUser = async (data) => {
     const newUser = await usersService.createUser(data);
-    setUsers((prev) => [...prev, newUser]);
+    await fetchData();
     return newUser;
   };
 
@@ -40,5 +48,16 @@ export function useUsers() {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   };
 
-  return { users, isLoading, error, refetch: fetchUsers, createUser, updateUser, deleteUser };
+  return { 
+    users, 
+    stats, 
+    filters, 
+    setFilters, 
+    isLoading, 
+    error, 
+    refetch: fetchData, 
+    createUser, 
+    updateUser, 
+    deleteUser 
+  };
 }
