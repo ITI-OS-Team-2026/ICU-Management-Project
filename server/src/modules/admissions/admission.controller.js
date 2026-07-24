@@ -9,6 +9,15 @@ const createAdmission = async (req, res, next) => {
   }
 };
 
+const createFullAdmission = async (req, res, next) => {
+  try {
+    const admission = await admissionService.createFullAdmission(req, req.body);
+    res.status(201).json(admission);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getAdmissions = async (req, res, next) => {
   try {
     const result = await admissionService.getAdmissions(req.query);
@@ -74,6 +83,7 @@ const unassignNurse = async (req, res, next) => {
 
 module.exports = {
   createAdmission,
+  createFullAdmission,
   getAdmissions,
   getAdmissionById,
   dischargeAdmission,
