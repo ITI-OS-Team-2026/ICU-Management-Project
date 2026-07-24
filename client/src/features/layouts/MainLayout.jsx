@@ -13,7 +13,9 @@ export default function MainLayout() {
       <div className="flex h-svh w-full overflow-hidden bg-background font-sans">
         
         {/* ── Sidebar ───────────────────────────────────────────────────── */}
-        <Sidebar isCollapsed={isCollapsed} />
+        <div className="hidden md:flex flex-shrink-0">
+          <Sidebar isCollapsed={isCollapsed} />
+        </div>
 
         {/* ── Main area ─────────────────────────────────────────────────── */}
         <div className="flex flex-1 flex-col overflow-hidden">
