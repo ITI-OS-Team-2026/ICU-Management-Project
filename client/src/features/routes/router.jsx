@@ -3,6 +3,7 @@ import { createBrowserRouter, useRouteError } from 'react-router-dom';
 import { loginLoader, requireAuthLoader, roleGuardLoader } from './authLoaders';
 
 import MainLayout from '../layouts/MainLayout';
+import PatientDetailLayout from '../layouts/PatientDetailLayout';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import PatientListPage from '../pages/PatientListPage';
@@ -18,6 +19,17 @@ import AdminUsersPage from '../pages/AdminUsersPage';
 import AdminBedsPage from '../pages/AdminBedsPage';
 import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
+
+// Patient detail tab pages
+import PatientOverviewPage    from '../pages/patient/PatientOverviewPage';
+import PatientVitalsPage      from '../pages/patient/PatientVitalsPage';
+import PatientMedicationsPage from '../pages/patient/PatientMedicationsPage';
+import PatientDiagnosesPage   from '../pages/patient/PatientDiagnosesPage';
+import PatientNotesPage       from '../pages/patient/PatientNotesPage';
+import PatientDocumentsPage   from '../pages/patient/PatientDocumentsPage';
+import PatientTimelinePage    from '../pages/patient/PatientTimelinePage';
+import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
+import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
 
 function RouteError() {
   const error = useRouteError();
@@ -66,6 +78,24 @@ export const router = createBrowserRouter([
         path: 'patients', 
         element: <PatientListPage />,
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+
+      // ── Patient detail nested layout ──────────────────────────────────────
+      {
+        path: 'patients/:admissionId',
+        element: <PatientDetailLayout />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+        children: [
+          { index: true,          element: <PatientOverviewPage /> },
+          { path: 'vitals',       element: <PatientVitalsPage /> },
+          { path: 'medications',  element: <PatientMedicationsPage /> },
+          { path: 'diagnoses',    element: <PatientDiagnosesPage /> },
+          { path: 'notes',        element: <PatientNotesPage /> },
+          { path: 'documents',    element: <PatientDocumentsPage /> },
+          { path: 'timeline',     element: <PatientTimelinePage /> },
+          { path: 'alerts',       element: <PatientAlertsPage /> },
+          { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
+        ],
       },
       { 
         path: 'patients/admit', 
