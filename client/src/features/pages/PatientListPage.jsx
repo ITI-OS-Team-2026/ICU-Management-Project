@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { usePatients } from '../hooks/usePatients';
+import { useAuthStore } from '../store/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,6 +120,8 @@ const formatDate = (dateString) => {
 export default function PatientListPage() {
   const navigate = useNavigate();
   const { patients, isLoading, error, refetch } = usePatients();
+  const user = useAuthStore((s) => s.user);
+  const isNurse = user?.role === 'ICU_NURSE';
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -337,7 +340,7 @@ export default function PatientListPage() {
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Vitals</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">AI Risk</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Care Team</TableHead>
-                <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>
+                {!isNurse && <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -437,17 +440,19 @@ export default function PatientListPage() {
                     </TableCell>
 
                     {/* Open action button */}
-                    <TableCell className="pr-6 text-right">
-                      <Button
-                        onClick={() => navigate(`/patients/${p.id}`)}
-                        variant="secondary"
-                        size="sm"
-                        className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
-                      >
-                        Open
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
+                    {!isNurse && (
+                      <TableCell className="pr-6 text-right">
+                        <Button
+                          onClick={() => navigate(`/patients/${p.id}`)}
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
+                        >
+                          Open
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -528,15 +533,17 @@ export default function PatientListPage() {
                       <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    <Button
-                      onClick={() => navigate(`/patients/${p.id}`)}
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
-                    >
-                      Open
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
+                    {!isNurse && (
+                      <Button
+                        onClick={() => navigate(`/patients/${p.id}`)}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
+                      >
+                        Open
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
