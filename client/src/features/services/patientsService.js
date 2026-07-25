@@ -46,5 +46,28 @@ export const patientsService = {
   async getMedicalHistory(patientId) {
     const { data } = await api.get(`/patients/${patientId}/medical-history`);
     return data;
-  }
+  },
+
+  async getClinicalNotes(admissionId) {
+    const { data } = await api.get(`/admissions/${admissionId}/notes/clinical`);
+    return data?.data || [];
+  },
+
+  async getNursingNotes(admissionId) {
+    const { data } = await api.get(`/admissions/${admissionId}/notes/nursing`);
+    return data?.data || [];
+  },
+
+  async createClinicalNote(admissionId, content) {
+    const { data } = await api.post(`/admissions/${admissionId}/notes/clinical`, { content });
+    return data?.data;
+  },
+
+  async deleteClinicalNote(noteId) {
+    await api.delete(`/notes/clinical/${noteId}`);
+  },
+
+  async deleteNursingNote(noteId) {
+    await api.delete(`/notes/nursing/${noteId}`);
+  },
 };
