@@ -26,4 +26,4 @@ Thumbs.db
 
 /generated/prisma
 .zcode/
-uploads/documents/*
+uploads/documents/* 
