@@ -83,6 +83,26 @@ const updateBed = async (req, res, next) => {
   }
 };
 
+
+
+const getAuditLogs = async (req, res, next) => {
+  try {
+    const logs = await adminService.getAuditLogs(req.query);
+    res.status(200).json(logs);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getAuditLogStats = async (req, res, next) => {
+  try {
+    const stats = await adminService.getAuditLogStats();
+    res.status(200).json(stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
@@ -92,5 +112,7 @@ module.exports = {
   createBed,
   getBeds,
   updateBed,
-  getUserStats
+  getUserStats,
+  getAuditLogs,
+  getAuditLogStats
 };

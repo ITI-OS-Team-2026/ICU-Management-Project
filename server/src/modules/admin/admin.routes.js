@@ -82,4 +82,19 @@ router.patch(
   adminController.updateBed
 );
 
+// Audit Logs
+router.get(
+  "/audit-logs/stats",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  adminController.getAuditLogStats
+);
+
+router.get(
+  "/audit-logs",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  adminController.getAuditLogs
+);
+
 module.exports = router;

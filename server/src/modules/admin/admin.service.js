@@ -342,3 +342,143 @@ module.exports = {
   updateBed,
   getUserStats
 };
+
+const getAuditLogs = async (query = {}) => {
+  const { search, page = 1, limit = 10, eventLevel, category } = query;
+  
+  const where = {};
+  
+  if (search) {
+    where.OR = [
+      { targetTable: { contains: search, mode: "insensitive" } },
+      {
+        user: {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } }
+          ]
+        }
+      }
+    ];
+  }
+
+  if (eventLevel && eventLevel !== 'All') {
+    if (eventLevel === 'Critical') {
+      where.action = { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] };
+    } else if (eventLevel === 'Warning') {
+      where.action = { in: ['UPDATE'] };
+    } else if (eventLevel === 'Info') {
+      where.action = { in: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW'] };
+    }
+  }
+
+  if (category && category !== 'All') {
+    if (category === 'Patients') {
+      where.targetTable = { in: ['Patient', 'Allergy', 'MedicalHistory'] };
+    } else if (category === 'Admissions') {
+      where.targetTable = { in: ['Admission', 'AdmissionNurse'] };
+    } else if (category === 'Documents') {
+      where.targetTable = { in: ['MedicalDocument'] };
+    } else if (category === 'Admin') {
+      where.targetTable = { in: ['User', 'Bed'] };
+    }
+  }
+  
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [totalCount, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: Number(limit),
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    })
+  ]);
+  
+  const mappedLogs = logs.map(log => ({
+    id: log.id,
+    action: log.action,
+    targetTable: log.targetTable,
+    targetId: log.targetId,
+    ipAddress: log.ipAddress,
+    createdAt: log.createdAt,
+    user: log.user ? {
+      name: `${log.user.firstName} ${log.user.lastName}`,
+      email: log.user.email,
+      role: log.user.role
+    } : null
+  }));
+
+  return {
+    data: mappedLogs,
+    meta: {
+      total: totalCount,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(totalCount / Number(limit)),
+    }
+  };
+};
+
+const getAuditLogStats = async () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const totalEventsToday = await prisma.auditLog.count({
+    where: { createdAt: { gte: today } }
+  });
+
+  const criticalEvents = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      action: { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] }
+    }
+  });
+
+  const warningEvents = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      action: { in: ['UPDATE'] }
+    }
+  });
+
+  const adminActions = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      user: { role: 'SYSTEM_ADMIN' }
+    }
+  });
+
+  return {
+    totalEventsToday,
+    criticalEvents,
+    warningEvents,
+    adminActions
+  };
+};
+
+module.exports = {
+  createUser,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  createBed,
+  getBeds,
+  updateBed,
+  getUserStats,
+  getAuditLogs,
+  getAuditLogStats
+};
