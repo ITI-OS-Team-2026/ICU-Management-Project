@@ -137,6 +137,11 @@ export const router = createBrowserRouter([
         element: <DischargePage />,
         loader: roleGuardLoader(['ICU_SPECIALIST']),
       },
+      {
+        path: 'nursing-notes',
+        element: <NursingNotesPage />,
+        loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /
       {

@@ -9,6 +9,7 @@ import {
   FlaskConical,
   HeartPulse,
   ClipboardList,
+  FileText,
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ const SIDEBAR_NAV = {
     { to: '/vitals/entry',              label: 'Vitals Entry',     icon: Activity },
     { to: '/medications/administration',label: 'Med Administration', icon: Pill },
     { to: '/labs',                      label: 'Upload Documents', icon: FlaskConical },
+    { to: '/nursing-notes',             label: 'Nursing Notes',    icon: FileText },
   ],
   MEDICAL_RESIDENT: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -44,6 +46,7 @@ const SIDEBAR_NAV = {
     { to: '/vitals/monitor', label: 'Vitals Monitor', icon: Activity },
     { to: '/medications',    label: 'Medications',    icon: Pill },
     { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
+    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
   ],
   ICU_SPECIALIST: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -51,6 +54,7 @@ const SIDEBAR_NAV = {
     { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
     { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
     { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
+    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
   ],
 };
 
