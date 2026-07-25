@@ -7,7 +7,8 @@ import {
   Upload, 
   Download, 
   UserPlus, 
-  Search
+  Search,
+  MoreHorizontal
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUsers';
 
@@ -41,10 +42,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function AdminUsersPage() {
   // Hardcode initial filters for visual matching with mockup
-  const { users, stats, filters, setFilters, isLoading, error, createUser } = useUsers({
+  const { users, stats, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
     role: '',
     status: '',
     search: ''
@@ -60,6 +67,7 @@ export default function AdminUsersPage() {
     first_name: '',
     last_name: '',
     email: '',
+    password: '',
     role: 'resident'
   });
 
@@ -70,7 +78,7 @@ export default function AdminUsersPage() {
       setIsSubmitting(true);
       await createUser(formData);
       setIsAddOpen(false);
-      setFormData({ first_name: '', last_name: '', email: '', role: 'resident' });
+      setFormData({ first_name: '', last_name: '', email: '', password: '', role: 'resident' });
     } catch (err) {
       setAddError(err.response?.data?.message || err.message || 'An unknown error occurred');
     } finally {
@@ -164,6 +172,17 @@ export default function AdminUsersPage() {
                     required 
                     value={formData.email} 
                     onChange={e => setFormData({...formData, email: e.target.value})} 
+                    className="font-sans text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="font-sans text-xs font-semibold">Password</Label>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
                     className="font-sans text-sm" 
                   />
                 </div>
@@ -281,6 +300,7 @@ export default function AdminUsersPage() {
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Role</TableHead>
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Status</TableHead>
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Last Active</TableHead>
+                <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11 w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -330,6 +350,34 @@ export default function AdminUsersPage() {
 
                     <TableCell className="font-sans text-xs text-muted-foreground">
                       {formatTimeAgo(user.lastLogin)}
+                    </TableCell>
+
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="font-sans">
+                          {user.status === 'ACTIVE' ? (
+                            <DropdownMenuItem 
+                              className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer"
+                              onClick={() => updateUser(user.id, { status: 'INACTIVE' })}
+                            >
+                              Deactivate User
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem 
+                              className="text-emerald-600 focus:bg-emerald-600 focus:text-emerald-50 cursor-pointer"
+                              onClick={() => updateUser(user.id, { status: 'ACTIVE' })}
+                            >
+                              Activate User
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
