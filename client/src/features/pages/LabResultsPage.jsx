@@ -10,6 +10,7 @@ import {
   AlertCircle,
   X,
   Plus,
+  CheckCircle2,
 } from 'lucide-react';
 
 import api from '@/lib/api';
@@ -27,7 +28,7 @@ export default function LabResultsPage() {
   const fileInputRef = useRef(null);
 
   // Load patients census
-  const { patients, isLoading: isLoadingPatients, error: patientsError, refetch: refetchPatients } = usePatients();
+  const { patients, isLoading: isLoadingPatients, error: patientsError } = usePatients();
 
   // Selected patient
   const selectedAdmissionId = searchParams.get('admissionId') || patients[0]?.id || '';
