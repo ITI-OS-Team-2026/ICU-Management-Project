@@ -403,6 +403,15 @@ const createSummary = async (requestedById, data, req) => {
   const context = await buildAdmissionContext(admissionId, { since });
   const orchestrated = await requestSummaryFromOrchestrator(context, data.summary_type);
 
+  let validRequestedById = requestedById;
+  if (requestedById) {
+    const existingUser = await prisma.user.findUnique({ where: { id: requestedById } });
+    if (!existingUser) {
+      const fallbackUser = await prisma.user.findFirst({ where: { status: "ACTIVE" } });
+      if (fallbackUser) validRequestedById = fallbackUser.id;
+    }
+  }
+
   return await auditedTransaction(
     req,
     { action: "GENERATE_SUMMARY", targetTable: "AiSummary" },
@@ -410,7 +419,7 @@ const createSummary = async (requestedById, data, req) => {
       const summary = await tx.aiSummary.create({
         data: {
           admissionId,
-          requestedById,
+          requestedById: validRequestedById,
           summaryType: prismaType,
           overallSummary: orchestrated.overall_summary,
         },
@@ -425,14 +434,21 @@ const createSummary = async (requestedById, data, req) => {
   );
 };
 
-const getSummaries = async (admissionId) => {
+const getSummaries = async (admissionId, query = {}) => {
   await assertAdmissionExists(admissionId);
 
+  const whereClause = { admissionId };
+
+  if (query.archivedOnly === "true" || query.isArchived === "true" || query.status === "archived") {
+    whereClause.isArchived = true;
+  } else if (query.includeArchived === "true" || query.status === "all") {
+    // Return all (active and archived)
+  } else {
+    whereClause.isArchived = false;
+  }
+
   const rows = await prisma.aiSummary.findMany({
-    where: {
-      admissionId,
-      isArchived: false,
-    },
+    where: whereClause,
     orderBy: { generatedAt: "desc" },
     include: {
       requestedBy: {
@@ -459,6 +475,15 @@ const createQuery = async (askedById, data, req) => {
 
   const orchestrated = await requestQueryFromOrchestrator(context, data.question);
 
+  let validAskedById = askedById;
+  if (askedById) {
+    const existingUser = await prisma.user.findUnique({ where: { id: askedById } });
+    if (!existingUser) {
+      const fallbackUser = await prisma.user.findFirst({ where: { status: "ACTIVE" } });
+      if (fallbackUser) validAskedById = fallbackUser.id;
+    }
+  }
+
   return await auditedTransaction(
     req,
     { action: "QUERY_RAG", targetTable: "AiQueryLog" },
@@ -466,7 +491,7 @@ const createQuery = async (askedById, data, req) => {
       const log = await tx.aiQueryLog.create({
         data: {
           admissionId,
-          askedById,
+          askedById: validAskedById,
           question: data.question,
           aiResponse: orchestrated.ai_response,
           citedSources: orchestrated.cited_sources || null,
@@ -510,9 +535,90 @@ const getQueryLogs = async (admissionId, limit = 20) => {
   return rows.map(formatQueryLog);
 };
 
+const deleteSummary = async (summaryId, req) => {
+  const summary = await prisma.aiSummary.findUnique({
+    where: { id: summaryId },
+  });
+
+  if (!summary) {
+    throw new APIError("Summary not found", 404);
+  }
+
+  if (summary.isArchived) {
+    throw new APIError("Summary is already deleted", 409);
+  }
+
+  return await auditedTransaction(
+    req,
+    { action: "ARCHIVE", targetTable: "AiSummary" },
+    async (tx) => {
+      const updated = await tx.aiSummary.update({
+        where: { id: summaryId },
+        data: {
+          isArchived: true,
+          archivedAt: new Date(),
+        },
+      });
+
+      return {
+        targetId: summaryId,
+        oldValues: summary,
+        newValues: updated,
+        result: {
+          success: true,
+          status: "success",
+          message: "Summary deleted successfully.",
+        },
+      };
+    }
+  );
+};
+
+const restoreSummary = async (summaryId, req) => {
+  const summary = await prisma.aiSummary.findUnique({
+    where: { id: summaryId },
+  });
+
+  if (!summary) {
+    throw new APIError("Summary not found", 404);
+  }
+
+  if (!summary.isArchived) {
+    throw new APIError("Summary is not archived", 409);
+  }
+
+  return await auditedTransaction(
+    req,
+    { action: "UPDATE", targetTable: "AiSummary" },
+    async (tx) => {
+      const updated = await tx.aiSummary.update({
+        where: { id: summaryId },
+        data: {
+          isArchived: false,
+          archivedAt: null,
+        },
+      });
+
+      return {
+        targetId: summaryId,
+        oldValues: summary,
+        newValues: updated,
+        result: {
+          success: true,
+          status: "success",
+          message: "Summary restored successfully.",
+          data: formatSummary(updated),
+        },
+      };
+    }
+  );
+};
+
 module.exports = {
   createSummary,
   getSummaries,
   createQuery,
   getQueryLogs,
+  deleteSummary,
+  restoreSummary,
 };

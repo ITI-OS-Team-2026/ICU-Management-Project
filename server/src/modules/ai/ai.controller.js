@@ -1,4 +1,5 @@
 const aiService = require("./ai.service");
+const patientSummaryService = require("./patientSummary.service");
 
 const createSummary = async (req, res, next) => {
   try {
@@ -19,7 +20,7 @@ const createSummary = async (req, res, next) => {
 
 const getSummaries = async (req, res, next) => {
   try {
-    const summaries = await aiService.getSummaries(req.params.id);
+    const summaries = await aiService.getSummaries(req.params.id, req.query);
 
     res.status(200).json({
       status: "success",
@@ -59,9 +60,65 @@ const getQueryLogs = async (req, res, next) => {
   }
 };
 
+const generatePatientSummary = async (req, res, next) => {
+  try {
+    const summary = await patientSummaryService.generatePatientSummary(
+      req.user.id,
+      req.params.admissionId,
+      req
+    );
+
+    res.status(201).json({
+      status: "success",
+      data: summary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPatientContext = async (req, res, next) => {
+  try {
+    const context = await patientSummaryService.getPatientContext(
+      req.params.admissionId
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: context,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteSummary = async (req, res, next) => {
+  try {
+    const result = await aiService.deleteSummary(req.params.summaryId, req);
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const restoreSummary = async (req, res, next) => {
+  try {
+    const result = await aiService.restoreSummary(req.params.summaryId, req);
+
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createSummary,
   getSummaries,
   createQuery,
   getQueryLogs,
+  generatePatientSummary,
+  getPatientContext,
+  deleteSummary,
+  restoreSummary,
 };

@@ -28,7 +28,7 @@ const TABS = [
   { label: 'Documents',    path: 'documents',    icon: FileText },
   { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
-  { label: 'AI Assistant', path: 'ai-assistant', icon: Bot },
+  { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
 ];
 
 // ─── Acuity ───────────────────────────────────────────────────────────────────
