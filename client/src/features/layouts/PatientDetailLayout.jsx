@@ -7,7 +7,7 @@ import {
   Stethoscope,
   StickyNote,
   FileText,
-  Clock,
+  ClipboardList,
   Bell,
   Bot,
   LayoutDashboard,
@@ -26,7 +26,7 @@ const TABS = [
   { label: 'Diagnoses',    path: 'diagnoses',    icon: Stethoscope },
   { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Documents',    path: 'documents',    icon: FileText },
-  { label: 'Timeline',     path: 'timeline',     icon: Clock },
+  { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
   { label: 'AI Assistant', path: 'ai-assistant', icon: Bot },
 ];
