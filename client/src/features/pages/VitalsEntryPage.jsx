@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   AlertCircle,
@@ -87,7 +87,7 @@ export default function VitalsEntryPage() {
   ];
 
   // React Hook Form for Vitals logging
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       temperature: '',
       pulse: '',
@@ -146,7 +146,7 @@ export default function VitalsEntryPage() {
     async function initPage() {
       try {
         setIsLoading(true);
-        const { data: adData } = await api.get('/admissions?status=ACTIVE');
+        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         setAdmissions(adData.data || []);
 
         // Pick initial admission
@@ -158,7 +158,19 @@ export default function VitalsEntryPage() {
           initialAd = adData.data.find(a => a.patient?.name?.includes('Porter')) || adData.data[0];
           setSearchParams({ view: currentView, admissionId: initialAd.id }, { replace: true });
         }
+        
         setActiveAdmission(initialAd);
+
+        if (initialAd) {
+          // Await the history fetch before removing the loading screen to fix 'pop-in' delay
+          const [vitalsRes, notesRes] = await Promise.all([
+            api.get(`/admissions/${initialAd.id}/vitals?limit=20`),
+            api.get(`/admissions/${initialAd.id}/notes/nursing`)
+          ]);
+          setVitalsHistory(vitalsRes.data || []);
+          setNursingNotes(notesRes.data || []);
+        }
+
       } catch (err) {
         console.error("Initialization error:", err);
         setErrorMsg("Failed to load active patients list.");
@@ -172,8 +184,14 @@ export default function VitalsEntryPage() {
   // Fetch patient history when active patient switches
   useEffect(() => {
     if (!activeAdmission) return;
+    
+    // Check if we already have vitals for this admission (e.g. from initPage)
+    const alreadyHasCorrectVitals = vitalsHistory.length > 0 && vitalsHistory[0]?.admissionId === activeAdmission.id;
+    if (alreadyHasCorrectVitals) return;
+
     async function fetchHistory() {
       try {
+        setIsLoading(true);
         const [vitalsRes, notesRes] = await Promise.all([
           api.get(`/admissions/${activeAdmission.id}/vitals?limit=20`),
           api.get(`/admissions/${activeAdmission.id}/notes/nursing`)
@@ -182,14 +200,18 @@ export default function VitalsEntryPage() {
         setNursingNotes(notesRes.data || []);
       } catch (err) {
         console.error("Fetch history error:", err);
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchHistory();
-  }, [activeAdmission]);
+  }, [activeAdmission, vitalsHistory]);
 
   const handlePatientSwitch = (val) => {
     const selected = admissions.find(a => a.id === val);
     setActiveAdmission(selected);
+    // Clear old vitals so the loading spinner triggers correctly
+    setVitalsHistory([]);
     setSearchParams({ view: currentView, admissionId: val });
   };
 
