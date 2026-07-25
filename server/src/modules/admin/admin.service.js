@@ -29,7 +29,7 @@ const createUser = async (data) => {
     throw new APIError("Email already exists", 409);
   }
 
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
+  const passwordHash = await bcrypt.hash(data.password || "ChangeMe123!", 10);
   
   const user = await prisma.user.create({
     data: {

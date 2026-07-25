@@ -200,6 +200,25 @@ const logout = async ({ userId, ipAddress, userAgent }) => {
   // Routine logout is not logged in AuditLog to minimize noise.
 };
 
+// Change user password
+const changePassword = async ({ userId, currentPassword, newPassword }) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new APIError("User not found", 404);
+
+  const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!isPasswordValid) {
+    throw new APIError("Incorrect current password", 401);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+
+  return { success: true };
+};
+
 // Fetch authenticated user profile data.
 const getMe = async (userId) => {
   const user = await prisma.user.findUnique({
@@ -230,4 +249,5 @@ module.exports = {
   login,
   logout,
   getMe,
+  changePassword,
 };

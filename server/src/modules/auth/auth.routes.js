@@ -29,4 +29,11 @@ router.get(
   authController.getMe
 );
 
+// PUT /auth/password — requires authentication
+router.put(
+  "/password",
+  verifyToken,
+  authController.changePassword
+);
+
 module.exports = router;

@@ -1,5 +1,6 @@
+/* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
 import { useMemo } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Activity, Droplet } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
 import {
@@ -11,6 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 
 export default function BedOverviewPage() {
   const { beds, isLoading, error, refetch } = useBeds();
@@ -39,12 +43,12 @@ export default function BedOverviewPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 bg-muted/20 min-h-[calc(100vh-4rem)]">
+    <div className="flex flex-col gap-8 p-4 md:p-8 bg-background min-h-[calc(100vh-4rem)]">
       {/* Header section */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <p className="text-sm font-sans text-muted-foreground mb-1">Clinical / Bed Overview</p>
-          <h1 className="font-display text-headline text-foreground">Bed Overview</h1>
+          <p className="text-sm font-sans text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Clinical Overview</p>
+          <h1 className="font-display text-headline text-foreground tracking-tight">Bed Inventory</h1>
         </div>
         <Button onClick={refetch} variant="outline" className="shrink-0" disabled={isLoading}>
           <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -58,34 +62,30 @@ export default function BedOverviewPage() {
           title="Occupied" 
           value={isLoading ? '-' : stats.occupied} 
           total={stats.total}
-          textColorClass="text-status-occupied" 
-          bgColorClass="bg-status-occupied" 
+          progressColor="bg-status-occupied"
         />
         <SummaryCard 
           title="Available" 
           value={isLoading ? '-' : stats.available} 
           total={stats.total}
-          textColorClass="text-status-available" 
-          bgColorClass="bg-status-available" 
+          progressColor="bg-status-available"
         />
         <SummaryCard 
           title="Maintenance" 
           value={isLoading ? '-' : stats.maintenance} 
           total={stats.total}
-          textColorClass="text-status-maintenance" 
-          bgColorClass="bg-status-maintenance" 
+          progressColor="bg-status-maintenance"
         />
         <SummaryCard 
           title="Reserved" 
           value={isLoading ? '-' : stats.reserved} 
           total={stats.total}
-          textColorClass="text-status-reserved" 
-          bgColorClass="bg-status-reserved" 
+          progressColor="bg-status-reserved"
         />
       </div>
 
-      {/* Bed Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Bed Grid - Catalogue Structure */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {isLoading
           ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
           : beds?.map((bed) => <BedCard key={bed.id} bed={bed} />)}
@@ -94,20 +94,20 @@ export default function BedOverviewPage() {
   );
 }
 
-function SummaryCard({ title, value, total, textColorClass, bgColorClass }) {
+function SummaryCard({ title, value, total, progressColor }) {
   const percentage = total > 0 && value !== '-' ? (value / total) * 100 : 0;
   
   return (
-    <Card className="shadow-sm border-transparent rounded-[1.25rem] bg-card overflow-hidden">
-      <CardHeader className="pb-0 pt-5 px-6">
-        <CardTitle className="font-sans text-[13px] font-medium text-muted-foreground capitalize">
+    <Card className="shadow-sm border-border bg-card">
+      <CardHeader className="pb-2 pt-5 px-6">
+        <CardTitle className="font-sans text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="pb-6 pt-1 px-6">
-        <div className={`font-tnum text-[2.5rem] font-bold leading-none mb-4 ${textColorClass}`}>{value}</div>
-        <div className="h-1.5 w-[90%] rounded-full bg-secondary overflow-hidden">
-          <div className={`h-full ${bgColorClass}`} style={{ width: `${percentage}%` }} />
+      <CardContent className="pb-6 pt-0 px-6">
+        <div className="font-tnum text-3xl font-bold leading-none mb-4 text-foreground">{value}</div>
+        <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+          <div className={`h-full ${progressColor}`} style={{ width: `${percentage}%` }} />
         </div>
       </CardContent>
     </Card>
@@ -120,30 +120,16 @@ function BedCard({ bed }) {
   const isMaintenance = bed.status === 'MAINTENANCE';
   const isReserved = bed.status === 'RESERVED';
 
-  let cardClass = '';
-  let titleClass = '';
-  
-  if (isOccupied) {
-    cardClass = 'bg-status-occupied/[0.03] border-status-occupied/30 shadow-none';
-    titleClass = 'text-status-occupied';
-  } else if (isAvailable) {
-    cardClass = 'bg-status-available/[0.03] border-status-available/40 border-dashed shadow-none';
-    titleClass = 'text-status-available';
-  } else if (isMaintenance) {
-    cardClass = 'bg-status-maintenance/[0.03] border-status-maintenance/40 shadow-none';
-    titleClass = 'text-status-maintenance';
-  } else if (isReserved) {
-    cardClass = 'bg-status-reserved/[0.03] border-status-reserved/40 shadow-none';
-    titleClass = 'text-status-reserved';
-  } else {
-    cardClass = 'bg-card border-border shadow-sm';
-    titleClass = 'text-foreground';
-  }
-
-  // Visual alert condition (e.g. Bed 3 in screenshot)
+  // Visual alert condition
   const isAlert = isOccupied && (bed.heartRate > 100 || bed.spo2 < 95);
-  const avatarBg = isAlert ? 'bg-destructive text-destructive-foreground' : 'bg-status-occupied text-primary-foreground';
-  const progressBg = isAlert ? 'bg-destructive' : 'bg-status-occupied';
+
+  const getBadge = () => {
+    if (isOccupied) return <Badge className="bg-status-occupied hover:bg-status-occupied text-primary-foreground uppercase text-[10px] tracking-wider">Occupied</Badge>;
+    if (isAvailable) return <Badge variant="outline" className="text-status-available border-status-available uppercase text-[10px] tracking-wider">Available</Badge>;
+    if (isMaintenance) return <Badge variant="secondary" className="text-status-maintenance uppercase text-[10px] tracking-wider">Maintenance</Badge>;
+    if (isReserved) return <Badge variant="secondary" className="text-status-reserved uppercase text-[10px] tracking-wider">Reserved</Badge>;
+    return null;
+  };
 
   const getInitials = (name) => {
     if (!name) return '??';
@@ -158,53 +144,68 @@ function BedCard({ bed }) {
   };
 
   return (
-    <Card className={`flex flex-col min-h-[180px] rounded-[1.25rem] ${cardClass}`}>
-      <CardHeader className="pb-0 pt-4 px-5 flex flex-row items-center justify-between">
-        <CardTitle className={`font-sans text-[13px] font-bold ${titleClass} tracking-wide`}>
+    <Card className={`flex flex-col min-h-[200px] shadow-sm border-border bg-card transition-shadow hover:shadow-md ${isAlert ? 'border-destructive ring-1 ring-destructive' : ''}`}>
+      <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
+        <CardTitle className="font-sans text-sm font-bold text-foreground">
           Bed {bed.bed_number}
         </CardTitle>
-        {isAlert && <div className="w-2.5 h-2.5 rounded-full bg-destructive/50" />}
+        {getBadge()}
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col px-5 pb-5 pt-3">
+      <CardContent className="flex-1 flex flex-col px-5 pb-5 pt-0">
         {isOccupied && bed.patientName ? (
           <div className="flex-1 flex flex-col">
-            <div className="flex items-center gap-3 mt-1">
-              <Avatar className={`h-8 w-8 ${avatarBg}`}>
-                <AvatarFallback className="bg-transparent text-inherit font-sans font-bold text-[11px]">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border border-border">
+                <AvatarFallback className="bg-muted text-foreground font-sans font-bold text-xs">
                   {getInitials(bed.patientName)}
                 </AvatarFallback>
               </Avatar>
-              <p className="font-sans font-bold text-foreground text-[14px] leading-none">
-                {formatName(bed.patientName)}
-              </p>
+              <div className="flex flex-col min-w-0">
+                <p className="font-sans font-semibold text-foreground text-sm truncate">
+                  {formatName(bed.patientName)}
+                </p>
+                <p className="font-sans text-xs text-muted-foreground truncate">
+                  {bed.diagnosis || 'No active diagnosis'}
+                </p>
+              </div>
             </div>
             
-            <div className="mt-auto pt-4 space-y-2">
-              <p className="font-sans text-[11px] text-muted-foreground truncate font-medium">
-                {bed.diagnosis || 'No active diagnosis'}
-              </p>
-              
-              <div className="flex justify-between items-end">
-                <span className="font-sans text-[11px] text-muted-foreground font-semibold">HR <span className="font-tnum text-status-occupied font-bold">{bed.heartRate || '-'}</span></span>
-                <span className="font-sans text-[11px] text-muted-foreground font-semibold">SpO₂ <span className="font-tnum text-status-occupied font-bold">{bed.spo2 || '-'}%</span></span>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
-                  <div className={`h-full ${progressBg}`} style={{ width: `${bed.spo2 || bed.heartRate || 82}%` }} />
+            <Separator className="my-4" />
+            
+            <div className="mt-auto grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Activity className="w-3.5 h-3.5" />
+                  <span className="font-sans text-[10px] font-semibold uppercase tracking-wider">HR</span>
                 </div>
-                <span className={`font-tnum text-[11px] font-bold ${isAlert ? 'text-destructive' : 'text-status-occupied'}`}>
-                  {bed.spo2 || bed.heartRate || 82}
-                </span>
+                <div className="flex items-end gap-1">
+                  <span className={`font-tnum text-2xl font-bold leading-none ${bed.heartRate > 100 ? 'text-destructive' : 'text-foreground'}`}>
+                    {bed.heartRate || '-'}
+                  </span>
+                  <span className="font-sans text-[10px] text-muted-foreground mb-0.5">bpm</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Droplet className="w-3.5 h-3.5" />
+                  <span className="font-sans text-[10px] font-semibold uppercase tracking-wider">SpO₂</span>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className={`font-tnum text-2xl font-bold leading-none ${bed.spo2 < 95 ? 'text-destructive' : 'text-foreground'}`}>
+                    {bed.spo2 || '-'}
+                  </span>
+                  <span className="font-sans text-[10px] text-muted-foreground mb-0.5">%</span>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className={`font-sans text-[13px] capitalize font-medium ${titleClass}`}>
-              {bed.status.toLowerCase()}
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">
+            <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+              <span className="font-sans text-xs font-semibold uppercase tracking-wider opacity-50">Empty</span>
+            </div>
           </div>
         )}
       </CardContent>
@@ -214,22 +215,29 @@ function BedCard({ bed }) {
 
 function BedCardSkeleton() {
   return (
-    <Card className="min-h-[180px] flex flex-col shadow-sm rounded-[1.25rem] bg-card border-transparent">
-      <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between">
-        <Skeleton className="h-4 w-14" />
+    <Card className="min-h-[200px] flex flex-col shadow-sm bg-card border-border">
+      <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
+        <Skeleton className="h-5 w-16" />
+        <Skeleton className="h-5 w-16 rounded-full" />
       </CardHeader>
-      <CardContent className="space-y-4 flex-1 px-5 pb-5 pt-3">
+      <CardContent className="space-y-4 flex-1 px-5 pb-5 pt-0">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-          <Skeleton className="h-4 w-24" />
-        </div>
-        <div className="space-y-3 pt-4 mt-auto">
-          <Skeleton className="h-3 w-32" />
-          <div className="flex justify-between">
-            <Skeleton className="h-3 w-12" />
-            <Skeleton className="h-3 w-12" />
+          <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-32" />
           </div>
-          <Skeleton className="h-1 w-full" />
+        </div>
+        <Separator className="my-4" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-8" />
+            <Skeleton className="h-6 w-12" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-8" />
+            <Skeleton className="h-6 w-12" />
+          </div>
         </div>
       </CardContent>
     </Card>
