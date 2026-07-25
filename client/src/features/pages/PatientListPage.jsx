@@ -443,7 +443,7 @@ export default function PatientListPage() {
                     {/* Open action button */}
                     <TableCell className="pr-6 text-right">
                       <Button
-                        onClick={() => navigate(`/?admissionId=${p.id}`)}
+                        onClick={() => navigate(`/patients/${p.id}`)}
                         variant="secondary"
                         size="sm"
                         className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
@@ -533,7 +533,7 @@ export default function PatientListPage() {
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
                     <Button
-                      onClick={() => navigate(`/?admissionId=${p.id}`)}
+                      onClick={() => navigate(`/patients/${p.id}`)}
                       variant="secondary"
                       size="sm"
                       className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"

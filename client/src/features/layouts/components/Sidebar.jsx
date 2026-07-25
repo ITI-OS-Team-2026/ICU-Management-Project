@@ -49,9 +49,6 @@ const SIDEBAR_NAV = {
     { to: '/patients',       label: 'Patient List',   icon: Users },
     { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
     { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/vitals/monitor', label: 'Vitals Monitor', icon: Activity },
-    { to: '/medications',    label: 'Medications',    icon: Pill },
-    { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
     { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
   ],
 };
