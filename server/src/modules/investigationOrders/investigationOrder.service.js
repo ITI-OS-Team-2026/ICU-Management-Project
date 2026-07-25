@@ -23,6 +23,7 @@ const createInvestigationOrder = async (admissionId, data, userId) => {
       orderName: data.order_name,
       type: data.type,
       status: "Pending",
+      orderDate: data.order_date ? new Date(data.order_date) : new Date(),
     },
   });
 };

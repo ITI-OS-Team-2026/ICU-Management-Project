@@ -3,6 +3,7 @@ const Joi = require("joi");
 const createInvestigationOrderSchema = Joi.object({
   order_name: Joi.string().trim().max(255).required(),
   type: Joi.string().trim().max(50).required(),
+  order_date: Joi.date().iso().optional(),
 });
 
 const updateInvestigationOrderSchema = Joi.object({

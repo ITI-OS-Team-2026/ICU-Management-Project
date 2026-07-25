@@ -9,6 +9,7 @@ import {
   FlaskConical,
   HeartPulse,
   ClipboardList,
+  FileText,
   LogOut,
   History,
 } from 'lucide-react';
@@ -36,6 +37,8 @@ const SIDEBAR_NAV = {
     { to: '/beds',                      label: 'Bed Overview',     icon: BedDouble },
     { to: '/vitals/entry',              label: 'Vitals Entry',     icon: Activity },
     { to: '/medications/administration',label: 'Med Administration', icon: Pill },
+    { to: '/labs',                      label: 'Upload Documents', icon: FlaskConical },
+    { to: '/nursing-notes',             label: 'Nursing Notes',    icon: FileText },
   ],
   MEDICAL_RESIDENT: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -45,16 +48,15 @@ const SIDEBAR_NAV = {
     { to: '/vitals/monitor', label: 'Vitals Monitor', icon: Activity },
     { to: '/medications',    label: 'Medications',    icon: Pill },
     { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
+    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
   ],
   ICU_SPECIALIST: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
     { to: '/patients',       label: 'Patient List',   icon: Users },
     { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
     { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/vitals/monitor', label: 'Vitals Monitor', icon: Activity },
-    { to: '/medications',    label: 'Medications',    icon: Pill },
-    { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
     { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
+    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
   ],
 };
 
@@ -66,20 +68,22 @@ const ROLE_META = {
   ICU_SPECIALIST:   { label: 'ICU Specialist',    variant: 'default' },
 };
 
-function SidebarLink({ to, label, icon: Icon, isCollapsed }) {
+function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
   const content = (
     <NavLink
       to={to}
-      end={to === '/'}
+      // Exact match so /patients is not active on /patients/admit
+      end
       className={({ isActive }) =>
         [
-          'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full',
+          'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer',
           isCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           isActive
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground',
         ].join(' ')
       }
+      onClick={onNavClick}
     >
       <Icon size={16} aria-hidden />
       {!isCollapsed && <span>{label}</span>}
@@ -92,7 +96,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed }) {
   return content;
 }
 
-export function Sidebar({ isCollapsed }) {
+export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
@@ -113,7 +117,7 @@ export function Sidebar({ isCollapsed }) {
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'User';
 
   return (
-    <aside className={`flex flex-shrink-0 flex-col border-r border-border bg-card transition-all duration-300 ease-in-out ${isCollapsed ? 'w-16' : 'w-60'}`}>
+    <aside className={`flex flex-shrink-0 flex-col bg-card transition-all duration-300 ease-in-out ${isMobile ? 'w-full h-full border-none' : `border-r border-border ${isCollapsed ? 'w-16' : 'w-60'}`}`}>
       {/* Brand */}
       <div className={`flex h-16 items-center border-b border-border overflow-hidden ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-5'}`}>
         <HeartPulse size={20} className="text-primary flex-shrink-0" aria-hidden />
@@ -127,15 +131,15 @@ export function Sidebar({ isCollapsed }) {
       {/* Nav links */}
       <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4 gap-1" aria-label="Main navigation">
         {links.map((link) => (
-          isCollapsed ? (
+          isCollapsed && !isMobile ? (
             <Tooltip key={link.to} delayDuration={0}>
-              <SidebarLink {...link} isCollapsed={isCollapsed} />
+              <SidebarLink {...link} isCollapsed={isCollapsed} onNavClick={onNavClick} />
               <TooltipContent side="right" className="text-xs">
                 {link.label}
               </TooltipContent>
             </Tooltip>
           ) : (
-            <SidebarLink key={link.to} {...link} isCollapsed={isCollapsed} />
+            <SidebarLink key={link.to} {...link} isCollapsed={isCollapsed && !isMobile} onNavClick={onNavClick} />
           )
         ))}
       </nav>
@@ -158,21 +162,30 @@ export function Sidebar({ isCollapsed }) {
           )}
         </div>
         
-        {isCollapsed ? (
+        {isCollapsed && !isMobile ? (
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button variant="default" className="w-full justify-center px-0" onClick={handleLogout} aria-label="Sign out">
+              <Button
+                variant="ghost"
+                className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                onClick={handleLogout}
+                aria-label="Log out"
+              >
                 <LogOut size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
-              Sign out
+              Log out
             </TooltipContent>
           </Tooltip>
         ) : (
-          <Button variant="default" className="w-full justify-start gap-3 px-3" onClick={handleLogout}>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 px-3 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={handleLogout}
+          >
             <LogOut size={16} />
-            <span>Sign out</span>
+            <span>Log out</span>
           </Button>
         )}
       </div>

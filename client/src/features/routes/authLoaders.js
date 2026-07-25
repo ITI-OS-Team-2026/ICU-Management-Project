@@ -4,9 +4,14 @@ import { useAuthStore } from '../store/authStore';
 
 /** Fetch current user; syncs zustand. Returns null when unauthenticated. */
 async function resolveSession() {
+  const authState = useAuthStore.getState();
+  if (authState.user) {
+    return authState.user;
+  }
+
   try {
     const user = await authService.getMe();
-    useAuthStore.getState().setUser(user);
+    authState.setUser(user);
     return user;
   } catch (error) {
     const clearSession = error?.response?.data?.clearSession;

@@ -1,4 +1,4 @@
-﻿# SmartCare ICU — Workspace Agent Rules
+# SmartCare ICU — Workspace Agent Rules
 
 These rules apply automatically to **every AI model working in this repository**.
 They are not optional. Read this file completely before doing anything else.
@@ -127,6 +127,13 @@ Before returning any JSX to the user, verify all 10 gates:
   [ ] All numeric vitals, lab values, and timestamps use font-tnum
   [ ] Shadows only appear on floating/elevated elements — never static decoration
   [ ] No backdrop-blur, glassmorphism, or gradient text effects appear anywhere
-  [ ] Every button is <Button> with an explicit variant prop
-
 A single unchecked gate = revise before emitting.
+
+---
+
+## 7. Prisma Migration Rules
+
+1. **Always prefer `npx prisma migrate dev --name <name>`** over `npx prisma db push` for database schema updates in shared environments.
+2. `db push` forcefully syncs the database and will drop data if columns are renamed. It also leaves no migration history.
+3. `migrate dev` generates a safe `.sql` script in the `prisma/migrations` folder. This allows teammates to sync securely via `prisma migrate deploy` or `prisma migrate dev` and allows manual intervention (like `ALTER TABLE ... RENAME COLUMN ...`) to prevent data loss.
+4. Only use `db push` when rapidly prototyping locally from scratch where dummy data loss is perfectly acceptable.

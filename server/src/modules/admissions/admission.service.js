@@ -7,12 +7,13 @@ const formatAdmission = (a) => ({
   patient_id: a.patientId,
   bed_id: a.bedId,
   doctor_id: a.doctorId,
-  admission_reason: a.admissionReason,
+  transfer_reason: a.transferReason,
   place_of_transfer: a.placeOfTransfer,
   transfer_doctor_name: a.transferDoctorName,
   chief_complaint: a.chiefComplaint,
   symptoms_related_system: a.symptomsRelatedSystem,
   symptoms_other_systems: a.symptomsOtherSystems,
+  complaint_analysis: a.complaintAnalysis,
   previous_investigations: a.previousInvestigations,
   previous_treatments: a.previousTreatments,
   provisional_diagnosis: a.provisionalDiagnosis,
@@ -23,6 +24,26 @@ const formatAdmission = (a) => ({
   archived_at: a.archivedAt,
   created_at: a.createdAt,
   updated_at: a.updatedAt,
+  patient: a.patient ? {
+    id: a.patient.id,
+    mrn: a.patient.mrn,
+    name: a.patient.name,
+    age: a.patient.age,
+    gender: a.patient.gender,
+  } : null,
+  bed: a.bed ? {
+    id: a.bed.id,
+    bed_number: a.bed.bedNumber,
+    status: a.bed.status,
+  } : null,
+  doctor: a.doctor ? {
+    id: a.doctor.id,
+    first_name: a.doctor.firstName,
+    last_name: a.doctor.lastName,
+    email: a.doctor.email,
+    role: a.doctor.role,
+  } : null,
+  nurses: a.nurses ? a.nurses.map(formatNurseAssignment) : [],
 });
 
 const formatNurseAssignment = (n) => ({
@@ -47,6 +68,118 @@ const formatNurseAssignment = (n) => ({
       }
     : {}),
 });
+
+const createFullAdmission = async (req, data) => {
+  return await auditedTransaction(req, { action: "CREATE", targetTable: "Admission" }, async (tx) => {
+    // 1. Check Bed Availability Early
+    const bed = await tx.bed.findUnique({ where: { id: data.admission.bed_id } });
+    if (!bed) throw new APIError("Bed not found", 404);
+    if (bed.status !== "AVAILABLE") throw new APIError("Bed is not available", 409);
+
+    const activeOnBed = await tx.admission.findFirst({
+      where: { bedId: data.admission.bed_id, status: "ACTIVE" },
+    });
+    if (activeOnBed) throw new APIError("Bed already has an active admission", 409);
+
+    const doctor = await tx.user.findUnique({ where: { id: data.admission.doctor_id } });
+    if (!doctor || doctor.status !== "ACTIVE") throw new APIError("Doctor not found", 404);
+    if (doctor.role !== "ICU_SPECIALIST") throw new APIError("Attending doctor must be an ICU specialist", 400);
+
+    // 2. Upsert Patient
+    const patientData = {
+      mrn: data.patient.mrn,
+      nationalId: data.patient.national_id || null,
+      name: data.patient.name,
+      age: data.patient.age,
+      gender: data.patient.gender || null,
+      residence: data.patient.residence || null,
+      occupation: data.patient.occupation || null,
+      maritalStatus: data.patient.marital_status || null,
+      handedness: data.patient.handedness || null,
+    };
+    
+    const patient = await tx.patient.upsert({
+      where: { mrn: data.patient.mrn },
+      update: patientData,
+      create: patientData,
+    });
+
+    // 3. Upsert Medical History (if provided)
+    if (data.medical_history) {
+      const mhData = {
+        diabetesDm: data.medical_history.diabetes_dm ?? false,
+        hypertensionHtn: data.medical_history.hypertension_htn ?? false,
+        pastSimilarConditions: data.medical_history.past_similar_conditions || null,
+        pastDiseases: data.medical_history.past_diseases || null,
+        previousOperations: data.medical_history.previous_operations ?? false,
+        hasAllergies: data.medical_history.has_allergies ?? false,
+        traveledAbroad: data.medical_history.traveled_abroad ?? false,
+        consanguinity: data.medical_history.consanguinity ?? false,
+        familySimilarConditions: data.medical_history.family_similar_conditions || null,
+        inheritedDiseases: data.medical_history.inherited_diseases || null,
+        freeText: data.medical_history.free_text || null,
+        customFields: data.medical_history.custom_fields || null,
+      };
+
+      await tx.medicalHistory.upsert({
+        where: { patientId: patient.id },
+        update: mhData,
+        create: {
+          patientId: patient.id,
+          ...mhData
+        },
+      });
+    }
+
+    // 4. Create Admission
+    const admission = await tx.admission.create({
+      data: {
+        patientId: patient.id,
+        bedId: data.admission.bed_id,
+        doctorId: data.admission.doctor_id,
+        transferReason: data.admission.transfer_reason || null,
+        placeOfTransfer: data.admission.place_of_transfer || null,
+        transferDoctorName: data.admission.transfer_doctor_name || null,
+        chiefComplaint: data.admission.chief_complaint || null,
+        complaintAnalysis: data.admission.complaint_analysis || null,
+        symptomsRelatedSystem: data.admission.symptoms_related_system || null,
+        symptomsOtherSystems: data.admission.symptoms_other_systems || null,
+        previousInvestigations: data.admission.previous_investigations || null,
+        previousTreatments: data.admission.previous_treatments || null,
+        provisionalDiagnosis: data.admission.provisional_diagnosis || null,
+      },
+    });
+
+    // 5. Create Vital Signs (if provided)
+    if (data.vital_signs) {
+      await tx.vitalSign.create({
+        data: {
+          admissionId: admission.id,
+          temperature: data.vital_signs.temperature || null,
+          pulse: data.vital_signs.pulse || null,
+          systolicBp: data.vital_signs.systolic_bp || null,
+          diastolicBp: data.vital_signs.diastolic_bp || null,
+          respiratoryRate: data.vital_signs.respiratory_rate || null,
+          spo2: data.vital_signs.spo2 || null,
+          isOverride: data.vital_signs.is_override || false,
+          overrideReason: data.vital_signs.override_reason || null,
+          recordedById: req.user.id,
+        },
+      });
+    }
+
+    // 6. Update Bed Status
+    await tx.bed.update({
+      where: { id: data.admission.bed_id },
+      data: { status: "OCCUPIED" },
+    });
+
+    return {
+      targetId: admission.id,
+      result: formatAdmission(admission)
+    };
+  });
+};
 
 const createAdmission = async (req, data) => {
   const patient = await prisma.patient.findUnique({ where: { id: data.patient_id } });
@@ -84,10 +217,11 @@ const createAdmission = async (req, data) => {
           patientId: data.patient_id,
           bedId: data.bed_id,
           doctorId: data.doctor_id,
-          admissionReason: data.admission_reason || null,
+          transferReason: data.transfer_reason || null,
           placeOfTransfer: data.place_of_transfer || null,
           transferDoctorName: data.transfer_doctor_name || null,
           chiefComplaint: data.chief_complaint || null,
+          complaintAnalysis: data.complaint_analysis || null,
           symptomsRelatedSystem: data.symptoms_related_system || null,
           symptomsOtherSystems: data.symptoms_other_systems || null,
           previousInvestigations: data.previous_investigations || null,
@@ -131,6 +265,17 @@ const getAdmissions = async (query) => {
       skip,
       take: limit,
       orderBy: { admittedAt: "desc" },
+      include: {
+        patient: true,
+        bed: true,
+        doctor: true,
+        nurses: {
+          where: { isArchived: false },
+          include: {
+            nurse: true,
+          },
+        },
+      },
     }),
     prisma.admission.count({ where }),
   ]);
@@ -142,7 +287,20 @@ const getAdmissions = async (query) => {
 };
 
 const getAdmissionById = async (id) => {
-  const admission = await prisma.admission.findUnique({ where: { id } });
+  const admission = await prisma.admission.findUnique({
+    where: { id },
+    include: {
+      patient: true,
+      bed: true,
+      doctor: true,
+      nurses: {
+        where: { isArchived: false },
+        include: {
+          nurse: true,
+        },
+      },
+    },
+  });
   if (!admission || admission.isArchived) {
     throw new APIError("Admission not found", 404);
   }
@@ -351,6 +509,7 @@ const unassignNurse = async (req, admissionId, nurseId) => {
 
 module.exports = {
   createAdmission,
+  createFullAdmission,
   getAdmissions,
   getAdmissionById,
   dischargeAdmission,

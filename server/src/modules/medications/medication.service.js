@@ -37,6 +37,13 @@ const getMedications = async (admissionId, query) => {
     orderBy: { prescribedAt: "desc" },
     include: {
       prescribedBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+      administrations: {
+        where: { isArchived: false },
+        orderBy: { scheduledTime: "asc" },
+        include: {
+          administeredBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+        },
+      },
     },
   });
 };
