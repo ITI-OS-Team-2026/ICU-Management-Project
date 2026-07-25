@@ -10,6 +10,7 @@ import {
   HeartPulse,
   ClipboardList,
   LogOut,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -27,6 +28,7 @@ const SIDEBAR_NAV = {
     { to: '/',            label: 'Dashboard',    icon: LayoutDashboard },
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
+    { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
   ],
   ICU_NURSE: [
     { to: '/',                          label: 'Dashboard',        icon: LayoutDashboard },

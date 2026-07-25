@@ -17,6 +17,7 @@ const ROUTE_TITLES = {
   '/discharge': 'Discharge',
   '/admin/users': 'Manage Users',
   '/admin/beds': 'Manage Beds',
+  '/admin/audit-logs': 'Audit Logs',
 };
 
 export function TopHeader({ isCollapsed, setIsCollapsed }) {
