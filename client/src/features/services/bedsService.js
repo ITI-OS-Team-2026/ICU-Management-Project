@@ -7,6 +7,11 @@ export const bedsService = {
     return data;
   },
 
+  async createBed(data) {
+    const response = await api.post('/admin/beds', data);
+    return response.data;
+  },
+
   async updateBedStatus(id, status) {
     const { data } = await api.patch(`/admin/beds/${id}`, { status });
     return data;

@@ -17,6 +17,7 @@ import LabResultsPage from '../pages/LabResultsPage';
 import DischargePage from '../pages/DischargePage';
 import AdminUsersPage from '../pages/AdminUsersPage';
 import AdminBedsPage from '../pages/AdminBedsPage';
+import AuditLogsPage from '../pages/AuditLogsPage';
 import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
@@ -152,6 +153,11 @@ export const router = createBrowserRouter([
       {
         path: 'admin/beds',
         element: <AdminBedsPage />,
+        loader: roleGuardLoader(['SYSTEM_ADMIN']),
+      },
+      {
+        path: 'admin/audit-logs',
+        element: <AuditLogsPage />,
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
     ],
