@@ -342,9 +342,9 @@ export default function DashboardPage() {
             <CardTitle className="font-display text-sm font-bold text-foreground">
               Recent Activity
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/patients')} className="text-xs font-sans font-semibold text-primary hover:bg-transparent">
+            {/* <Button variant="ghost" size="sm" onClick={() => navigate('/patients')} className="text-xs font-sans font-semibold text-primary hover:bg-transparent">
               View all
-            </Button>
+            </Button> */}
           </CardHeader>
           <CardContent className="flex-1 p-6 flex flex-col justify-between gap-6">
             <div className="space-y-5">

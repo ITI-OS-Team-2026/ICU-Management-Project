@@ -108,7 +108,7 @@ describe("Admissions & Nurse Assignment API", () => {
           patient_id: patient.id,
           bed_id: bed.id,
           doctor_id: specialistUser.id,
-          admission_reason: "Respiratory failure",
+          transfer_reason: "Respiratory failure",
           chief_complaint: "Shortness of breath",
           provisional_diagnosis: "ARDS",
         });
@@ -118,7 +118,7 @@ describe("Admissions & Nurse Assignment API", () => {
       expect(res.body.bed_id).toBe(bed.id);
       expect(res.body.doctor_id).toBe(specialistUser.id);
       expect(res.body.status).toBe("ACTIVE");
-      expect(res.body.admission_reason).toBe("Respiratory failure");
+      expect(res.body.transfer_reason).toBe("Respiratory failure");
 
       const updatedBed = await prisma.bed.findUnique({ where: { id: bed.id } });
       expect(updatedBed.status).toBe("OCCUPIED");

@@ -124,160 +124,162 @@ async function main() {
       ];
 
       for (const p of seedPatients) {
-        const patient = await prisma.patient.upsert({
-          where: { mrn: p.mrn },
-          update: { name: p.name, age: p.age, gender: p.gender },
-          create: { mrn: p.mrn, name: p.name, age: p.age, gender: p.gender },
-        });
-
-        const bed = await prisma.bed.upsert({
-          where: { bedNumber: p.bedNumber },
-          update: { status: "OCCUPIED" },
-          create: { bedNumber: p.bedNumber, status: "OCCUPIED" },
-        });
-
-        let admission = await prisma.admission.findFirst({
-          where: { patientId: patient.id, status: "ACTIVE" },
-        });
-
-        if (!admission) {
-          admission = await prisma.admission.create({
-            data: {
-              patientId: patient.id,
-              bedId: bed.id,
-              doctorId: specialistUser.id,
-              status: "ACTIVE",
-            },
-          });
-        } else {
-          admission = await prisma.admission.update({
-            where: { id: admission.id },
-            data: { bedId: bed.id, doctorId: specialistUser.id },
-          });
-        }
-        console.log(`Seeded patient ${p.name} on bed ${p.bedNumber} (Admission: ${admission.id})`);
-
-        if (p.mrn === "MRN-JAMES-002") {
-          const vitalsCount = await prisma.vitalSign.count({
-            where: { admissionId: admission.id },
+        await prisma.$transaction(async (tx) => {
+          const patient = await tx.patient.upsert({
+            where: { mrn: p.mrn },
+            update: { name: p.name, age: p.age, gender: p.gender },
+            create: { mrn: p.mrn, name: p.name, age: p.age, gender: p.gender },
           });
 
-          if (vitalsCount === 0) {
-            const now = new Date();
-            const historicalVitals = [
-              { hoursAgo: 24, temp: 37.5, pulse: 80, sBp: 120, dBp: 80, rr: 18, spo2: 98 },
-              { hoursAgo: 22, temp: 37.8, pulse: 85, sBp: 118, dBp: 78, rr: 19, spo2: 97 },
-              { hoursAgo: 20, temp: 38.1, pulse: 90, sBp: 115, dBp: 75, rr: 20, spo2: 96 },
-              { hoursAgo: 18, temp: 38.4, pulse: 95, sBp: 110, dBp: 70, rr: 22, spo2: 95 },
-              { hoursAgo: 16, temp: 38.8, pulse: 100, sBp: 105, dBp: 65, rr: 24, spo2: 94 },
-              { hoursAgo: 14, temp: 39.1, pulse: 105, sBp: 100, dBp: 60, rr: 25, spo2: 93 },
-              { hoursAgo: 12, temp: 39.3, pulse: 110, sBp: 95, dBp: 58, rr: 26, spo2: 92 },
-              { hoursAgo: 10, temp: 39.5, pulse: 112, sBp: 92, dBp: 55, rr: 27, spo2: 91 },
-              { hoursAgo: 8, temp: 39.6, pulse: 115, sBp: 90, dBp: 54, rr: 28, spo2: 91 },
-              { hoursAgo: 6, temp: 39.7, pulse: 116, sBp: 89, dBp: 53, rr: 28, spo2: 91 },
-              { hoursAgo: 4, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-              { hoursAgo: 2, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-              { hoursAgo: 0, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-            ];
+          const bed = await tx.bed.upsert({
+            where: { bedNumber: p.bedNumber },
+            update: { status: "OCCUPIED" },
+            create: { bedNumber: p.bedNumber, status: "OCCUPIED" },
+          });
 
-            for (const v of historicalVitals) {
-              const recordedAt = new Date(now.getTime() - v.hoursAgo * 60 * 60 * 1000);
-              await prisma.vitalSign.create({
-                data: {
-                  admissionId: admission.id,
-                  recordedById: residentUser.id,
-                  temperature: v.temp,
-                  pulse: v.pulse,
-                  systolicBp: v.sBp,
-                  diastolicBp: v.dBp,
-                  respiratoryRate: v.rr,
-                  spo2: v.spo2,
-                  recordedAt,
-                },
-              });
-            }
-            console.log("Seeded vital sign history for James Porter");
-          }
-        }
+          let admission = await tx.admission.findFirst({
+            where: { patientId: patient.id, status: "ACTIVE" },
+          });
 
-        // Seed medications for the patient
-        const medsCount = await prisma.medication.count({ where: { admissionId: admission.id } });
-        if (medsCount === 0) {
-          const medicationsToPrescribe = [
-            { drugName: "Heparin", dosage: "25,000 u/250mL", frequency: "Continuous" },
-            { drugName: "Nitroglycerin", dosage: "0.4 mcg/kg/min", frequency: "Continuous" },
-            { drugName: "Normal Saline", dosage: "125 mL/hr", frequency: "Continuous" },
-            { drugName: "Aspirin", dosage: "325 mg", frequency: "Daily" },
-            { drugName: "Metoprolol", dosage: "25 mg", frequency: "BID" },
-            { drugName: "Atorvastatin", dosage: "80 mg", frequency: "QHS" },
-            { drugName: "Lisinopril", dosage: "5 mg", frequency: "Daily" },
-            { drugName: "Morphine", dosage: "2 mg", frequency: "PRN q4h" }
-          ];
-
-          for (const med of medicationsToPrescribe) {
-            const createdMed = await prisma.medication.create({
+          if (!admission) {
+            admission = await tx.admission.create({
               data: {
-                admissionId: admission.id,
-                prescribedById: specialistUser.id,
-                drugName: med.drugName,
-                dosage: med.dosage,
-                frequency: med.frequency,
-                isActive: true
-              }
+                patientId: patient.id,
+                bedId: bed.id,
+                doctorId: specialistUser.id,
+                status: "ACTIVE",
+              },
+            });
+          } else {
+            admission = await tx.admission.update({
+              where: { id: admission.id },
+              data: { bedId: bed.id, doctorId: specialistUser.id },
+            });
+          }
+          console.log(`Seeded patient ${p.name} on bed ${p.bedNumber} (Admission: ${admission.id})`);
+
+          if (p.mrn === "MRN-JAMES-002") {
+            const vitalsCount = await tx.vitalSign.count({
+              where: { admissionId: admission.id },
             });
 
-            // Seed historical administrations for this medication
-            const now = new Date();
-            if (med.drugName === "Aspirin") {
-              await prisma.medicationAdministration.create({
-                data: {
-                  medicationId: createdMed.id,
-                  administeredById: nurseUser.id,
-                  status: "ADMINISTERED",
-                  administeredDose: "325 mg",
-                  scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  notes: "Administered at bedside"
-                }
-              });
-            } else if (med.drugName === "Atorvastatin") {
-              await prisma.medicationAdministration.create({
-                data: {
-                  medicationId: createdMed.id,
-                  administeredById: nurseUser.id,
-                  status: "ADMINISTERED",
-                  administeredDose: "80 mg",
-                  scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  notes: "Administered at bedside"
-                }
-              });
-            } else if (med.drugName === "Normal Saline") {
-              await prisma.medicationAdministration.create({
-                data: {
-                  medicationId: createdMed.id,
-                  administeredById: nurseUser.id,
-                  status: "REFUSED",
-                  scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  notes: "Patient refused IV fluids"
-                }
-              });
-            } else if (med.drugName === "Metoprolol") {
-              await prisma.medicationAdministration.create({
-                data: {
-                  medicationId: createdMed.id,
-                  administeredById: nurseUser.id,
-                  status: "HELD",
-                  scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                  notes: "Held: SBP < 100"
-                }
-              });
+            if (vitalsCount === 0) {
+              const now = new Date();
+              const historicalVitals = [
+                { hoursAgo: 24, temp: 37.5, pulse: 80, sBp: 120, dBp: 80, rr: 18, spo2: 98 },
+                { hoursAgo: 22, temp: 37.8, pulse: 85, sBp: 118, dBp: 78, rr: 19, spo2: 97 },
+                { hoursAgo: 20, temp: 38.1, pulse: 90, sBp: 115, dBp: 75, rr: 20, spo2: 96 },
+                { hoursAgo: 18, temp: 38.4, pulse: 95, sBp: 110, dBp: 70, rr: 22, spo2: 95 },
+                { hoursAgo: 16, temp: 38.8, pulse: 100, sBp: 105, dBp: 65, rr: 24, spo2: 94 },
+                { hoursAgo: 14, temp: 39.1, pulse: 105, sBp: 100, dBp: 60, rr: 25, spo2: 93 },
+                { hoursAgo: 12, temp: 39.3, pulse: 110, sBp: 95, dBp: 58, rr: 26, spo2: 92 },
+                { hoursAgo: 10, temp: 39.5, pulse: 112, sBp: 92, dBp: 55, rr: 27, spo2: 91 },
+                { hoursAgo: 8, temp: 39.6, pulse: 115, sBp: 90, dBp: 54, rr: 28, spo2: 91 },
+                { hoursAgo: 6, temp: 39.7, pulse: 116, sBp: 89, dBp: 53, rr: 28, spo2: 91 },
+                { hoursAgo: 4, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
+                { hoursAgo: 2, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
+                { hoursAgo: 0, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
+              ];
+
+              for (const v of historicalVitals) {
+                const recordedAt = new Date(now.getTime() - v.hoursAgo * 60 * 60 * 1000);
+                await tx.vitalSign.create({
+                  data: {
+                    admissionId: admission.id,
+                    recordedById: residentUser.id,
+                    temperature: v.temp,
+                    pulse: v.pulse,
+                    systolicBp: v.sBp,
+                    diastolicBp: v.dBp,
+                    respiratoryRate: v.rr,
+                    spo2: v.spo2,
+                    recordedAt,
+                  },
+                });
+              }
+              console.log("Seeded vital sign history for James Porter");
             }
           }
-          console.log(`Seeded medication orders & history for patient ${p.name}`);
-        }
+
+          // Seed medications for the patient
+          const medsCount = await tx.medication.count({ where: { admissionId: admission.id } });
+          if (medsCount === 0) {
+            const medicationsToPrescribe = [
+              { drugName: "Heparin", dosage: "25,000 u/250mL", frequency: "Continuous" },
+              { drugName: "Nitroglycerin", dosage: "0.4 mcg/kg/min", frequency: "Continuous" },
+              { drugName: "Normal Saline", dosage: "125 mL/hr", frequency: "Continuous" },
+              { drugName: "Aspirin", dosage: "325 mg", frequency: "Daily" },
+              { drugName: "Metoprolol", dosage: "25 mg", frequency: "BID" },
+              { drugName: "Atorvastatin", dosage: "80 mg", frequency: "QHS" },
+              { drugName: "Lisinopril", dosage: "5 mg", frequency: "Daily" },
+              { drugName: "Morphine", dosage: "2 mg", frequency: "PRN q4h" }
+            ];
+
+            for (const med of medicationsToPrescribe) {
+              const createdMed = await tx.medication.create({
+                data: {
+                  admissionId: admission.id,
+                  prescribedById: specialistUser.id,
+                  drugName: med.drugName,
+                  dosage: med.dosage,
+                  frequency: med.frequency,
+                  isActive: true
+                }
+              });
+
+              // Seed historical administrations for this medication
+              const now = new Date();
+              if (med.drugName === "Aspirin") {
+                await tx.medicationAdministration.create({
+                  data: {
+                    medicationId: createdMed.id,
+                    administeredById: nurseUser.id,
+                    status: "ADMINISTERED",
+                    administeredDose: "325 mg",
+                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    notes: "Administered at bedside"
+                  }
+                });
+              } else if (med.drugName === "Atorvastatin") {
+                await tx.medicationAdministration.create({
+                  data: {
+                    medicationId: createdMed.id,
+                    administeredById: nurseUser.id,
+                    status: "ADMINISTERED",
+                    administeredDose: "80 mg",
+                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    notes: "Administered at bedside"
+                  }
+                });
+              } else if (med.drugName === "Normal Saline") {
+                await tx.medicationAdministration.create({
+                  data: {
+                    medicationId: createdMed.id,
+                    administeredById: nurseUser.id,
+                    status: "REFUSED",
+                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    notes: "Patient refused IV fluids"
+                  }
+                });
+              } else if (med.drugName === "Metoprolol") {
+                await tx.medicationAdministration.create({
+                  data: {
+                    medicationId: createdMed.id,
+                    administeredById: nurseUser.id,
+                    status: "HELD",
+                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    notes: "Held: SBP < 100"
+                  }
+                });
+              }
+            }
+            console.log(`Seeded medication orders & history for patient ${p.name}`);
+          }
+        }, { maxWait: 10000, timeout: 30000 });
       }
     }
   }
