@@ -28,7 +28,7 @@ const TABS = [
   { label: 'Documents',    path: 'documents',    icon: FileText },
   { label: 'Timeline',     path: 'timeline',     icon: Clock },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
-  { label: 'AI Assistant', path: 'ai-assistant', icon: Bot },
+  { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
 ];
 
 // ─── Acuity ───────────────────────────────────────────────────────────────────
