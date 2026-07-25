@@ -12,6 +12,7 @@ import {
   FileText,
   LogOut,
   History,
+  Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -162,32 +163,64 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
           )}
         </div>
         
-        {isCollapsed && !isMobile ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                onClick={handleLogout}
-                aria-label="Log out"
-              >
-                <LogOut size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              Log out
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 px-3 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            onClick={handleLogout}
-          >
-            <LogOut size={16} />
-            <span>Log out</span>
-          </Button>
-        )}
+        <div className="flex flex-col gap-1 w-full">
+          {isCollapsed && !isMobile ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <NavLink
+                  to="/settings"
+                  className={({ isActive }) =>
+                    `flex items-center justify-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`
+                  }
+                  onClick={onNavClick}
+                >
+                  <Settings size={16} aria-hidden />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                Settings
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors w-full cursor-pointer ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`
+              }
+              onClick={onNavClick}
+            >
+              <Settings size={16} aria-hidden />
+              <span>Settings</span>
+            </NavLink>
+          )}
+
+          {isCollapsed && !isMobile ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handleLogout}
+                  aria-label="Log out"
+                >
+                  <LogOut size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                Log out
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 px-3 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleLogout}
+            >
+              <LogOut size={16} />
+              <span>Log out</span>
+            </Button>
+          )}
+        </div>
       </div>
     </aside>
   );

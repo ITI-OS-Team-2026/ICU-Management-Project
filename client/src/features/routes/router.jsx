@@ -20,6 +20,7 @@ import AdminBedsPage from '../pages/AdminBedsPage';
 import AuditLogsPage from '../pages/AuditLogsPage';
 import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
+import SettingsPage from '../pages/SettingsPage';
 
 // Patient detail tab pages
 import PatientOverviewPage    from '../pages/patient/PatientOverviewPage';
@@ -142,6 +143,10 @@ export const router = createBrowserRouter([
         path: 'nursing-notes',
         element: <NursingNotesPage />,
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      {
+        path: 'settings',
+        element: <SettingsPage />,
       },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /
