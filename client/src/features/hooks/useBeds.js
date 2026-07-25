@@ -23,5 +23,17 @@ export function useBeds(status) {
     fetchBeds();
   }, [fetchBeds]);
 
-  return { beds, isLoading, error, refetch: fetchBeds };
+  const createBed = async (data) => {
+    const newBed = await bedsService.createBed(data);
+    await fetchBeds();
+    return newBed;
+  };
+
+  const updateBedStatus = async (id, newStatus) => {
+    const updatedBed = await bedsService.updateBedStatus(id, newStatus);
+    await fetchBeds();
+    return updatedBed;
+  };
+
+  return { beds, isLoading, error, refetch: fetchBeds, createBed, updateBedStatus };
 }

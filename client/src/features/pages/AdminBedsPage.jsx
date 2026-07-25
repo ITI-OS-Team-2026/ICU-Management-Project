@@ -15,13 +15,42 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useState } from 'react';
 
 export default function AdminBedsPage() {
-  const { beds, isLoading, error, refetch } = useBeds();
+  const { beds, isLoading, error, refetch, createBed, updateBedStatus } = useBeds();
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [addError, setAddError] = useState(null);
+  const [bedNumber, setBedNumber] = useState('');
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+    setAddError(null);
+    try {
+      setIsSubmitting(true);
+      await createBed({ bed_number: bedNumber });
+      setIsAddOpen(false);
+      setBedNumber('');
+    } catch (err) {
+      setAddError(err.response?.data?.message || err.message || 'An unknown error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const stats = useMemo(() => {
     if (!beds) return { occupied: 0, available: 0, maintenance: 0, total: 0 };
@@ -60,6 +89,45 @@ export default function AdminBedsPage() {
             <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="shrink-0 font-sans">
+                <Plus className="mr-2 h-4 w-4" /> Add Bed
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="font-sans">Add New Bed</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
+                {addError && (
+                  <div className="bg-destructive/10 text-destructive text-sm font-sans p-3 rounded-md border border-destructive/20">
+                    {addError}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="bed_number" className="font-sans text-xs font-semibold">Bed Number / ID</Label>
+                  <Input 
+                    id="bed_number" 
+                    placeholder="e.g. ICU-01" 
+                    className="font-sans h-9"
+                    value={bedNumber}
+                    onChange={e => setBedNumber(e.target.value)}
+                    required
+                  />
+                </div>
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="font-sans">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting} className="font-sans bg-primary">
+                    {isSubmitting ? 'Saving...' : 'Create Bed'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -90,7 +158,7 @@ export default function AdminBedsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {isLoading
           ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
-          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} />)}
+          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={updateBedStatus} />)}
       </div>
     </div>
   );
@@ -116,7 +184,7 @@ function SummaryCard({ title, value, total, textColorClass, bgColorClass }) {
   );
 }
 
-function BedCard({ bed }) {
+function BedCard({ bed, updateBedStatus }) {
   const isOccupied = bed.status === 'OCCUPIED';
   const isAvailable = bed.status === 'AVAILABLE';
   const isMaintenance = bed.status === 'MAINTENANCE';
@@ -158,23 +226,38 @@ function BedCard({ bed }) {
     // TODO: Navigation to Patient Overview
     // Replace the div with a React Router <Link to={`/patients/${bed.patientId}`}> when implementing patient overview
     <div 
-      className="cursor-pointer transition-transform hover:scale-[1.02]"
+      className="cursor-pointer transition-transform hover:scale-[1.02] h-full"
       onClick={() => {
         // e.g. navigate(`/patients/${bed.patientId}`)
         console.log(`Navigate to patient overview for bed ${bed.id}`);
       }}
     >
 
-      <Card className={`relative flex flex-col h-[180px] rounded-[1.25rem] ${cardClass}`}>
+      <Card className={`relative flex flex-col h-full min-h-[192px] rounded-[1.25rem] ${cardClass}`}>
 
-        <CardHeader className="pb-0 pt-4 px-5 flex flex-row items-center gap-2">
-          <CardTitle className={`font-sans text-[13px] font-bold ${titleClass} tracking-wide`}>
-            Bed {bed.bed_number}
-          </CardTitle>
-          {isAlert && <div className="w-2.5 h-2.5 rounded-full bg-destructive/50 mt-0.5" />}
+        <CardHeader className="pb-0 pt-5 px-5 flex flex-row items-center gap-2 justify-between">
+          <div className="flex items-center gap-2">
+            <CardTitle className={`font-sans text-[13px] font-bold ${titleClass} tracking-wide`}>
+              Bed {bed.bed_number}
+            </CardTitle>
+            {isAlert && <div className="w-2.5 h-2.5 rounded-full bg-destructive/50 mt-0.5" />}
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-muted/50 -mr-2" onClick={e => e.stopPropagation()}>
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="font-sans">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>Set Available</DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'OCCUPIED'); }}>Set Occupied</DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'MAINTENANCE'); }}>Set Maintenance</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col px-5 pb-5 pt-3">
+      <CardContent className="flex-1 flex flex-col px-5 pb-6 pt-3">
         {isOccupied && bed.patientName ? (
           <div className="flex-1 flex flex-col">
             <div className="flex items-center gap-3 mt-1">
@@ -197,15 +280,6 @@ function BedCard({ bed }) {
                 <span className="font-sans text-[11px] text-muted-foreground font-semibold">HR <span className="font-tnum text-status-occupied font-bold">{bed.heartRate != null ? bed.heartRate : '-'}</span></span>
                 <span className="font-sans text-[11px] text-muted-foreground font-semibold">SpO₂ <span className="font-tnum text-status-occupied font-bold">{bed.spo2 != null ? bed.spo2 : '-'}%</span></span>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
-                  <div className={`h-full ${progressBg}`} style={{ width: `${bed.spo2 || bed.heartRate || 0}%` }} />
-                </div>
-                <span className={`font-tnum text-[11px] font-bold ${isAlert ? 'text-destructive' : 'text-status-occupied'}`}>
-                  {bed.spo2 || bed.heartRate || 0}
-                </span>
-              </div>
             </div>
           </div>
         ) : (
@@ -223,11 +297,11 @@ function BedCard({ bed }) {
 
 function BedCardSkeleton() {
   return (
-    <Card className="h-[180px] flex flex-col shadow-sm rounded-[1.25rem] bg-card border-border/50">
-      <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between">
+    <Card className="h-full min-h-[192px] flex flex-col shadow-sm rounded-[1.25rem] bg-card border-border/50">
+      <CardHeader className="pb-2 pt-5 px-5 flex flex-row items-center justify-between">
         <Skeleton className="h-4 w-14" />
       </CardHeader>
-      <CardContent className="space-y-4 flex-1 px-5 pb-5 pt-3">
+      <CardContent className="space-y-4 flex-1 px-5 pb-6 pt-3">
         <div className="flex items-center gap-3">
           <Skeleton className="h-8 w-8 rounded-full shrink-0" />
           <Skeleton className="h-4 w-24" />
