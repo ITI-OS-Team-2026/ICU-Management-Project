@@ -29,7 +29,7 @@ import PatientMedicationsPage from '../pages/patient/PatientMedicationsPage';
 import PatientDiagnosesPage   from '../pages/patient/PatientDiagnosesPage';
 import PatientNotesPage       from '../pages/patient/PatientNotesPage';
 import PatientDocumentsPage   from '../pages/patient/PatientDocumentsPage';
-import PatientTimelinePage    from '../pages/patient/PatientTimelinePage';
+import PatientFollowUpsPage   from '../pages/patient/PatientFollowUpsPage';
 import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
 import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
 
@@ -94,7 +94,7 @@ export const router = createBrowserRouter([
           { path: 'diagnoses',    element: <PatientDiagnosesPage /> },
           { path: 'notes',        element: <PatientNotesPage /> },
           { path: 'documents',    element: <PatientDocumentsPage /> },
-          { path: 'timeline',     element: <PatientTimelinePage /> },
+          { path: 'follow-ups',    element: <PatientFollowUpsPage /> },
           { path: 'alerts',       element: <PatientAlertsPage /> },
           { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
         ],
