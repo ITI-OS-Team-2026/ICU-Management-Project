@@ -108,6 +108,7 @@ const getBedUnit = (bedNumber) => {
   if (bedNumber.startsWith('CCU-8')) return 'CCU-8';
   if (bedNumber.startsWith('ICU-N')) return 'ICU-North';
   if (bedNumber.startsWith('ICU-S')) return 'ICU-South';
+  if (bedNumber.includes('-')) return bedNumber.split('-')[0];
   return bedNumber.split('/')[0] || 'Other';
 };
 
@@ -172,6 +173,17 @@ export default function PatientListPage() {
       },
       { total: 0, critical: 0, watchful: 0, stable: 0 }
     );
+  }, [processedPatients]);
+
+  // Dynamic bed units list derived from current patient census
+  const availableUnits = useMemo(() => {
+    const units = new Set(['All']);
+    processedPatients.forEach((p) => {
+      if (p.bedUnit && p.bedUnit !== 'Unknown') {
+        units.add(p.bedUnit);
+      }
+    });
+    return Array.from(units);
   }, [processedPatients]);
 
   // Filtered patients
@@ -279,7 +291,7 @@ export default function PatientListPage() {
 
           {/* Bed unit filters */}
           <div className="flex flex-wrap items-center gap-1.5 bg-muted/50 p-1 rounded-lg border border-border/50">
-            {['All', 'CCU-7', 'CCU-8', 'ICU-North', 'ICU-South'].map((unit) => (
+            {availableUnits.map((unit) => (
               <button
                 key={unit}
                 onClick={() => setUnitFilter(unit)}

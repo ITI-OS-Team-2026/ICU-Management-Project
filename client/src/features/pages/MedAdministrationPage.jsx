@@ -48,7 +48,7 @@ export default function MedAdministrationPage() {
     async function initPage() {
       try {
         setIsLoading(true);
-        const { data: adData } = await api.get('/admissions?status=ACTIVE');
+        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         const activeList = adData.data || [];
         setAdmissions(activeList);
 

@@ -11,37 +11,16 @@ export function usePatients() {
       setIsLoading(true);
       setError(null);
 
-      // 1. Fetch active admissions
+      // Fetch active admissions (now optimized from backend to include latestVitals, diagnosesList, and nurses)
       const admissions = await patientsService.getActiveAdmissions();
 
-      // 2. Fetch vitals, diagnoses, and nurses in parallel for each active admission
-      const enrichedAdmissions = await Promise.all(
-        admissions.map(async (admission) => {
-          try {
-            const [vitals, diagnoses, nurses] = await Promise.all([
-              patientsService.getLatestVitals(admission.id),
-              patientsService.getDiagnoses(admission.id),
-              patientsService.getAdmissionNurses(admission.id),
-            ]);
-
-            return {
-              ...admission,
-              latestVitals: vitals,
-              diagnosesList: diagnoses,
-              nursesList: nurses,
-            };
-          } catch (err) {
-            console.error(`Failed to fetch details for admission ${admission.id}:`, err);
-            // Return admission with fallback empty details if one request fails
-            return {
-              ...admission,
-              latestVitals: null,
-              diagnosesList: [],
-              nursesList: [],
-            };
-          }
-        })
-      );
+      // Ensure data maps exactly to what components expect
+      const enrichedAdmissions = admissions.map((admission) => ({
+        ...admission,
+        latestVitals: admission.latestVitals || null,
+        diagnosesList: admission.diagnosesList || [],
+        nursesList: admission.nurses || [],
+      }));
 
       setPatients(enrichedAdmissions);
     } catch (err) {
@@ -53,6 +32,7 @@ export function usePatients() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPatientsCensus();
   }, [fetchPatientsCensus]);
 

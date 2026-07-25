@@ -27,9 +27,14 @@ const formatAdmission = (a) => ({
   patient: a.patient ? {
     id: a.patient.id,
     mrn: a.patient.mrn,
+    national_id: a.patient.nationalId,
     name: a.patient.name,
     age: a.patient.age,
     gender: a.patient.gender,
+    residence: a.patient.residence,
+    occupation: a.patient.occupation,
+    marital_status: a.patient.maritalStatus,
+    handedness: a.patient.handedness,
   } : null,
   bed: a.bed ? {
     id: a.bed.id,
@@ -44,6 +49,8 @@ const formatAdmission = (a) => ({
     role: a.doctor.role,
   } : null,
   nurses: a.nurses ? a.nurses.map(formatNurseAssignment) : [],
+  latestVitals: a.vitalSigns && a.vitalSigns.length > 0 ? a.vitalSigns[0] : null,
+  diagnosesList: a.diagnoses || [],
 });
 
 const formatNurseAssignment = (n) => ({
@@ -58,14 +65,14 @@ const formatNurseAssignment = (n) => ({
   updated_at: n.updatedAt,
   ...(n.nurse
     ? {
-        nurse: {
-          id: n.nurse.id,
-          first_name: n.nurse.firstName,
-          last_name: n.nurse.lastName,
-          email: n.nurse.email,
-          role: n.nurse.role,
-        },
-      }
+      nurse: {
+        id: n.nurse.id,
+        first_name: n.nurse.firstName,
+        last_name: n.nurse.lastName,
+        email: n.nurse.email,
+        role: n.nurse.role,
+      },
+    }
     : {}),
 });
 
@@ -97,7 +104,7 @@ const createFullAdmission = async (req, data) => {
       maritalStatus: data.patient.marital_status || null,
       handedness: data.patient.handedness || null,
     };
-    
+
     const patient = await tx.patient.upsert({
       where: { mrn: data.patient.mrn },
       update: patientData,
@@ -274,6 +281,13 @@ const getAdmissions = async (query) => {
           include: {
             nurse: true,
           },
+        },
+        vitalSigns: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+        diagnoses: {
+          where: { isArchived: false },
         },
       },
     }),

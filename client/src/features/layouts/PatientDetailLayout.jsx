@@ -88,11 +88,10 @@ export default function PatientDetailLayout() {
     try {
       setIsLoading(true);
       setError(null);
-      const [all, v] = await Promise.all([
-        patientsService.getActiveAdmissions(),
+      const [found, v] = await Promise.all([
+        patientsService.getAdmissionById(admissionId),
         patientsService.getLatestVitals(admissionId),
       ]);
-      const found = all.find((a) => String(a.id) === String(admissionId));
       if (!found) throw new Error('Admission not found.');
       setAdmission(found);
       setVitals(v);

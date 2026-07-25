@@ -1,8 +1,10 @@
 import api from '@/lib/api';
 
 export const dashboardService = {
-  async getActiveAdmissions() {
-    const { data } = await api.get('/admissions?status=ACTIVE');
+  async getActiveAdmissions(params = {}) {
+    const { data } = await api.get('/admissions', {
+      params: { status: 'ACTIVE', limit: 100, ...params },
+    });
     return data.data || [];
   },
 
