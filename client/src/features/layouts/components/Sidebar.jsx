@@ -34,6 +34,7 @@ const SIDEBAR_NAV = {
     { to: '/beds',                      label: 'Bed Overview',     icon: BedDouble },
     { to: '/vitals/entry',              label: 'Vitals Entry',     icon: Activity },
     { to: '/medications/administration',label: 'Med Administration', icon: Pill },
+    { to: '/labs',                      label: 'Upload Documents', icon: FlaskConical },
   ],
   MEDICAL_RESIDENT: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },

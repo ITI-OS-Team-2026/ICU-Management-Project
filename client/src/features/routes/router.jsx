@@ -17,6 +17,7 @@ import LabResultsPage from '../pages/LabResultsPage';
 import DischargePage from '../pages/DischargePage';
 import AdminUsersPage from '../pages/AdminUsersPage';
 import AdminBedsPage from '../pages/AdminBedsPage';
+import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
 
 // Patient detail tab pages
@@ -129,7 +130,7 @@ export const router = createBrowserRouter([
       { 
         path: 'labs', 
         element: <LabResultsPage />,
-        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+        loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'discharge', 
