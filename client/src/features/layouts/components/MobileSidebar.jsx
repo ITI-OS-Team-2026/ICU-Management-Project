@@ -9,15 +9,15 @@ export function MobileSidebar() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
+      <SheetTrigger render={
         <Button
           variant="ghost"
           size="icon"
           className="md:hidden h-8 w-8 text-muted-foreground hover:text-foreground -ml-2"
           aria-label="Open sidebar"
-        >
-          <Menu size={18} />
-        </Button>
+        />
+      }>
+        <Menu size={18} />
       </SheetTrigger>
       <SheetContent side="left" className="p-0 w-64 border-r border-border">
         {/* Render the Sidebar in mobile mode. 

@@ -92,7 +92,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
   );
 
   if (isCollapsed) {
-    return <TooltipTrigger asChild>{content}</TooltipTrigger>;
+    return <TooltipTrigger render={content} />;
   }
   return content;
 }
@@ -166,7 +166,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
         <div className="flex flex-col gap-1 w-full">
           {isCollapsed && !isMobile ? (
             <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
@@ -176,7 +176,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
                 >
                   <Settings size={16} aria-hidden />
                 </NavLink>
-              </TooltipTrigger>
+              } />
               <TooltipContent side="right" className="text-xs">
                 Settings
               </TooltipContent>
@@ -196,7 +196,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
 
           {isCollapsed && !isMobile ? (
             <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <Button
                   variant="ghost"
                   className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -205,7 +205,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
                 >
                   <LogOut size={16} />
                 </Button>
-              </TooltipTrigger>
+              } />
               <TooltipContent side="right" className="text-xs">
                 Log out
               </TooltipContent>

@@ -212,10 +212,10 @@ function VitalCard({ config, latest, previous }) {
           </div>
           {!isEmpty && TrendIcon && (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="cursor-help">
+              <TooltipTrigger render={
+                <span className="cursor-help" />
+              }>
                   <TrendIcon size={12} className="text-muted-foreground" />
-                </span>
               </TooltipTrigger>
               <TooltipContent side="top">
                 <span className="capitalize">{`${trend} since last reading`}</span>
@@ -234,10 +234,10 @@ function VitalCard({ config, latest, previous }) {
           </Badge>
           {config.normalRange ? (
             <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">
+              <TooltipTrigger render={
+                <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wide cursor-help" />
+              }>
                   {config.unit}
-                </span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 Normal: {config.normalRange.min}–{config.normalRange.max} {config.unit}
@@ -342,10 +342,10 @@ function VitalsHistoryTable({ vitals, isLoading }) {
               <TableRow key={v.id} className="hover:bg-muted/30">
                 <TableCell className="font-tnum text-xs whitespace-nowrap">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
+                    <TooltipTrigger render={
+                      <span className="cursor-help" />
+                    }>
                         {format(new Date(v.recordedAt), 'MMM d, y h:mm a')}
-                      </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       {format(new Date(v.recordedAt), 'PPP p')}
@@ -470,11 +470,11 @@ function VitalsHistoryTable({ vitals, isLoading }) {
 
                 <TableCell className="font-sans text-xs whitespace-nowrap">
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help flex items-center gap-1">
+                    <TooltipTrigger render={
+                      <span className="cursor-help flex items-center gap-1" />
+                    }>
                         <User size={10} className="text-muted-foreground" />
                         {recordedBy}
-                      </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <span className="capitalize">{v.recordedBy?.role || 'Unknown'}</span>

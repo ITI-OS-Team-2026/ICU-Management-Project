@@ -137,3 +137,16 @@ A single unchecked gate = revise before emitting.
 2. `db push` forcefully syncs the database and will drop data if columns are renamed. It also leaves no migration history.
 3. `migrate dev` generates a safe `.sql` script in the `prisma/migrations` folder. This allows teammates to sync securely via `prisma migrate deploy` or `prisma migrate dev` and allows manual intervention (like `ALTER TABLE ... RENAME COLUMN ...`) to prevent data loss.
 4. Only use `db push` when rapidly prototyping locally from scratch where dummy data loss is perfectly acceptable.
+
+---
+
+## 8. Base UI Composition Rule (No asChild)
+
+This project's Shadcn UI components have been migrated to use **Base UI** (`@base-ui/react`) under the hood instead of Radix UI. 
+Base UI does not use the `asChild` prop for component composition.
+
+1. **Never pass `asChild`** to any primitive triggers (e.g., `<DialogTrigger>`, `<SheetTrigger>`, `<TooltipTrigger>`, `<DropdownMenuTrigger>`).
+2. **Always use the `render` prop** to pass custom elements.
+   - **Incorrect:** `<TooltipTrigger asChild><Button>Hover me</Button></TooltipTrigger>`
+   - **Correct:** `<TooltipTrigger render={<Button>Hover me</Button>} />` or `<TooltipTrigger render={<Button />} >Hover me</TooltipTrigger>`
+3. If you encounter a React warning about `React does not recognize the 'asChild' prop on a DOM element`, you must refactor that component to use the `render` prop immediately.
