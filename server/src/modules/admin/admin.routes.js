@@ -6,6 +6,7 @@ const adminController = require("./admin.controller");
 const {
   userCreateSchema,
   userUpdateSchema,
+  userResetPasswordSchema,
   bedCreateSchema,
   bedUpdateSchema
 } = require("./admin.schema");
@@ -49,6 +50,14 @@ router.patch(
   restrictTo(["SYSTEM_ADMIN"]),
   validate({ body: userUpdateSchema }),
   adminController.updateUser
+);
+
+router.post(
+  "/users/:id/reset-password",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  validate({ body: userResetPasswordSchema }),
+  adminController.resetUserPassword
 );
 
 router.delete(

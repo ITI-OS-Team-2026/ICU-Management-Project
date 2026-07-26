@@ -103,12 +103,22 @@ const getAuditLogStats = async (req, res, next) => {
   }
 };
 
+const resetUserPassword = async (req, res, next) => {
+  try {
+    await adminService.resetUserPassword(req, req.params.id, req.body.newPassword);
+    res.status(200).json({ success: true, message: "User password reset successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
   getUserById,
   updateUser,
   deleteUser,
+  resetUserPassword,
   createBed,
   getBeds,
   updateBed,

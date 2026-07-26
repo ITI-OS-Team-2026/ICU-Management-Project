@@ -48,6 +48,10 @@ export function useUsers(initialFilters = {}) {
     setUsers((prev) => prev.filter((u) => u.id !== id));
   };
 
+  const resetPassword = async (id, newPassword) => {
+    await usersService.resetPassword(id, newPassword);
+  };
+
   return { 
     users, 
     stats, 
@@ -58,6 +62,7 @@ export function useUsers(initialFilters = {}) {
     refetch: fetchData, 
     createUser, 
     updateUser, 
-    deleteUser 
+    deleteUser,
+    resetPassword
   };
 }

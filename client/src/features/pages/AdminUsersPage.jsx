@@ -51,13 +51,45 @@ import {
 
 export default function AdminUsersPage() {
   // Hardcode initial filters for visual matching with mockup
-  const { users, stats, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
+  // Hardcode initial filters for visual matching with mockup
+  const { users, stats, filters, setFilters, isLoading, error, createUser, updateUser, resetPassword } = useUsers({
     role: '',
     status: '',
     search: ''
   });
 
   const [searchInput, setSearchInput] = useState('');
+  
+  // Password Reset state
+  const [selectedUserForReset, setSelectedUserForReset] = useState(null);
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetStatus, setResetStatus] = useState({ type: '', message: '' });
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setResetStatus({ type: '', message: '' });
+    
+    if (resetPasswordInput.length < 6) {
+      setResetStatus({ type: 'error', message: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      await resetPassword(selectedUserForReset.id, resetPasswordInput);
+      setResetStatus({ type: 'success', message: 'Password reset successfully!' });
+      setTimeout(() => {
+        setSelectedUserForReset(null);
+        setResetPasswordInput('');
+        setResetStatus({ type: '', message: '' });
+      }, 2000);
+    } catch (err) {
+      setResetStatus({ type: 'error', message: err.response?.data?.message || 'Failed to reset password.' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
   
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -361,6 +393,12 @@ export default function AdminUsersPage() {
                             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="font-sans">
+                          <DropdownMenuItem 
+                            className="cursor-pointer"
+                            onClick={() => setSelectedUserForReset(user)}
+                          >
+                            Reset Password
+                          </DropdownMenuItem>
                           {user.status === 'ACTIVE' ? (
                             <DropdownMenuItem 
                               className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer"
@@ -386,6 +424,54 @@ export default function AdminUsersPage() {
           </Table>
         )}
       </div>
+
+      {/* Reset Password Modal */}
+      <Dialog 
+        open={!!selectedUserForReset} 
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedUserForReset(null);
+            setResetPasswordInput('');
+            setResetStatus({ type: '', message: '' });
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-sans">Reset Password</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleResetPasswordSubmit} className="space-y-4 pt-4">
+            {resetStatus.message && (
+              <div className={`text-sm font-sans p-3 rounded-md border ${resetStatus.type === 'error' ? 'bg-destructive/10 text-destructive border-destructive/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                {resetStatus.message}
+              </div>
+            )}
+            <p className="font-sans text-sm text-muted-foreground">
+              Enter a new temporary password for <strong>{selectedUserForReset?.first_name} {selectedUserForReset?.last_name}</strong>.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="newTempPassword" className="font-sans text-xs font-semibold">New Password</Label>
+              <Input 
+                id="newTempPassword" 
+                type="text" 
+                required 
+                value={resetPasswordInput} 
+                onChange={e => setResetPasswordInput(e.target.value)} 
+                className="font-sans text-sm" 
+                placeholder="Must be at least 6 characters"
+              />
+            </div>
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setSelectedUserForReset(null)} className="font-sans">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isResetting || resetStatus.type === 'success'} className="font-sans bg-primary">
+                {isResetting ? 'Resetting...' : 'Reset Password'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
