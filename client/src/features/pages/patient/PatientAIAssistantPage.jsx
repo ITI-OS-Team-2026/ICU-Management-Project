@@ -22,7 +22,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
@@ -453,7 +453,7 @@ export default function PatientAIAssistantPage() {
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-full">
+              <div className="h-full overflow-y-auto">
                 <div className="p-3 space-y-2">
                   {summaries.map((item, index) => {
                     const itemId = item.id;
@@ -562,7 +562,7 @@ export default function PatientAIAssistantPage() {
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -647,9 +647,9 @@ export default function PatientAIAssistantPage() {
 
               {/* Summary Markdown Content Area */}
               <CardContent className="p-0 flex-1 overflow-hidden">
-                <ScrollArea className="h-full p-6">
+                <div className="h-full overflow-y-auto p-6">
                   <FormattedMarkdown content={currentSummaryText} />
-                </ScrollArea>
+                </div>
               </CardContent>
             </>
           ) : (

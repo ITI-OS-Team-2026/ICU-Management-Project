@@ -8,6 +8,13 @@ export const patientsService = {
     return data.data || [];
   },
 
+  async getActiveAdmissionsPaginated(params = {}) {
+    const { data } = await api.get('/admissions', {
+      params: { status: 'ACTIVE', ...params },
+    });
+    return data;
+  },
+
   async getAdmissionById(id) {
     const { data } = await api.get(`/admissions/${id}`);
     return data;
