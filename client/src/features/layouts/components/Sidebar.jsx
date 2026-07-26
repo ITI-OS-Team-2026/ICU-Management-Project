@@ -13,6 +13,7 @@ import {
   LogOut,
   History,
   Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -31,6 +32,7 @@ const SIDEBAR_NAV = {
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
+    { to: '/help',        label: 'Help & Docs',  icon: HelpCircle },
   ],
   ICU_NURSE: [
     { to: '/',                          label: 'Dashboard',        icon: LayoutDashboard },
@@ -40,6 +42,7 @@ const SIDEBAR_NAV = {
     { to: '/medications/administration',label: 'Med Administration', icon: Pill },
     { to: '/labs',                      label: 'Upload Documents', icon: FlaskConical },
     { to: '/nursing-notes',             label: 'Nursing Notes',    icon: FileText },
+    { to: '/help',                      label: 'Help & Docs',      icon: HelpCircle },
   ],
   MEDICAL_RESIDENT: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -50,6 +53,7 @@ const SIDEBAR_NAV = {
     { to: '/medications',    label: 'Medications',    icon: Pill },
     { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
     { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
+    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
   ],
   ICU_SPECIALIST: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -58,6 +62,7 @@ const SIDEBAR_NAV = {
     { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
     { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
     { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
+    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
   ],
 };
 
@@ -77,6 +82,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
       end
       className={({ isActive }) =>
         [
+          to === '/' ? 'nav-home' : `nav-${to.split('/').filter(Boolean).join('-')}`,
           'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer',
           isCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           isActive
@@ -92,7 +98,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
   );
 
   if (isCollapsed) {
-    return <TooltipTrigger asChild>{content}</TooltipTrigger>;
+    return <TooltipTrigger render={content} />;
   }
   return content;
 }
@@ -166,7 +172,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
         <div className="flex flex-col gap-1 w-full">
           {isCollapsed && !isMobile ? (
             <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
@@ -176,7 +182,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
                 >
                   <Settings size={16} aria-hidden />
                 </NavLink>
-              </TooltipTrigger>
+              } />
               <TooltipContent side="right" className="text-xs">
                 Settings
               </TooltipContent>
@@ -196,7 +202,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
 
           {isCollapsed && !isMobile ? (
             <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <Button
                   variant="ghost"
                   className="w-full justify-center px-0 cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -205,7 +211,7 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
                 >
                   <LogOut size={16} />
                 </Button>
-              </TooltipTrigger>
+              } />
               <TooltipContent side="right" className="text-xs">
                 Log out
               </TooltipContent>

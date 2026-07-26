@@ -21,6 +21,7 @@ import AuditLogsPage from '../pages/AuditLogsPage';
 import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import SettingsPage from '../pages/SettingsPage';
+import HelpPage from '../pages/HelpPage';
 
 // Patient detail tab pages
 import PatientOverviewPage    from '../pages/patient/PatientOverviewPage';
@@ -147,6 +148,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <SettingsPage />,
+      },
+      {
+        path: 'help',
+        element: <HelpPage />,
       },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /

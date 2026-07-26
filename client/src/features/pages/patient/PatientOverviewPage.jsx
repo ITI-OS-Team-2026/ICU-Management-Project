@@ -263,10 +263,10 @@ export default function PatientOverviewPage() {
             )}
             {los && (
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="font-tnum font-sans text-[11px] text-muted-foreground bg-muted px-2 py-1 rounded cursor-help">
+                <TooltipTrigger render={
+                  <span className="font-tnum font-sans text-[11px] text-muted-foreground bg-muted px-2 py-1 rounded cursor-help" />
+                }>
                     LOS: {los}
-                  </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Length of Stay since admission</TooltipContent>
               </Tooltip>
