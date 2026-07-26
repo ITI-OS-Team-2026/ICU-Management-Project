@@ -1,5 +1,5 @@
-import { useLocation } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ const ROUTE_TITLES = {
   '/medications/administration': 'Med Administration',
   '/labs': 'Lab Results',
   '/discharge': 'Discharge',
+  '/help': 'Help & Documentation',
   '/admin/users': 'Manage Users',
   '/admin/beds': 'Manage Beds',
   '/admin/audit-logs': 'Audit Logs',
@@ -24,6 +25,7 @@ const ROUTE_TITLES = {
 
 export function TopHeader({ isCollapsed, setIsCollapsed }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pageTitle = ROUTE_TITLES[location.pathname] || 'SmartCare ICU';
 
   return (
@@ -48,6 +50,15 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
       </h1>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/help')}
+          className="text-muted-foreground hover:text-foreground h-8 w-8"
+          title="Help & Documentation"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button>
         <ThemeToggle />
       </div>
     </header>

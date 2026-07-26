@@ -13,6 +13,7 @@ import {
   LogOut,
   History,
   Settings,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -31,6 +32,7 @@ const SIDEBAR_NAV = {
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
+    { to: '/help',        label: 'Help & Docs',  icon: HelpCircle },
   ],
   ICU_NURSE: [
     { to: '/',                          label: 'Dashboard',        icon: LayoutDashboard },
@@ -40,6 +42,7 @@ const SIDEBAR_NAV = {
     { to: '/medications/administration',label: 'Med Administration', icon: Pill },
     { to: '/labs',                      label: 'Upload Documents', icon: FlaskConical },
     { to: '/nursing-notes',             label: 'Nursing Notes',    icon: FileText },
+    { to: '/help',                      label: 'Help & Docs',      icon: HelpCircle },
   ],
   MEDICAL_RESIDENT: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -50,6 +53,7 @@ const SIDEBAR_NAV = {
     { to: '/medications',    label: 'Medications',    icon: Pill },
     { to: '/labs',           label: 'Lab Results',    icon: FlaskConical },
     { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
+    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
   ],
   ICU_SPECIALIST: [
     { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
@@ -58,6 +62,7 @@ const SIDEBAR_NAV = {
     { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
     { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
     { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
+    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
   ],
 };
 
