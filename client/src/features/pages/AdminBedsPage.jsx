@@ -1,6 +1,6 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useMemo, useState } from 'react';
-import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, HelpCircle } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
 import {
@@ -33,7 +33,6 @@ import { Separator } from '@/components/ui/separator';
 
 export default function AdminBedsPage() {
   const { beds, isLoading, error, refetch, createBed, updateBedStatus } = useBeds();
-
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
@@ -78,6 +77,7 @@ export default function AdminBedsPage() {
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8 bg-background min-h-[calc(100vh-4rem)]">
+
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border pb-6">
         <div>
           <p className="text-sm font-sans text-muted-foreground mb-1 uppercase tracking-wider font-semibold">Administration / Beds</p>
@@ -93,10 +93,10 @@ export default function AdminBedsPage() {
           </Button>
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="shrink-0 font-sans bg-primary">
-                <Plus className="mr-2 h-4 w-4" /> Add Bed
-              </Button>
+            <DialogTrigger render={
+              <Button className="shrink-0 font-sans bg-primary" />
+            }>
+              <Plus className="mr-2 h-4 w-4" /> Add Bed
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
@@ -229,10 +229,10 @@ function BedCard({ bed, updateBedStatus }) {
           </div>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-muted/50 -mr-2" onClick={e => e.stopPropagation()}>
-                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-              </Button>
+            <DropdownMenuTrigger render={
+              <Button variant="ghost" className="h-6 w-6 p-0 hover:bg-muted/50 -mr-2" onClick={e => e.stopPropagation()} />
+            }>
+              <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="font-sans">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>Set Available</DropdownMenuItem>

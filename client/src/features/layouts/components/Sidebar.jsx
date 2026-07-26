@@ -77,6 +77,7 @@ function SidebarLink({ to, label, icon: Icon, isCollapsed, onNavClick }) {
       end
       className={({ isActive }) =>
         [
+          to === '/' ? 'nav-home' : `nav-${to.split('/').filter(Boolean).join('-')}`,
           'flex items-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer',
           isCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
           isActive
