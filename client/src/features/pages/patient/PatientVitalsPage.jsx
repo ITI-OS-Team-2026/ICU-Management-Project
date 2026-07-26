@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Activity,
@@ -7,7 +7,7 @@ import {
   Clock,
   Heart,
   History,
-  Minus,
+  LineChart,
   RefreshCcw,
   Thermometer,
   Wind,
@@ -37,6 +37,16 @@ import {
 } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { useVitals } from '../../hooks/useVitals';
+import {
+  VitalTrendChart,
+  BloodPressureTrendChart,
+} from '../../components/VitalTrendChart';
+import {
+  getChronologicalVitals,
+  getOverallVitalStatus,
+  getVitalStatus,
+  getVitalValue,
+} from '../../utils/vitalStatus';
 
 /* ================================================================
    Vital Sign Configuration
@@ -48,12 +58,6 @@ const VITAL_CONFIG = [
     unit: '°C',
     icon: Thermometer,
     normalRange: { min: 36.0, max: 38.5 },
-    colorClass: (v) =>
-      v < 35.5 || v > 39.0
-        ? 'text-destructive'
-        : v > 38.0 || v < 36.0
-          ? 'text-amber-500'
-          : 'text-emerald-500',
     format: (v) => (typeof v === 'number' ? v.toFixed(1) : v),
   },
   {
@@ -62,12 +66,6 @@ const VITAL_CONFIG = [
     unit: 'bpm',
     icon: Heart,
     normalRange: { min: 40, max: 140 },
-    colorClass: (v) =>
-      v < 45 || v > 130
-        ? 'text-destructive'
-        : v > 100 || v < 55
-          ? 'text-amber-500'
-          : 'text-rose-500',
     format: (v) => v,
   },
   {
@@ -75,12 +73,6 @@ const VITAL_CONFIG = [
     label: 'Blood Pressure',
     unit: 'mmHg',
     icon: Activity,
-    colorClass: (sys, dia) =>
-      sys < 85 || sys > 180 || dia < 50 || dia > 110
-        ? 'text-destructive'
-        : sys > 140 || sys < 95 || dia > 90 || dia < 60
-          ? 'text-amber-500'
-          : 'text-primary',
     format: (_v, record) =>
       record?.systolicBp && record?.diastolicBp
         ? `${record.systolicBp}/${record.diastolicBp}`
@@ -93,8 +85,6 @@ const VITAL_CONFIG = [
     unit: '%',
     icon: Droplets,
     normalRange: { min: 85, max: 100 },
-    colorClass: (v) =>
-      v < 90 ? 'text-destructive' : v < 95 ? 'text-amber-500' : 'text-cyan-500',
     format: (v) => v,
   },
   {
@@ -103,12 +93,6 @@ const VITAL_CONFIG = [
     unit: '/min',
     icon: Wind,
     normalRange: { min: 8, max: 30 },
-    colorClass: (v) =>
-      v < 8 || v > 30
-        ? 'text-destructive'
-        : v > 24 || v < 12
-          ? 'text-amber-500'
-          : 'text-violet-500',
     format: (v) => v,
   },
   {
@@ -116,20 +100,17 @@ const VITAL_CONFIG = [
     label: 'MAP',
     unit: 'mmHg',
     icon: Activity,
-    colorClass: (v) =>
-      v < 65 || v > 110
-        ? 'text-destructive'
-        : v > 100 || v < 70
-          ? 'text-amber-500'
-          : 'text-primary',
-    format: (_v, record) => {
-      const sys = parseInt(record?.systolicBp, 10) || 0;
-      const dia = parseInt(record?.diastolicBp, 10) || 0;
-      if (!sys || !dia) return '—';
-      return Math.round(dia + (sys - dia) / 3);
-    },
+    format: (_v, record) => getVitalValue(record, 'map') ?? '—',
     isDerived: true,
   },
+];
+
+const VITAL_TREND_CONFIG = [
+  { title: 'Heart Rate', unit: 'bpm', icon: Heart, dataKey: 'pulse', ariaLabel: 'Heart rate trend chart' },
+  { title: 'SpO₂', unit: '%', icon: Droplets, dataKey: 'spo2', ariaLabel: 'Oxygen saturation trend chart' },
+  { title: 'Temperature', unit: '°C', icon: Thermometer, dataKey: 'temperature', ariaLabel: 'Temperature trend chart' },
+  { title: 'Respiratory Rate', unit: '/min', icon: Wind, dataKey: 'respiratoryRate', ariaLabel: 'Respiratory rate trend chart' },
+  { title: 'MAP', unit: 'mmHg', icon: Activity, dataKey: 'map', ariaLabel: 'Mean arterial pressure trend chart' },
 ];
 
 /* ================================================================
@@ -172,57 +153,13 @@ function getTrend(current, previous, config) {
   return curr > prev ? 'up' : 'down';
 }
 
-function computeStatus(latest) {
-  let criticalCount = 0;
-  let warningCount = 0;
-
-  const t = parseFloat(latest?.temperature);
-  if (Number.isFinite(t)) {
-    if (t < 35.5 || t > 39.0) criticalCount++;
-    else if (t > 38.0 || t < 36.0) warningCount++;
-  }
-
-  const p = parseInt(latest?.pulse, 10);
-  if (Number.isFinite(p)) {
-    if (p < 45 || p > 130) criticalCount++;
-    else if (p > 100 || p < 55) warningCount++;
-  }
-
-  const s = parseInt(latest?.systolicBp, 10);
-  const d = parseInt(latest?.diastolicBp, 10);
-  if (Number.isFinite(s) && Number.isFinite(d)) {
-    if (s < 85 || s > 180 || d < 50 || d > 110) criticalCount++;
-    else if (s > 140 || s < 95 || d > 90 || d < 60) warningCount++;
-  }
-
-  const sp = parseInt(latest?.spo2, 10);
-  if (Number.isFinite(sp)) {
-    if (sp < 90) criticalCount++;
-    else if (sp < 95) warningCount++;
-  }
-
-  const r = parseInt(latest?.respiratoryRate, 10);
-  if (Number.isFinite(r)) {
-    if (r < 8 || r > 30) criticalCount++;
-    else if (r > 24 || r < 12) warningCount++;
-  }
-
-  if (criticalCount > 0) return { label: 'Critical', variant: 'destructive' };
-  if (warningCount > 0) return { label: 'Watchful', variant: 'outline' };
-  return { label: 'Normal', variant: 'secondary' };
-}
-
 const TREND_ICONS = {
   up: ArrowUp,
   down: ArrowDown,
-  same: Minus,
+  same: null,
 };
 
-const TREND_CLASSES = {
-  up: 'text-emerald-500',
-  down: 'text-destructive',
-  same: 'text-muted-foreground',
-};
+
 
 /* ================================================================
    Sub-components
@@ -251,17 +188,11 @@ function VitalCard({ config, latest, previous }) {
       ? config.format(null, latest)
       : config.format(latest?.[config.key]);
 
-  const rawValue =
-    config.isDerived || config.isComposite ? value : latest?.[config.key];
-
-  const color = config.isComposite
-    ? config.colorClass(
-        parseInt(latest?.systolicBp, 10),
-        parseInt(latest?.diastolicBp, 10)
-      )
-    : config.isDerived
-      ? config.colorClass(parseInt(value, 10))
-      : config.colorClass(parseFloat(rawValue));
+  const status = getVitalStatus(
+    config.key,
+    config.isDerived ? getVitalValue(latest, config.key) : latest?.[config.key],
+    latest,
+  );
 
   const trend = getTrend(latest, previous, config);
   const TrendIcon = TREND_ICONS[trend];
@@ -270,9 +201,8 @@ function VitalCard({ config, latest, previous }) {
     value === '—' || value === null || value === undefined || value === '';
 
   return (
-    <Card className="border-border relative overflow-hidden">
-      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-border" />
-      <CardContent className="p-4 space-y-2 pl-4">
+    <Card className="border-border">
+      <CardContent className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Icon size={13} className="text-muted-foreground" />
@@ -280,37 +210,43 @@ function VitalCard({ config, latest, previous }) {
               {config.label}
             </span>
           </div>
-          {!isEmpty && (
+          {!isEmpty && TrendIcon && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="cursor-help">
-                  <TrendIcon size={12} className={TREND_CLASSES[trend]} />
+                  <TrendIcon size={12} className="text-muted-foreground" />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <span className="capitalize">{trend === 'same' ? 'No change' : `${trend} since last reading`}</span>
+                <span className="capitalize">{`${trend} since last reading`}</span>
               </TooltipContent>
             </Tooltip>
           )}
         </div>
 
-        <div className={`font-tnum text-2xl font-bold leading-none ${color}`}>
+        <div className={`font-tnum text-2xl font-bold leading-none ${status.colorClass}`}>
           {isEmpty ? '—' : value}
         </div>
 
-        <div className="font-sans text-[10px] text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-          {config.unit}
-          {config.normalRange && (
+        <div className="flex items-center justify-between">
+          <Badge variant={status.badgeVariant} className={`font-sans text-[10px] uppercase tracking-wide ${status.colorClass}`}>
+            {status.label}
+          </Badge>
+          {config.normalRange ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="cursor-help text-muted-foreground/60">
-                  (Normal: {config.normalRange.min}\u2013{config.normalRange.max})
+                <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wide cursor-help">
+                  {config.unit}
                 </span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                Normal range: {config.normalRange.min}\u2013{config.normalRange.max} {config.unit}
+                Normal: {config.normalRange.min}–{config.normalRange.max} {config.unit}
               </TooltipContent>
             </Tooltip>
+          ) : (
+            <span className="font-sans text-[10px] text-muted-foreground uppercase tracking-wide">
+              {config.unit}
+            </span>
           )}
         </div>
       </CardContent>
@@ -389,10 +325,14 @@ function VitalsHistoryTable({ vitals, isLoading }) {
             const rrTrend = getTrend(v, prev, VITAL_CONFIG[4]);
             const tempTrend = getTrend(v, prev, VITAL_CONFIG[0]);
 
-            const sys = parseInt(v.systolicBp, 10);
-            const dia = parseInt(v.diastolicBp, 10);
-            const mapVal =
-              !isNaN(sys) && !isNaN(dia) ? Math.round(dia + (sys - dia) / 3) : null;
+            const mapVal = getVitalValue(v, 'map');
+
+            const pulseStatus = getVitalStatus('pulse', v.pulse, v);
+            const bpStatus = getVitalStatus('bloodPressure', null, v);
+            const spo2Status = getVitalStatus('spo2', v.spo2, v);
+            const rrStatus = getVitalStatus('respiratoryRate', v.respiratoryRate, v);
+            const tempStatus = getVitalStatus('temperature', v.temperature, v);
+            const mapStatus = getVitalStatus('map', mapVal, v);
 
             const recordedBy = v.recordedBy
               ? `${v.recordedBy.firstName || ''} ${v.recordedBy.lastName || ''}`.trim()
@@ -418,19 +358,13 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                     {v.pulse != null ? (
                       <>
                         <span
-                          className={
-                            v.pulse < 45 || v.pulse > 130
-                              ? 'text-destructive font-semibold'
-                              : v.pulse > 100 || v.pulse < 55
-                                ? 'text-amber-500 font-semibold'
-                                : 'text-rose-500'
-                          }
+                          className={`${pulseStatus.colorClass} ${pulseStatus.label !== 'Normal' && pulseStatus.label !== 'No data' ? 'font-semibold' : ''}`}
                         >
                           {v.pulse}
                         </span>
                         {(() => {
                           const TI = TREND_ICONS[pulseTrend];
-                          return <TI size={10} className={TREND_CLASSES[pulseTrend]} />;
+                          return TI ? <TI size={10} className="text-muted-foreground" /> : null;
                         })()}
                       </>
                     ) : (
@@ -444,19 +378,13 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                     {v.systolicBp && v.diastolicBp ? (
                       <>
                         <span
-                          className={
-                            sys < 85 || sys > 180 || dia < 50 || dia > 110
-                              ? 'text-destructive font-semibold'
-                              : sys > 140 || sys < 95 || dia > 90 || dia < 60
-                                ? 'text-amber-500 font-semibold'
-                                : 'text-primary'
-                          }
+                          className={`${bpStatus.colorClass} ${bpStatus.label !== 'Normal' && bpStatus.label !== 'No data' ? 'font-semibold' : ''}`}
                         >
                           {v.systolicBp}/{v.diastolicBp}
                         </span>
                         {(() => {
                           const TI = TREND_ICONS[bpTrend];
-                          return <TI size={10} className={TREND_CLASSES[bpTrend]} />;
+                          return TI ? <TI size={10} className="text-muted-foreground" /> : null;
                         })()}
                       </>
                     ) : (
@@ -470,19 +398,13 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                     {v.spo2 != null ? (
                       <>
                         <span
-                          className={
-                            v.spo2 < 90
-                              ? 'text-destructive font-semibold'
-                              : v.spo2 < 95
-                                ? 'text-amber-500 font-semibold'
-                                : 'text-cyan-500'
-                          }
+                          className={`${spo2Status.colorClass} ${spo2Status.label !== 'Normal' && spo2Status.label !== 'No data' ? 'font-semibold' : ''}`}
                         >
                           {v.spo2}%
                         </span>
                         {(() => {
                           const TI = TREND_ICONS[spo2Trend];
-                          return <TI size={10} className={TREND_CLASSES[spo2Trend]} />;
+                          return TI ? <TI size={10} className="text-muted-foreground" /> : null;
                         })()}
                       </>
                     ) : (
@@ -496,19 +418,13 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                     {v.respiratoryRate != null ? (
                       <>
                         <span
-                          className={
-                            v.respiratoryRate < 8 || v.respiratoryRate > 30
-                              ? 'text-destructive font-semibold'
-                              : v.respiratoryRate > 24 || v.respiratoryRate < 12
-                                ? 'text-amber-500 font-semibold'
-                                : 'text-violet-500'
-                          }
+                          className={`${rrStatus.colorClass} ${rrStatus.label !== 'Normal' && rrStatus.label !== 'No data' ? 'font-semibold' : ''}`}
                         >
                           {v.respiratoryRate}
                         </span>
                         {(() => {
                           const TI = TREND_ICONS[rrTrend];
-                          return <TI size={10} className={TREND_CLASSES[rrTrend]} />;
+                          return TI ? <TI size={10} className="text-muted-foreground" /> : null;
                         })()}
                       </>
                     ) : (
@@ -522,15 +438,7 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                     {v.temperature != null ? (
                       <>
                         <span
-                          className={
-                            parseFloat(v.temperature) < 35.5 ||
-                            parseFloat(v.temperature) > 39.0
-                              ? 'text-destructive font-semibold'
-                              : parseFloat(v.temperature) > 38.0 ||
-                                  parseFloat(v.temperature) < 36.0
-                                ? 'text-amber-500 font-semibold'
-                                : 'text-emerald-500'
-                          }
+                          className={`${tempStatus.colorClass} ${tempStatus.label !== 'Normal' && tempStatus.label !== 'No data' ? 'font-semibold' : ''}`}
                         >
                           {typeof v.temperature === 'number'
                             ? v.temperature.toFixed(1)
@@ -539,7 +447,7 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                         </span>
                         {(() => {
                           const TI = TREND_ICONS[tempTrend];
-                          return <TI size={10} className={TREND_CLASSES[tempTrend]} />;
+                          return TI ? <TI size={10} className="text-muted-foreground" /> : null;
                         })()}
                       </>
                     ) : (
@@ -551,13 +459,7 @@ function VitalsHistoryTable({ vitals, isLoading }) {
                 <TableCell className="font-tnum text-xs text-right">
                   {mapVal != null ? (
                     <span
-                      className={
-                        mapVal < 65 || mapVal > 110
-                          ? 'text-destructive font-semibold'
-                          : mapVal > 100 || mapVal < 70
-                            ? 'text-amber-500 font-semibold'
-                            : 'text-primary'
-                      }
+                      className={`${mapStatus.colorClass} ${mapStatus.label !== 'Normal' && mapStatus.label !== 'No data' ? 'font-semibold' : ''}`}
                     >
                       {mapVal}
                     </span>
@@ -597,10 +499,10 @@ export default function PatientVitalsPage() {
 
   const { vitals, isLoading, error, refetch } = useVitals(admissionId, 50);
 
-  const latest = vitals[0] || null;
-  const previous = vitals[1] || null;
-
-  const status = latest ? computeStatus(latest) : null;
+  const chronologicalVitals = useMemo(() => getChronologicalVitals(vitals), [vitals]);
+  const latest = chronologicalVitals.at(-1) || null;
+  const previous = chronologicalVitals.at(-2) || null;
+  const status = latest ? getOverallVitalStatus(latest) : null;
 
   const handleRefetch = useCallback(() => {
     refetch();
@@ -625,7 +527,7 @@ export default function PatientVitalsPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {status && (
-              <Badge variant={status.variant} className="font-sans text-[11px] uppercase tracking-wider">
+              <Badge variant={status.badgeVariant} className={`font-sans text-[11px] uppercase tracking-wider ${status.colorClass}`}>
                 {status.label}
               </Badge>
             )}
@@ -681,6 +583,54 @@ export default function PatientVitalsPage() {
                   previous={previous}
                 />
               ))}
+            </div>
+          )}
+        </section>
+
+        <Separator className="bg-border" />
+
+        {/* ── Vitals Trend Charts ──────────────────────────────────────── */}
+        <section aria-label="Vitals trends">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
+              <LineChart size={14} className="text-muted-foreground" />
+              Vitals Trends
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="flex flex-col space-y-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="border-border w-full">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    <Separator className="bg-border" />
+                    <Skeleton className="h-[220px] w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-6">
+              {VITAL_TREND_CONFIG.map((trend) => (
+                <VitalTrendChart
+                  key={trend.dataKey}
+                  {...trend}
+                  data={vitals}
+                  layout="stacked"
+                  heightClass="h-[220px]"
+                />
+              ))}
+
+              <BloodPressureTrendChart
+                data={vitals}
+                layout="stacked"
+                heightClass="h-[220px]"
+                ariaLabel="Blood pressure trend chart"
+              />
             </div>
           )}
         </section>
