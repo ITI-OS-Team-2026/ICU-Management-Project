@@ -15,8 +15,18 @@ const queryLogsQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
 });
 
+const patientSummaryParamsSchema = Joi.object({
+  admissionId: Joi.string().uuid().required(),
+});
+
+const deleteSummaryParamsSchema = Joi.object({
+  summaryId: Joi.string().uuid().required(),
+});
+
 module.exports = {
   createSummarySchema,
   createQuerySchema,
   queryLogsQuerySchema,
+  patientSummaryParamsSchema,
+  deleteSummaryParamsSchema,
 };

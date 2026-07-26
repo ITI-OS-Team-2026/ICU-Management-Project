@@ -254,4 +254,88 @@ describe("AI Services API (Summaries & RAG Query)", () => {
       expect(res.statusCode).toBe(403);
     });
   });
+
+  describe("DELETE /api/ai/summaries/:summaryId", () => {
+    let summaryToDelete;
+
+    beforeEach(async () => {
+      summaryToDelete = await prisma.aiSummary.create({
+        data: {
+          admissionId: testAdmission.id,
+          requestedById: testResident.id,
+          summaryType: "ON_DEMAND",
+          overallSummary: "Summary to test soft delete endpoint",
+        },
+      });
+    });
+
+    afterEach(async () => {
+      if (summaryToDelete?.id) {
+        await prisma.aiSummary.deleteMany({ where: { id: summaryToDelete.id } });
+      }
+    });
+
+    it("should allow a resident to soft delete a summary", async () => {
+      const res = await request(app)
+        .delete(`/api/ai/summaries/${summaryToDelete.id}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      // Verify physical presence with isArchived = true in DB
+      const dbRecord = await prisma.aiSummary.findUnique({
+        where: { id: summaryToDelete.id },
+      });
+      expect(dbRecord).not.toBeNull();
+      expect(dbRecord.isArchived).toBe(true);
+      expect(dbRecord.archivedAt).not.toBeNull();
+
+      // Verify excluded from summaries list
+      const listRes = await request(app)
+        .get(`/api/admissions/${testAdmission.id}/summaries`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      const found = listRes.body.data.find((s) => s.id === summaryToDelete.id);
+      expect(found).toBeUndefined();
+    });
+
+    it("should return 409 when deleting an already deleted summary", async () => {
+      // First deletion
+      await request(app)
+        .delete(`/api/ai/summaries/${summaryToDelete.id}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      // Second deletion attempt
+      const res = await request(app)
+        .delete(`/api/ai/summaries/${summaryToDelete.id}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(409);
+    });
+
+    it("should return 404 for a non-existent summary", async () => {
+      const res = await request(app)
+        .delete("/api/ai/summaries/00000000-0000-0000-0000-000000000000")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("should return 400 for an invalid summary ID UUID format", async () => {
+      const res = await request(app)
+        .delete("/api/ai/summaries/invalid-uuid-123")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("should not allow a nurse to delete a summary", async () => {
+      const res = await request(app)
+        .delete(`/api/ai/summaries/${summaryToDelete.id}`)
+        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+  });
 });
