@@ -21,6 +21,8 @@ import {
   FlaskConical,
   ShieldAlert,
   History,
+  TrendingUp,
+  Droplets,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +37,14 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { patientsService } from '../../services/patientsService';
+import { useVitals } from '../../hooks/useVitals';
+import { VitalTrendChart, BloodPressureTrendChart } from '../../components/VitalTrendChart';
+
+const OVERVIEW_TREND_CONFIGS = [
+  { title: 'Heart Rate', unit: 'bpm', icon: Heart, dataKey: 'pulse', ariaLabel: 'Heart rate trend chart' },
+  { title: 'SpO₂', unit: '%', icon: Droplets, dataKey: 'spo2', ariaLabel: 'Oxygen saturation trend chart' },
+  { title: 'MAP', unit: 'mmHg', icon: Activity, dataKey: 'map', ariaLabel: 'Mean arterial pressure trend chart' },
+];
 
 /* ================================================================
    Helpers
@@ -152,11 +162,32 @@ function PreviousInvestigationsDisplay({ data }) {
   );
 }
 
+function TrendChartsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i} className="border-border">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <Skeleton className="h-7 w-16" />
+            <Separator className="bg-border" />
+            <Skeleton className="h-[180px] w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 /* ================================================================
    Main Page Component
    ================================================================ */
 export default function PatientOverviewPage() {
   const { admission } = useOutletContext();
+  const { vitals, isLoading: vitalsLoading } = useVitals(admission?.id, 50);
   
   const [extraData, setExtraData] = useState({
     diagnoses: [],
@@ -340,6 +371,33 @@ export default function PatientOverviewPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* ── Key Physiological Trends Section ──────────────────────────────── */}
+        <section aria-label="Key physiological trends">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
+              <TrendingUp size={14} className="text-primary" />
+              Key Physiological Trends
+            </h2>
+            {vitals && vitals.length > 0 && (
+              <span className="font-sans text-xs text-muted-foreground">
+                {vitals.length} {vitals.length === 1 ? 'reading' : 'readings'}
+              </span>
+            )}
+          </div>
+          {vitalsLoading ? (
+            <TrendChartsSkeleton />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+              {OVERVIEW_TREND_CONFIGS.map((trend) => (
+                <VitalTrendChart key={trend.dataKey} {...trend} data={vitals} />
+              ))}
+              <BloodPressureTrendChart data={vitals} ariaLabel="Blood pressure trend chart" />
+            </div>
+          )}
+        </section>
+
+        <Separator className="bg-border" />
 
         {/* ── Second Grid: Clinical Status (History, Diagnoses, Medications, Labs) ── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
