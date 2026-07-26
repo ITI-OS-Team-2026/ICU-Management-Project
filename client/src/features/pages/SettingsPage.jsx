@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '@/lib/api';
+import { authService } from '../services/authService';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +32,7 @@ export default function SettingsPage() {
 
     try {
       setIsLoading(true);
-      await api.put('/auth/password', {
+      await authService.changePassword({
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword
       });

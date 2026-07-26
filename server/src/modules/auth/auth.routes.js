@@ -3,7 +3,7 @@ const validate = require("../../middlewares/validate");
 const verifyToken = require("../../middlewares/verifyToken");
 const { authLimiter } = require("../../middlewares/rateLimiter");
 const authController = require("./auth.controller");
-const { loginSchema } = require("./auth.schema");
+const { loginSchema, changePasswordSchema } = require("./auth.schema");
 
 const router = express.Router();
 
@@ -33,6 +33,7 @@ router.get(
 router.put(
   "/password",
   verifyToken,
+  validate({ body: changePasswordSchema }),
   authController.changePassword
 );
 
