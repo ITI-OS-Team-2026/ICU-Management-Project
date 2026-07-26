@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -130,6 +130,10 @@ export default function PatientListPage() {
   const [unitFilter, setUnitFilter] = useState('All');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
+
   // Pre-calculate derived acuity and risk for all patients
   const processedPatients = useMemo(() => {
     return patients.map(p => {
@@ -205,6 +209,18 @@ export default function PatientListPage() {
       return matchesSearch && matchesAcuity && matchesUnit;
     });
   }, [processedPatients, searchQuery, acuityFilter, unitFilter]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, acuityFilter, unitFilter]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredPatients.length / pageSize) || 1;
+  const paginatedPatients = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredPatients.slice(startIndex, startIndex + pageSize);
+  }, [filteredPatients, currentPage, pageSize]);
 
   const handleCensusPdf = () => {
     alert("Generating Census PDF report...");
@@ -356,7 +372,7 @@ export default function PatientListPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPatients.map((p) => {
+              {paginatedPatients.map((p) => {
                 const initials = p.patient?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '??';
                 
                 return (
@@ -474,7 +490,7 @@ export default function PatientListPage() {
       ) : (
         /* Grid layout view */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPatients.map((p) => {
+          {paginatedPatients.map((p) => {
             const initials = p.patient?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '??';
             
             return (
@@ -561,6 +577,38 @@ export default function PatientListPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!isLoading && !error && filteredPatients.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
+          <p className="text-sm font-sans text-muted-foreground">
+            Showing <span className="font-bold text-foreground">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-foreground">{Math.min(currentPage * pageSize, filteredPatients.length)}</span> of <span className="font-bold text-foreground">{filteredPatients.length}</span> patients
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="font-sans text-xs font-semibold"
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-1 px-3 bg-muted/30 border border-border rounded-md">
+              <span className="text-xs font-sans font-medium text-foreground">Page {currentPage} of {totalPages}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="font-sans text-xs font-semibold"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </div>
