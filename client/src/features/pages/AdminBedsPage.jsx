@@ -36,7 +36,18 @@ export default function AdminBedsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
+  const [updateError, setUpdateError] = useState(null);
   const [bedNumber, setBedNumber] = useState('');
+
+  const handleUpdateStatus = async (id, status) => {
+    setUpdateError(null);
+    try {
+      await updateBedStatus(id, status);
+    } catch (err) {
+      setUpdateError(err.response?.data?.message || err.message || 'An unknown error occurred');
+      setTimeout(() => setUpdateError(null), 5000);
+    }
+  };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
@@ -154,10 +165,17 @@ export default function AdminBedsPage() {
         />
       </div>
 
+      {updateError && (
+        <div className="bg-destructive/10 text-destructive text-sm font-sans p-4 rounded-md border border-destructive/20 mt-2 mb-2">
+          <p className="font-semibold">Error Updating Bed</p>
+          <p>{updateError}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {isLoading
           ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
-          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={updateBedStatus} />)}
+          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={handleUpdateStatus} />)}
       </div>
     </div>
   );
@@ -236,7 +254,6 @@ function BedCard({ bed, updateBedStatus }) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="font-sans">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>Set Available</DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'OCCUPIED'); }}>Set Occupied</DropdownMenuItem>
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'MAINTENANCE'); }}>Set Maintenance</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
