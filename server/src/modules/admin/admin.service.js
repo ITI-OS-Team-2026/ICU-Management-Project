@@ -343,16 +343,43 @@ const updateBed = async (req, id, data) => {
   const bed = await prisma.bed.findUnique({ where: { id } });
   if (!bed) throw new APIError("Bed not found", 404);
 
-  const updated = await prisma.bed.update({
-    where: { id },
-    data: { status: data.status }
+  const newStatus = data.status;
+
+  if (newStatus === "OCCUPIED") {
+    throw new APIError("Bed status can only be set to OCCUPIED through the admission workflow", 400);
+  }
+
+  const activeAdmission = await prisma.admission.findFirst({
+    where: { bedId: id, status: "ACTIVE" }
   });
 
-  return {
-    id: updated.id,
-    bed_number: updated.bedNumber,
-    status: updated.status
-  };
+  if (activeAdmission) {
+    throw new APIError("Cannot change bed status while there is an active admission. Please discharge or transfer the patient first.", 409);
+  }
+
+  if (newStatus === "MAINTENANCE" || newStatus === "OUT_OF_SERVICE") {
+    if (bed.status !== "AVAILABLE") {
+      throw new APIError("Bed must be AVAILABLE before taking it offline.", 409);
+    }
+  }
+
+  return auditedTransaction(req, { action: "UPDATE", targetTable: "Bed", targetId: id }, async (tx) => {
+    const updated = await tx.bed.update({
+      where: { id },
+      data: { status: newStatus }
+    });
+
+    return {
+      targetId: id,
+      oldValues: { status: bed.status },
+      newValues: { status: newStatus },
+      result: {
+        id: updated.id,
+        bed_number: updated.bedNumber,
+        status: updated.status
+      }
+    };
+  });
 };
 
 
