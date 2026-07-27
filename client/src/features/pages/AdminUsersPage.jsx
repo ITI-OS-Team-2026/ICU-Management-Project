@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -8,9 +8,14 @@ import {
   Download, 
   UserPlus, 
   Search,
-  MoreHorizontal
+  MoreHorizontal,
+  Inbox,
+  Clock,
+  KeyRound,
+  Send,
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUsers';
+import { passwordResetRequestService } from '../services/passwordResetRequestService';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -90,6 +95,49 @@ export default function AdminUsersPage() {
       setIsResetting(false);
     }
   };
+
+  // ── Password Reset Requests Inbox ──────────────────────────────────────────
+  const [resetRequests, setResetRequests] = useState([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [activeReplyId, setActiveReplyId] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyStatus, setReplyStatus] = useState({ id: null, type: '', message: '' });
+
+  const fetchResetRequests = useCallback(async () => {
+    try {
+      setIsLoadingRequests(true);
+      const data = await passwordResetRequestService.getAllRequests();
+      setResetRequests(data);
+    } catch {
+      // silently fail
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchResetRequests();
+  }, [fetchResetRequests]);
+
+  const handleReply = async (requestId) => {
+    if (!replyText.trim()) return;
+    setReplyStatus({ id: requestId, type: '', message: '' });
+    try {
+      setIsReplying(true);
+      await passwordResetRequestService.resolveRequest(requestId, replyText);
+      setReplyStatus({ id: requestId, type: 'success', message: 'Reply sent successfully!' });
+      setReplyText('');
+      setActiveReplyId(null);
+      fetchResetRequests();
+    } catch (err) {
+      setReplyStatus({ id: requestId, type: 'error', message: err.response?.data?.message || 'Failed to send reply.' });
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
+  const pendingCount = resetRequests.filter((r) => r.status === 'PENDING').length;
   
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -472,6 +520,132 @@ export default function AdminUsersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Password Reset Requests Inbox ──────────────────────────── */}
+      <div className="bg-background rounded-xl shadow-sm border border-border overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/10">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-5 w-5 text-primary" />
+            <h2 className="font-sans text-base font-semibold text-foreground">Password Reset Requests</h2>
+            {pendingCount > 0 && (
+              <span className="h-5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                {pendingCount}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={fetchResetRequests}
+            className="font-sans text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="divide-y divide-border">
+          {isLoadingRequests ? (
+            <div className="p-6 space-y-3">
+              {[1,2].map(i => <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" />)}
+            </div>
+          ) : resetRequests.length === 0 ? (
+            <div className="p-12 text-center text-muted-foreground">
+              <Inbox className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="font-sans text-sm">No password reset requests yet.</p>
+            </div>
+          ) : (
+            resetRequests.map((req) => (
+              <div key={req.id} className="p-5 space-y-3">
+                {/* Request header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${req.status === 'PENDING' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                    <div>
+                      <p className="font-sans text-sm font-semibold text-foreground">
+                        {req.requester.first_name} {req.requester.last_name}
+                        <span className="ml-2 font-normal text-muted-foreground text-xs">{req.requester.email}</span>
+                      </p>
+                      <p className="font-sans text-xs text-muted-foreground">
+                        {formatRole(req.requester.role)} · {formatDateShort(req.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-sans font-semibold px-2 py-0.5 rounded-full ${req.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {req.status}
+                  </span>
+                </div>
+
+                {/* User message */}
+                {req.message && (
+                  <div className="ml-5 bg-muted/30 rounded-md px-3 py-2">
+                    <p className="font-sans text-xs text-muted-foreground mb-0.5">Message:</p>
+                    <p className="font-sans text-sm text-foreground">{req.message}</p>
+                  </div>
+                )}
+
+                {/* Admin reply */}
+                {req.status === 'RESOLVED' && req.adminReply && (
+                  <div className="ml-5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md px-3 py-2">
+                    <p className="font-sans text-xs text-emerald-700 dark:text-emerald-400 font-semibold mb-0.5">Temp password sent:</p>
+                    <p className="font-mono text-sm font-bold text-emerald-800 dark:text-emerald-300">{req.adminReply}</p>
+                    <p className="font-sans text-xs text-emerald-600 mt-1">Resolved by {req.resolvedByName} · {formatDateShort(req.resolvedAt)}</p>
+                  </div>
+                )}
+
+                {/* Reply form (only for pending) */}
+                {req.status === 'PENDING' && (
+                  <div className="ml-5">
+                    {activeReplyId === req.id ? (
+                      <div className="space-y-2">
+                        {replyStatus.id === req.id && replyStatus.message && (
+                          <p className={`font-sans text-xs ${replyStatus.type === 'error' ? 'text-destructive' : 'text-emerald-600'}`}>
+                            {replyStatus.message}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder="Enter new temporary password..."
+                            className="font-sans text-sm h-9 flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            className="gap-1.5 h-9 bg-primary"
+                            disabled={isReplying || !replyText.trim()}
+                            onClick={() => handleReply(req.id)}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            {isReplying ? 'Sending...' : 'Send'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9"
+                            onClick={() => { setActiveReplyId(null); setReplyText(''); }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs font-sans gap-1.5"
+                        onClick={() => { setActiveReplyId(req.id); setReplyText(''); }}
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                        Reply with Temp Password
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -515,6 +689,7 @@ function formatRole(roleStr) {
     'ICU_PHYSICIAN': 'ICU Physician',
     'ICU_NURSE': 'ICU Nurse',
     'ICU_SPECIALIST': 'Specialist',
+    'MEDICAL_RESIDENT': 'Medical Resident',
     'SUPPORT': 'Support'
   };
   return map[roleStr] || roleStr.replace('_', ' ');
@@ -522,7 +697,6 @@ function formatRole(roleStr) {
 
 function formatTimeAgo(dateStr) {
   if (!dateStr) return 'Never';
-  // Extremely naive mock time formatter to match the '2m ago' style in UI
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now - date;
@@ -533,4 +707,12 @@ function formatTimeAgo(dateStr) {
   if (diffHrs < 24) return `${diffHrs}h ago`;
   const diffDays = Math.floor(diffHrs / 24);
   return `${diffDays}d ago`;
+}
+
+function formatDateShort(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }

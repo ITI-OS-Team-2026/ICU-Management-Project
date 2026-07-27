@@ -1,0 +1,45 @@
+import api from '@/lib/api';
+
+export const passwordResetRequestService = {
+  // User: submit a new request
+  async createRequest(message) {
+    const { data } = await api.post('/password-reset-requests', { message });
+    return data;
+  },
+
+  // User: get own requests (with admin replies)
+  async getMyRequests() {
+    const { data } = await api.get('/password-reset-requests/my');
+    return data;
+  },
+
+  // User: mark all resolved replies as seen
+  async markSeen() {
+    await api.post('/password-reset-requests/mark-seen');
+  },
+
+  // User: get unseen reply count for sidebar badge
+  async getUnseenCount() {
+    const { data } = await api.get('/password-reset-requests/unseen-count');
+    return data.count;
+  },
+
+  // Admin: get all requests
+  async getAllRequests(status = '') {
+    const params = status ? { status } : {};
+    const { data } = await api.get('/admin/password-reset-requests', { params });
+    return data;
+  },
+
+  // Admin: get pending count for badge
+  async getPendingCount() {
+    const { data } = await api.get('/admin/password-reset-requests/pending-count');
+    return data.count;
+  },
+
+  // Admin: resolve a request
+  async resolveRequest(id, adminReply) {
+    const { data } = await api.post(`/admin/password-reset-requests/${id}/resolve`, { adminReply });
+    return data;
+  },
+};

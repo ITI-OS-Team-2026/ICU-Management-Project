@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -22,6 +23,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { passwordResetRequestService } from '../../services/passwordResetRequestService';
 
 // ---------------------------------------------------------------------------
 // Sidebar nav config — one source of truth for every role's links
@@ -105,6 +107,29 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
 
+  // Badge: unseen admin replies (for clinical users) or pending requests (for admin)
+  const [settingsBadge, setSettingsBadge] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    let interval;
+    const fetchBadge = async () => {
+      try {
+        if (user.role === 'SYSTEM_ADMIN') {
+          const count = await passwordResetRequestService.getPendingCount();
+          setSettingsBadge(count);
+        } else {
+          const count = await passwordResetRequestService.getUnseenCount();
+          setSettingsBadge(count);
+        }
+      } catch {
+        // silently fail
+      }
+    };
+    fetchBadge();
+    interval = setInterval(fetchBadge, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, [user]);
+
   async function handleLogout() {
     await logout();
     navigate('/login', { replace: true });
@@ -173,15 +198,18 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
-                    `flex items-center justify-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`
+                    `relative flex items-center justify-center rounded-md py-2 text-sm font-medium transition-colors w-full cursor-pointer ${isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`
                   }
                   onClick={onNavClick}
                 >
                   <Settings size={16} aria-hidden />
+                  {settingsBadge > 0 && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
                 </NavLink>
               } />
               <TooltipContent side="right" className="text-xs">
-                Settings
+                Settings {settingsBadge > 0 ? `(${settingsBadge})` : ''}
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -193,7 +221,12 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
               onClick={onNavClick}
             >
               <Settings size={16} aria-hidden />
-              <span>Settings</span>
+              <span className="flex-1">Settings</span>
+              {settingsBadge > 0 && (
+                <span className="h-5 min-w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {settingsBadge}
+                </span>
+              )}
             </NavLink>
           )}
 
