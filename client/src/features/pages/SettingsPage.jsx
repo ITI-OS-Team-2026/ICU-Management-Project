@@ -312,12 +312,14 @@ export default function SettingsPage() {
                 <AlertDescription className="font-sans text-xs font-medium ml-1">{pwStatus.message}</AlertDescription>
               </Alert>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword" className="font-sans text-xs font-semibold">Current Password</Label>
-              <Input id="currentPassword" type="password" required value={formData.currentPassword}
-                onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                className="font-sans text-sm" placeholder="Enter current password" />
-            </div>
+            {!isAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword" className="font-sans text-xs font-semibold">Current Password</Label>
+                <Input id="currentPassword" type="password" required value={formData.currentPassword}
+                  onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                  className="font-sans text-sm" placeholder="Enter current password" />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="newPassword" className="font-sans text-xs font-semibold">New Password</Label>
               <Input id="newPassword" type="password" required value={formData.newPassword}

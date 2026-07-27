@@ -1,5 +1,6 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
+const bcrypt = require("bcrypt");
 
 // User: submit a new password reset request
 const createRequest = async (userId, message) => {
@@ -123,29 +124,40 @@ const countPendingRequests = async () => {
   return { count };
 };
 
-// Admin: resolve a request with a reply (new temp password)
+// Admin: resolve a request — saves reply message AND actually updates the user's password
 const resolveRequest = async (adminId, requestId, adminReply) => {
   const request = await prisma.passwordResetRequest.findUnique({
     where: { id: requestId },
+    select: { id: true, status: true, requesterId: true },
   });
   if (!request) throw new APIError("Request not found", 404);
   if (request.status === "RESOLVED") throw new APIError("This request is already resolved", 409);
 
-  const updated = await prisma.passwordResetRequest.update({
-    where: { id: requestId },
-    data: {
-      status: "RESOLVED",
-      adminReply,
-      resolvedById: adminId,
-      resolvedAt: new Date(),
-    },
-    select: {
-      id: true,
-      status: true,
-      adminReply: true,
-      resolvedAt: true,
-    },
-  });
+  // Hash the new temp password
+  const passwordHash = await bcrypt.hash(adminReply, 10);
+
+  // Update both the request record AND the user's actual password atomically
+  const [updated] = await prisma.$transaction([
+    prisma.passwordResetRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "RESOLVED",
+        adminReply,
+        resolvedById: adminId,
+        resolvedAt: new Date(),
+      },
+      select: {
+        id: true,
+        status: true,
+        adminReply: true,
+        resolvedAt: true,
+      },
+    }),
+    prisma.user.update({
+      where: { id: request.requesterId },
+      data: { passwordHash },
+    }),
+  ]);
 
   return updated;
 };
