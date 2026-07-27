@@ -30,19 +30,26 @@ export function useAdminDashboard() {
         occupiedBeds: 12, // Default for now
       });
 
-      const formattedActivities = (auditLogs.data || []).slice(0, 5).map(log => ({
-        id: log.id,
-        title: `${log.action} on ${log.entity_type}`,
-        desc: `By User ID: ${log.user_id}`,
-        time: new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        dotColor: 'bg-primary'
-      }));
+      const formattedActivities = (auditLogs.data || []).slice(0, 5).map(log => {
+        let dotColor = 'bg-primary';
+        if (log.action === 'ARCHIVE' || log.action === 'DELETE') dotColor = 'bg-destructive';
+        if (log.action === 'CREATE' || log.action === 'LOGIN') dotColor = 'bg-emerald-500';
+        if (log.action === 'UPDATE') dotColor = 'bg-amber-500';
+
+        return {
+          id: log.id,
+          title: `${log.action} on ${log.targetTable}`,
+          desc: `By: ${log.user?.name || 'System'}`,
+          time: new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          dotColor
+        };
+      });
 
       // Fallback if empty
       if (formattedActivities.length === 0) {
         formattedActivities.push(
           { id: 1, title: 'System Login', desc: 'System Admin logged in', time: '5m ago', dotColor: 'bg-primary' },
-          { id: 2, title: 'User Updated', desc: 'Dr. Smith permissions updated', time: '1h ago', dotColor: 'bg-status-reserved' }
+          { id: 2, title: 'User Updated', desc: 'Dr. Smith permissions updated', time: '1h ago', dotColor: 'bg-amber-500' }
         );
       }
 
