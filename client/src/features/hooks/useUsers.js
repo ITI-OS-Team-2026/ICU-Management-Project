@@ -4,7 +4,8 @@ import { usersService } from '../services/usersService';
 export function useUsers(initialFilters = {}) {
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
-  const [filters, setFilters] = useState(initialFilters);
+  const [meta, setMeta] = useState(null);
+  const [filters, setFilters] = useState({ page: 1, limit: 10, ...initialFilters });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -13,12 +14,13 @@ export function useUsers(initialFilters = {}) {
       setIsLoading(true);
       setError(null);
       
-      const [usersData, statsData] = await Promise.all([
+      const [usersResponse, statsData] = await Promise.all([
         usersService.getUsers(filters),
         usersService.getUserStats()
       ]);
       
-      setUsers(usersData);
+      setUsers(usersResponse.data || []);
+      setMeta(usersResponse.meta || null);
       setStats(statsData);
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to fetch users data');
@@ -50,7 +52,8 @@ export function useUsers(initialFilters = {}) {
 
   return { 
     users, 
-    stats, 
+    stats,
+    meta,
     filters, 
     setFilters, 
     isLoading, 

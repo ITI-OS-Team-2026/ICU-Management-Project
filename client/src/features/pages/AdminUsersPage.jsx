@@ -55,57 +55,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export default function AdminUsersPage() {
-  const { users, stats, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
+  const { users, stats, meta, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
     role: '',
     status: '',
-    search: ''
+    search: '',
+    page: 1,
+    limit: 10
   });
 
   const [searchInput, setSearchInput] = useState('');
 
-  // ── Password Reset Requests Inbox ──────────────────────────────────────────
-  const [resetRequests, setResetRequests] = useState([]);
-  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
-  const [activeReplyId, setActiveReplyId] = useState(null);
-  const [replyText, setReplyText] = useState('');
-  const [isReplying, setIsReplying] = useState(false);
-  const [replyStatus, setReplyStatus] = useState({ id: null, type: '', message: '' });
-
-  const fetchResetRequests = useCallback(async () => {
-    try {
-      setIsLoadingRequests(true);
-      const data = await passwordResetRequestService.getAllRequests();
-      setResetRequests(data);
-    } catch {
-      // silently fail
-    } finally {
-      setIsLoadingRequests(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchResetRequests();
-  }, [fetchResetRequests]);
-
-  const handleReply = async (requestId) => {
-    if (!replyText.trim()) return;
-    setReplyStatus({ id: requestId, type: '', message: '' });
-    try {
-      setIsReplying(true);
-      await passwordResetRequestService.resolveRequest(requestId, replyText);
-      setReplyStatus({ id: requestId, type: 'success', message: 'Reply sent successfully!' });
-      setReplyText('');
-      setActiveReplyId(null);
-      fetchResetRequests();
-    } catch (err) {
-      setReplyStatus({ id: requestId, type: 'error', message: err.response?.data?.message || 'Failed to send reply.' });
-    } finally {
-      setIsReplying(false);
-    }
-  };
-
-  const pendingCount = resetRequests.filter((r) => r.status === 'PENDING').length;
-  
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -431,6 +390,35 @@ export default function AdminUsersPage() {
               )}
             </TableBody>
           </Table>
+        )}
+
+        {/* Pagination Section */}
+        {meta && meta.total > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-muted/10">
+            <span className="font-sans text-xs font-medium text-muted-foreground">
+              Showing {Math.min((meta.page - 1) * meta.limit + 1, meta.total)} to {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} users
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-sans text-xs h-8"
+                disabled={meta.page <= 1 || isLoading}
+                onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-sans text-xs h-8"
+                disabled={meta.page * meta.limit >= meta.total || isLoading}
+                onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
