@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -8,9 +8,14 @@ import {
   Download, 
   UserPlus, 
   Search,
-  MoreHorizontal
+  MoreHorizontal,
+  Inbox,
+  Clock,
+  KeyRound,
+  Send,
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUsers';
+import { passwordResetRequestService } from '../services/passwordResetRequestService';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -50,7 +55,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export default function AdminUsersPage() {
-  // Hardcode initial filters for visual matching with mockup
   const { users, stats, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
     role: '',
     status: '',
@@ -58,6 +62,49 @@ export default function AdminUsersPage() {
   });
 
   const [searchInput, setSearchInput] = useState('');
+
+  // ── Password Reset Requests Inbox ──────────────────────────────────────────
+  const [resetRequests, setResetRequests] = useState([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [activeReplyId, setActiveReplyId] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyStatus, setReplyStatus] = useState({ id: null, type: '', message: '' });
+
+  const fetchResetRequests = useCallback(async () => {
+    try {
+      setIsLoadingRequests(true);
+      const data = await passwordResetRequestService.getAllRequests();
+      setResetRequests(data);
+    } catch {
+      // silently fail
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchResetRequests();
+  }, [fetchResetRequests]);
+
+  const handleReply = async (requestId) => {
+    if (!replyText.trim()) return;
+    setReplyStatus({ id: requestId, type: '', message: '' });
+    try {
+      setIsReplying(true);
+      await passwordResetRequestService.resolveRequest(requestId, replyText);
+      setReplyStatus({ id: requestId, type: 'success', message: 'Reply sent successfully!' });
+      setReplyText('');
+      setActiveReplyId(null);
+      fetchResetRequests();
+    } catch (err) {
+      setReplyStatus({ id: requestId, type: 'error', message: err.response?.data?.message || 'Failed to send reply.' });
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
+  const pendingCount = resetRequests.filter((r) => r.status === 'PENDING').length;
   
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -429,6 +476,7 @@ function formatRole(roleStr) {
     'ICU_PHYSICIAN': 'ICU Physician',
     'ICU_NURSE': 'ICU Nurse',
     'ICU_SPECIALIST': 'Specialist',
+    'MEDICAL_RESIDENT': 'Medical Resident',
     'SUPPORT': 'Support'
   };
   return map[roleStr] || roleStr.replace('_', ' ');
@@ -436,7 +484,6 @@ function formatRole(roleStr) {
 
 function formatTimeAgo(dateStr) {
   if (!dateStr) return 'Never';
-  // Extremely naive mock time formatter to match the '2m ago' style in UI
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now - date;
@@ -447,4 +494,12 @@ function formatTimeAgo(dateStr) {
   if (diffHrs < 24) return `${diffHrs}h ago`;
   const diffDays = Math.floor(diffHrs / 24);
   return `${diffDays}d ago`;
+}
+
+function formatDateShort(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }

@@ -177,6 +177,10 @@ const ROLE_GUIDES = {
     ],
     faqs: [
       {
+        q: 'What should I do if I forget my password?',
+        a: 'Please contact your System Administrator. They can reset your password and provide you with a temporary one. Once logged in, you can change it in your Settings.'
+      },
+      {
         q: 'What if a vital sign is out of safe range?',
         a: 'The system will automatically generate a high-priority alert on the patient\'s detail page and trigger telemetry highlighting on the Bed Overview.'
       }
@@ -271,6 +275,10 @@ const ROLE_GUIDES = {
     ],
     faqs: [
       {
+        q: 'What should I do if I forget my password?',
+        a: 'Please contact your System Administrator. They can reset your password and provide you with a temporary one. Once logged in, you can change it in your Settings.'
+      },
+      {
         q: 'Who can approve a patient discharge?',
         a: 'While Residents can prepare discharge summaries, final discharge authorization is reserved for ICU Specialists.'
       }
@@ -329,6 +337,10 @@ const ROLE_GUIDES = {
       }
     ],
     faqs: [
+      {
+        q: 'What should I do if I forget my password?',
+        a: 'Please contact your System Administrator. They can reset your password and provide you with a temporary one. Once logged in, you can change it in your Settings.'
+      },
       {
         q: 'Where do I view AI diagnostic recommendations?',
         a: 'Open any patient detail page and navigate to the "AI Assistant" tab for real-time clinical decision support.'

@@ -58,6 +58,6 @@ export function useUsers(initialFilters = {}) {
     refetch: fetchData, 
     createUser, 
     updateUser, 
-    deleteUser 
+    deleteUser
   };
 }

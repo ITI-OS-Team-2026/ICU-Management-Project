@@ -235,6 +235,26 @@ const deleteUser = async (req, id) => {
   });
 };
 
+const resetUserPassword = async (req, id, newPassword) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new APIError("User not found", 404);
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  
+  return auditedTransaction(req, { action: "UPDATE", targetTable: "User" }, async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: { passwordHash }
+    });
+    return {
+      targetId: id,
+      oldValues: { passwordHash: "HIDDEN" },
+      newValues: { passwordHash: "HIDDEN_NEW" },
+      result: true
+    };
+  });
+};
+
 const createBed = async (data) => {
   const existingBed = await prisma.bed.findUnique({
     where: { bedNumber: data.bed_number }
@@ -331,17 +351,7 @@ const updateBed = async (req, id, data) => {
   };
 };
 
-module.exports = {
-  createUser,
-  getUsers,
-  getUserById,
-  updateUser,
-  deleteUser,
-  createBed,
-  getBeds,
-  updateBed,
-  getUserStats
-};
+
 
 const getAuditLogs = async (query = {}) => {
   const { search, page = 1, limit = 10, eventLevel, category } = query;
@@ -475,6 +485,7 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
+  resetUserPassword,
   createBed,
   getBeds,
   updateBed,

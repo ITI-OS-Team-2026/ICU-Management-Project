@@ -13,11 +13,14 @@ const { admissionNotesRouter, baseNotesRouter } = require("../modules/notes/note
 const { admissionFollowUpRouter, followUpRouter } = require("../modules/followUps/followUp.routes");
 const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/medicalDocuments/document.routes");
 const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
+const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRouter } = require("../modules/passwordResetRequests/passwordReset.routes");
 
 const router = express.Router();
 
 router.use("/auth", authRoutes);
 router.use("/admin", adminRoutes);
+router.use("/admin/password-reset-requests", passwordResetAdminRouter);
+router.use("/password-reset-requests", passwordResetUserRouter);
 router.use("/patients", patientRoutes);
 router.use("/admissions", admissionRoutes);
 router.use("/admissions", admissionDiagnosisRouter);

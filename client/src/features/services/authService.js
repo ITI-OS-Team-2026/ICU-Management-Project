@@ -18,6 +18,11 @@ export const authService = {
     const { data } = await api.get('/auth/me');
     return data;
   },
+
+  async changePassword({ currentPassword, newPassword }) {
+    const { data } = await api.put('/auth/password', { currentPassword, newPassword });
+    return data;
+  },
 };
 
 /** Map axios errors from auth endpoints to a user-facing message. */

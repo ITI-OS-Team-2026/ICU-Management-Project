@@ -24,5 +24,5 @@ export const usersService = {
   async deleteUser(id) {
     const { data } = await api.delete(`/admin/users/${id}`);
     return data;
-  }
+  },
 };

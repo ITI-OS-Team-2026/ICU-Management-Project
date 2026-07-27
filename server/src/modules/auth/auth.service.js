@@ -205,9 +205,15 @@ const changePassword = async ({ userId, currentPassword, newPassword }) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new APIError("User not found", 404);
 
-  const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
-  if (!isPasswordValid) {
-    throw new APIError("Incorrect current password", 401);
+  // Admins can change their own password without knowing the old one
+  if (user.role !== "SYSTEM_ADMIN") {
+    if (!currentPassword) {
+      throw new APIError("Current password is required", 400);
+    }
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new APIError("Incorrect current password", 400);
+    }
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
