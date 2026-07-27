@@ -173,6 +173,9 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'SYSTEM_ADMIN';
 
+  // Show skeleton while auth store hasn't hydrated the user yet
+  const isLoadingUser = !user;
+
   // ── Change-password ──────────────────────────────────────────────────────
   const [formData, setFormData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwStatus, setPwStatus] = useState({ type: '', message: '' });
@@ -279,6 +282,55 @@ export default function SettingsPage() {
 
   const hasPending = myRequests.some((r) => r.status === 'PENDING');
   const pendingCount = allRequests.filter((r) => r.status === 'PENDING').length;
+
+  // ── Full-page skeleton while user identity is loading ────────────────────
+  if (isLoadingUser) {
+    return (
+      <div className="flex flex-col gap-8 p-4 md:p-8 bg-muted/20 min-h-[calc(100vh-4rem)] max-w-2xl mx-auto w-full animate-pulse">
+        {/* Header skeleton */}
+        <div className="text-center space-y-3 pt-4 flex flex-col items-center">
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+
+        {/* Change password card skeleton */}
+        <Card className="border-border shadow-sm">
+          <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
+            <Skeleton className="h-5 w-36" />
+          </CardHeader>
+          <CardContent className="space-y-5 pt-6">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-36" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          </CardContent>
+          <CardFooter className="pt-2 pb-6 border-t border-border/50 bg-muted/10 mt-6 px-6 flex justify-end">
+            <Skeleton className="h-9 w-36" />
+          </CardFooter>
+        </Card>
+
+        {/* Inbox card skeleton */}
+        <Card className="border-border shadow-sm">
+          <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
+            <Skeleton className="h-5 w-44" />
+          </CardHeader>
+          <CardContent className="pt-5 space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8 bg-muted/20 min-h-[calc(100vh-4rem)] max-w-2xl mx-auto w-full">

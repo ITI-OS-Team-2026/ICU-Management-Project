@@ -108,7 +108,6 @@ const getUsers = async ({ role, status, search, page, limit }) => {
       ...u,
       first_name: u.firstName,
       last_name: u.lastName,
-      twoFactorEnabled: true,
       firstName: undefined,
       lastName: undefined
     })),
@@ -121,17 +120,16 @@ const getUsers = async ({ role, status, search, page, limit }) => {
 };
 
 const getUserStats = async () => {
-  const [total, active, suspended] = await Promise.all([
+  const [total, active, inactive] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { status: 'ACTIVE' } }),
-    prisma.user.count({ where: { status: 'SUSPENDED' } })
+    prisma.user.count({ where: { status: 'INACTIVE' } })
   ]);
   
   return {
     total,
     active,
-    suspended,
-    pending2FA: 4 // Mocked for now since DB doesn't have this
+    inactive
   };
 };
 
@@ -224,6 +222,10 @@ const updateUser = async (req, id, data) => {
 const deleteUser = async (req, id) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new APIError("User not found", 404);
+
+  if (req.user.id === id) {
+    throw new APIError("You cannot delete your own account", 403);
+  }
 
   return auditedTransaction(req, { action: "ARCHIVE", targetTable: "User" }, async (tx) => {
     await tx.user.update({

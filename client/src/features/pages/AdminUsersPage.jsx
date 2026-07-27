@@ -118,8 +118,7 @@ export default function AdminUsersPage() {
   const statuses = [
     { label: 'All', value: '' },
     { label: 'Active', value: 'ACTIVE' },
-    { label: 'Inactive', value: 'INACTIVE' },
-    { label: 'Suspended', value: 'SUSPENDED' }
+    { label: 'Inactive', value: 'INACTIVE' }
   ];
 
   return (
@@ -227,7 +226,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard 
           icon={<Users className="h-5 w-5 text-purple-600" />} 
           iconBg="bg-purple-100"
@@ -241,16 +240,10 @@ export default function AdminUsersPage() {
           value={stats?.active ?? <Skeleton className="h-8 w-12" />} 
         />
         <StatCard 
-          icon={<ShieldAlert className="h-5 w-5 text-red-600" />} 
-          iconBg="bg-red-100"
-          title="Suspended" 
-          value={stats?.suspended ?? <Skeleton className="h-8 w-12" />} 
-        />
-        <StatCard 
-          icon={<Shield className="h-5 w-5 text-orange-500" />} 
-          iconBg="bg-orange-100"
-          title="Pending 2FA" 
-          value={stats?.pending2FA ?? <Skeleton className="h-8 w-12" />} 
+          icon={<Shield className="h-5 w-5 text-gray-500" />} 
+          iconBg="bg-gray-100"
+          title="Inactive" 
+          value={stats?.inactive ?? <Skeleton className="h-8 w-12" />} 
         />
       </div>
 
@@ -374,20 +367,24 @@ export default function AdminUsersPage() {
                             <DropdownMenuItem disabled className="text-muted-foreground">
                               Cannot modify own status
                             </DropdownMenuItem>
-                          ) : user.status === 'ACTIVE' ? (
-                            <DropdownMenuItem 
-                              className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer"
-                              onClick={() => updateUser(user.id, { status: 'INACTIVE' })}
-                            >
-                              Deactivate User
-                            </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem 
-                              className="text-emerald-600 focus:bg-emerald-600 focus:text-emerald-50 cursor-pointer"
-                              onClick={() => updateUser(user.id, { status: 'ACTIVE' })}
-                            >
-                              Activate User
-                            </DropdownMenuItem>
+                            <>
+                              {user.status === 'ACTIVE' ? (
+                                <DropdownMenuItem 
+                                  className="text-orange-600 focus:bg-orange-600 focus:text-orange-50 cursor-pointer"
+                                  onClick={() => updateUser(user.id, { status: 'INACTIVE' })}
+                                >
+                                  Deactivate User
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  className="text-emerald-600 focus:bg-emerald-600 focus:text-emerald-50 cursor-pointer"
+                                  onClick={() => updateUser(user.id, { status: 'ACTIVE' })}
+                                >
+                                  Activate User
+                                </DropdownMenuItem>
+                              )}
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>

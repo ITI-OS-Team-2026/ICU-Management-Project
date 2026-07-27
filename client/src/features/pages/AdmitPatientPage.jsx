@@ -356,6 +356,7 @@ export default function AdmitPatientPage() {
   const draft = useRef(loadDraft()).current;
   const [currentStep, setCurrentStep] = useState(draft?.step ?? 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const submittingRef = useRef(false);
 
@@ -388,45 +389,48 @@ export default function AdmitPatientPage() {
   };
 
   const handleNext = async () => {
-    const fieldsToValidate = steps[currentStep].fields;
+    if (isValidating) return;
+    setIsValidating(true);
+    try {
+      const fieldsToValidate = steps[currentStep].fields;
 
-    if (currentStep === 3) {
-      const values = form.getValues();
-      const hasOneVital = [
-        "temperature",
-        "pulse",
-        "systolic_bp",
-        "diastolic_bp",
-        "respiratory_rate",
-        "spo2",
-      ].some((key) => values[key] && String(values[key]).trim() !== "");
+      if (currentStep === 3) {
+        const values = form.getValues();
+        const hasOneVital = [
+          "temperature",
+          "pulse",
+          "systolic_bp",
+          "diastolic_bp",
+          "respiratory_rate",
+          "spo2",
+        ].some((key) => values[key] && String(values[key]).trim() !== "");
 
-      if (!hasOneVital) {
-        form.setError("temperature", {
-          type: "manual",
-          message: "At least one vital sign is required to proceed.",
-        });
-        scrollToFirstError();
+        if (!hasOneVital) {
+          form.setError("temperature", {
+            type: "manual",
+            message: "At least one vital sign is required to proceed.",
+          });
+          scrollToFirstError();
+          return;
+        }
+        form.clearErrors("temperature");
+      }
+
+      const isValid =
+        fieldsToValidate.length === 0
+          ? true
+          : await form.trigger(fieldsToValidate, { shouldFocus: true });
+
+      if (!isValid) {
+        setTimeout(() => { scrollToFirstError(); }, 50);
         return;
       }
-      form.clearErrors("temperature");
+
+      setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
+      window.scrollTo(0, 0);
+    } finally {
+      setIsValidating(false);
     }
-
-    const isValid =
-      fieldsToValidate.length === 0
-        ? true
-        : await form.trigger(fieldsToValidate, { shouldFocus: true });
-
-    if (!isValid) {
-      // Wait a tick so collapsible sections can open around error fields
-      setTimeout(() => {
-        scrollToFirstError();
-      }, 50);
-      return;
-    }
-
-    setCurrentStep((prev) => Math.min(prev + 1, steps.length - 1));
-    window.scrollTo(0, 0);
   };
 
   const handleBack = () => {
@@ -649,8 +653,13 @@ export default function AdmitPatientPage() {
                     {isSubmitting ? "Submitting..." : "Submit Admission"}
                   </Button>
                 ) : (
-                  <Button type="button" className="cursor-pointer" onClick={handleNext}>
-                    Next
+                  <Button
+                    type="button"
+                    className="cursor-pointer"
+                    disabled={isValidating}
+                    onClick={handleNext}
+                  >
+                    {isValidating ? 'Validating...' : 'Next'}
                   </Button>
                 )}
               </div>

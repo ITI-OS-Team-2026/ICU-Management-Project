@@ -118,6 +118,11 @@ export default function AdminDashboard({ greetingName, currentFormattedDate }) {
                     </div>
                   </div>
                 ))
+              ) : activities.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center gap-2">
+                  <History className="h-8 w-8 text-muted-foreground/30" />
+                  <p className="font-sans text-xs text-muted-foreground">No recent activity yet.</p>
+                </div>
               ) : (
                 activities.map((act, idx) => (
                   <div key={idx} className="flex gap-3">
