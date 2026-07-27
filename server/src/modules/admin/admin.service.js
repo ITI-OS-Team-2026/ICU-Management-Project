@@ -163,6 +163,10 @@ const updateUser = async (req, id, data) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new APIError("User not found", 404);
 
+  if (req.user.id === id && data.status && data.status !== "ACTIVE") {
+    throw new APIError("You cannot deactivate or suspend your own account", 403);
+  }
+
   const updateData = {};
   if (data.role) updateData.role = mapRoleToPrisma(data.role);
   if (data.status) updateData.status = data.status;

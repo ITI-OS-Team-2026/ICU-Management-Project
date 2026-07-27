@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUsers';
 import { passwordResetRequestService } from '../services/passwordResetRequestService';
+import { useAuthStore } from '../store/authStore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -55,6 +56,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export default function AdminUsersPage() {
+  const currentUser = useAuthStore((state) => state.user);
+  
   const { users, stats, meta, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
     role: '',
     status: '',
@@ -367,7 +370,11 @@ export default function AdminUsersPage() {
                             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="font-sans">
-                          {user.status === 'ACTIVE' ? (
+                          {user.id === currentUser?.id ? (
+                            <DropdownMenuItem disabled className="text-muted-foreground">
+                              Cannot modify own status
+                            </DropdownMenuItem>
+                          ) : user.status === 'ACTIVE' ? (
                             <DropdownMenuItem 
                               className="text-destructive focus:bg-destructive focus:text-destructive-foreground cursor-pointer"
                               onClick={() => updateUser(user.id, { status: 'INACTIVE' })}
