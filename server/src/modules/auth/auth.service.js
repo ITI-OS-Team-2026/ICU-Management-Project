@@ -207,7 +207,7 @@ const changePassword = async ({ userId, currentPassword, newPassword }) => {
 
   const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!isPasswordValid) {
-    throw new APIError("Incorrect current password", 401);
+    throw new APIError("Incorrect current password", 400);
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
