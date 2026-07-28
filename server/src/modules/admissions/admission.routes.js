@@ -9,6 +9,7 @@ const {
   nurseAssignSchema,
   fullAdmissionCreateSchema,
 } = require("./admission.schema");
+const notificationController = require("../notifications/notification.controller");
 
 const router = express.Router();
 
@@ -80,6 +81,13 @@ router.delete(
   verifyToken,
   restrictTo(nurseOrSpecialist),
   admissionController.unassignNurse
+);
+
+router.post(
+  "/:id/summon",
+  verifyToken,
+  restrictTo(["ICU_NURSE"]),
+  notificationController.summonDoctor
 );
 
 module.exports = router;

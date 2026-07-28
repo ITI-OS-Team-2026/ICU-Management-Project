@@ -6,14 +6,12 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
-  // ChevronDown,
+  BellRing,
   Clock,
   Droplets,
   Heart,
   Info,
   Loader2,
-  // Plus,
-  // RefreshCw,
   Sparkles,
   Thermometer,
   User,
@@ -31,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { VITAL_NORMAL_RANGES } from '@/features/utils/vitalStatus';
+import { SummonDoctorModal } from '@/components/notifications/SummonDoctorModal';
 
 export default function VitalsEntryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,6 +46,7 @@ export default function VitalsEntryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSummonModalOpen, setIsSummonModalOpen] = useState(false);
 
   // Dropdown options
   const o2Devices = [
@@ -365,6 +365,16 @@ export default function VitalsEntryPage() {
             <span className="font-tnum font-semibold">{activeAdmission.patient?.age}</span>
             <span className="font-sans text-muted-foreground">Gender:</span>
             <span className="font-sans font-semibold">{activeAdmission.patient?.gender}</span>
+            <Separator orientation="vertical" className="h-4" />
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsSummonModalOpen(true)}
+              className="gap-2 ml-2"
+            >
+              <BellRing className="h-4 w-4" />
+              Summon Doctor
+            </Button>
           </div>
         )}
       </div>
@@ -1040,6 +1050,13 @@ export default function VitalsEntryPage() {
           )}
         </Card>
       )}
+
+      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+      <SummonDoctorModal 
+        open={isSummonModalOpen} 
+        onClose={() => setIsSummonModalOpen(false)} 
+        admission={activeAdmission} 
+      />
     </div>
   );
 }

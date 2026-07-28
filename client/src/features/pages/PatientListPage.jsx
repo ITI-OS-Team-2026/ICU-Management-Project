@@ -13,10 +13,12 @@ import {
   Grid,
   List,
   RefreshCcw,
+  BellRing,
 } from 'lucide-react';
 
 import { usePatients } from '../hooks/usePatients';
 import { useAuthStore } from '../store/authStore';
+import { SummonDoctorModal } from '@/components/notifications/SummonDoctorModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -129,6 +131,7 @@ export default function PatientListPage() {
   const [acuityFilter, setAcuityFilter] = useState('All');
   const [unitFilter, setUnitFilter] = useState('All');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [summonTarget, setSummonTarget] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -432,7 +435,7 @@ export default function PatientListPage() {
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Vitals</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">AI Risk</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Care Team</TableHead>
-                {!isNurse && <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>}
+                <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -531,9 +534,19 @@ export default function PatientListPage() {
                       </div>
                     </TableCell>
 
-                    {/* Open action button */}
-                    {!isNurse && (
-                      <TableCell className="pr-6 text-right">
+                    {/* Open / Summon action button */}
+                    <TableCell className="pr-6 text-right">
+                      {isNurse ? (
+                        <Button
+                          onClick={() => setSummonTarget(p)}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                        >
+                          Summon
+                          <BellRing className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
                         <Button
                           onClick={() => navigate(`/patients/${p.id}`)}
                           variant="secondary"
@@ -543,8 +556,8 @@ export default function PatientListPage() {
                           Open
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
-                      </TableCell>
-                    )}
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -620,12 +633,22 @@ export default function PatientListPage() {
                   <div className="h-px bg-border/50" />
 
                   {/* Care Team & Action */}
-                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex justify-between items-center gap-4">
                     <div className="flex flex-col">
                       <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    {!isNurse && (
+                    {isNurse ? (
+                      <Button
+                        onClick={() => setSummonTarget(p)}
+                        variant="destructive"
+                        size="sm"
+                        className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                      >
+                        Summon
+                        <BellRing className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
                       <Button
                         onClick={() => navigate(`/patients/${p.id}`)}
                         variant="secondary"
@@ -675,6 +698,13 @@ export default function PatientListPage() {
           </div>
         </div>
       )}
+
+      {/* ── Modals ──────────────────────────────────────────────────────── */}
+      <SummonDoctorModal 
+        open={!!summonTarget} 
+        onClose={() => setSummonTarget(null)} 
+        admission={summonTarget} 
+      />
     </div>
   );
 }
