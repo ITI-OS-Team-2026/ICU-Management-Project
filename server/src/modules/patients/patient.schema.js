@@ -43,6 +43,8 @@ const medicalHistoryCreateSchema = Joi.object({
   custom_fields: Joi.object().allow(null).optional(),
   special_habits: Joi.string().allow(null, "").optional(),
   blood_transfusion: Joi.boolean().optional(),
+  menstrual_history: Joi.object().allow(null).optional(),
+  obstetric_history: Joi.object().allow(null).optional(),
 });
 
 const medicalHistoryUpdateSchema = Joi.object({
@@ -61,6 +63,8 @@ const medicalHistoryUpdateSchema = Joi.object({
   custom_fields: Joi.object().allow(null).optional(),
   special_habits: Joi.string().allow(null, "").optional(),
   blood_transfusion: Joi.boolean().optional(),
+  menstrual_history: Joi.object().allow(null).optional(),
+  obstetric_history: Joi.object().allow(null).optional(),
 }).min(1);
 
 module.exports = {

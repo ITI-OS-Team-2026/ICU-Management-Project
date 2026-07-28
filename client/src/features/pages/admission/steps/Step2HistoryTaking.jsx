@@ -8,6 +8,8 @@ import ChiefComplaintSection from "./Step2/ChiefComplaintSection";
 import PresentHistorySection from "./Step2/PresentHistorySection";
 import PastHistorySection from "./Step2/PastHistorySection";
 import FamilyHistorySection from "./Step2/FamilyHistorySection";
+import MenstrualHistorySection from "./Step2/MenstrualHistorySection";
+import ObstetricHistorySection from "./Step2/ObstetricHistorySection";
 
 const SECTION_ERROR_FIELDS = {
   personal: ["age", "gender", "marital_status", "handedness", "residence", "occupation"],
@@ -32,6 +34,8 @@ const SECTION_ERROR_FIELDS = {
     "custom_fields",
   ],
   family: ["consanguinity", "family_similar_conditions", "inherited_diseases"],
+  menstrual: ["menstrual_history"],
+  obstetric: ["obstetric_history"],
 };
 
 function sectionHasErrors(errors, fields) {
@@ -89,6 +93,10 @@ export default function Step2HistoryTaking({ form }) {
   const presentError = sectionHasErrors(errors, SECTION_ERROR_FIELDS.present);
   const pastError = sectionHasErrors(errors, SECTION_ERROR_FIELDS.past);
   const familyError = sectionHasErrors(errors, SECTION_ERROR_FIELDS.family);
+  const menstrualError = sectionHasErrors(errors, SECTION_ERROR_FIELDS.menstrual);
+  const obstetricError = sectionHasErrors(errors, SECTION_ERROR_FIELDS.obstetric);
+
+  const isFemale = form.watch("gender") === "FEMALE";
 
   return (
     <div className="space-y-4">
@@ -140,6 +148,26 @@ export default function Step2HistoryTaking({ form }) {
       >
         <FamilyHistorySection form={form} />
       </SectionWrapper>
+
+      {isFemale && (
+        <>
+          <SectionWrapper
+            title="2.6 Menstrual History"
+            forceOpen={menstrualError}
+            hasError={menstrualError}
+          >
+            <MenstrualHistorySection form={form} />
+          </SectionWrapper>
+
+          <SectionWrapper
+            title="2.7 Obstetric History"
+            forceOpen={obstetricError}
+            hasError={obstetricError}
+          >
+            <ObstetricHistorySection form={form} />
+          </SectionWrapper>
+        </>
+      )}
     </div>
   );
 }

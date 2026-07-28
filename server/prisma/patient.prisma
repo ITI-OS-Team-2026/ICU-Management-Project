@@ -57,6 +57,8 @@ model MedicalHistory {
   customFields            Json?    @map("custom_fields")
   specialHabits           String?  @map("special_habits") @db.Text
   bloodTransfusion        Boolean  @default(false) @map("blood_transfusion")
+  menstrualHistory        Json?    @map("menstrual_history")
+  obstetricHistory        Json?    @map("obstetric_history")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
