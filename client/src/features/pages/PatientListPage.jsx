@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { usePatients } from '../hooks/usePatients';
+import { useAuthStore } from '../store/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,7 @@ const getBedUnit = (bedNumber) => {
   if (bedNumber.startsWith('CCU-8')) return 'CCU-8';
   if (bedNumber.startsWith('ICU-N')) return 'ICU-North';
   if (bedNumber.startsWith('ICU-S')) return 'ICU-South';
+  if (bedNumber.includes('-')) return bedNumber.split('-')[0];
   return bedNumber.split('/')[0] || 'Other';
 };
 
@@ -119,12 +121,18 @@ const formatDate = (dateString) => {
 export default function PatientListPage() {
   const navigate = useNavigate();
   const { patients, isLoading, error, refetch } = usePatients();
+  const user = useAuthStore((s) => s.user);
+  const isNurse = user?.role === 'ICU_NURSE';
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [acuityFilter, setAcuityFilter] = useState('All');
   const [unitFilter, setUnitFilter] = useState('All');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
 
   // Pre-calculate derived acuity and risk for all patients
   const processedPatients = useMemo(() => {
@@ -171,6 +179,17 @@ export default function PatientListPage() {
     );
   }, [processedPatients]);
 
+  // Dynamic bed units list derived from current patient census
+  const availableUnits = useMemo(() => {
+    const units = new Set(['All']);
+    processedPatients.forEach((p) => {
+      if (p.bedUnit && p.bedUnit !== 'Unknown') {
+        units.add(p.bedUnit);
+      }
+    });
+    return Array.from(units);
+  }, [processedPatients]);
+
   // Filtered patients
   const filteredPatients = useMemo(() => {
     return processedPatients.filter((p) => {
@@ -191,8 +210,84 @@ export default function PatientListPage() {
     });
   }, [processedPatients, searchQuery, acuityFilter, unitFilter]);
 
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, acuityFilter, unitFilter]);
+
+  // Paginated slice
+  const totalPages = Math.ceil(filteredPatients.length / pageSize) || 1;
+  const paginatedPatients = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return filteredPatients.slice(startIndex, startIndex + pageSize);
+  }, [filteredPatients, currentPage, pageSize]);
+
   const handleCensusPdf = () => {
-    alert("Generating Census PDF report...");
+    const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const rows = filteredPatients.map(p => `
+      <tr>
+        <td>${p.patient?.name || '—'}</td>
+        <td>${p.patient?.mrn || '—'}</td>
+        <td>${p.patient?.age ?? '—'}y ${p.patient?.gender || ''}</td>
+        <td class="acuity-${(p.acuity || '').toLowerCase()}">${p.acuity || '—'}</td>
+        <td>${p.primaryDiagnosis || '—'}</td>
+        <td>${p.bed?.bed_number || 'Unassigned'}</td>
+        <td>${p.latestVitals?.pulse ? `HR ${p.latestVitals.pulse} | SpO₂ ${p.latestVitals.spo2}% | BP ${p.latestVitals.systolicBp}/${p.latestVitals.diastolicBp}` : '—'}</td>
+        <td>${p.doctorName || '—'}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ICU Census Report — ${date}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 24px; }
+    h1 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+    .subtitle { color: #555; font-size: 11px; margin-bottom: 16px; }
+    .stats { display: flex; gap: 24px; margin-bottom: 16px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; }
+    .stat { display: flex; flex-direction: column; }
+    .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; }
+    .stat-value { font-size: 20px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f0f0f0; text-align: left; padding: 7px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 2px solid #ddd; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .acuity-critical { color: #dc2626; font-weight: bold; }
+    .acuity-watchful { color: #d97706; font-weight: bold; }
+    .acuity-stable { color: #16a34a; font-weight: bold; }
+    .footer { margin-top: 20px; font-size: 9px; color: #999; text-align: center; }
+    @media print { body { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <h1>ICU Patient Census Report</h1>
+  <p class="subtitle">Generated on ${date} &mdash; ${filteredPatients.length} patient(s) listed</p>
+  <div class="stats">
+    <div class="stat"><span class="stat-label">Total</span><span class="stat-value">${filteredPatients.length}</span></div>
+    <div class="stat"><span class="stat-label">Critical</span><span class="stat-value" style="color:#dc2626">${filteredPatients.filter(p => p.acuity === 'Critical').length}</span></div>
+    <div class="stat"><span class="stat-label">Watchful</span><span class="stat-value" style="color:#d97706">${filteredPatients.filter(p => p.acuity === 'Watchful').length}</span></div>
+    <div class="stat"><span class="stat-label">Stable</span><span class="stat-value" style="color:#16a34a">${filteredPatients.filter(p => p.acuity === 'Stable').length}</span></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Patient Name</th><th>MRN</th><th>Age / Gender</th><th>Acuity</th>
+        <th>Diagnosis</th><th>Bed</th><th>Latest Vitals</th><th>Attending</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <p class="footer">ICU Management System &mdash; Confidential clinical document &mdash; Do not share without authorization.</p>
+  <script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
   };
 
   return (
@@ -208,7 +303,7 @@ export default function PatientListPage() {
           <Button onClick={refetch} variant="outline" size="icon" disabled={isLoading} className="h-9 w-9">
             <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleCensusPdf} variant="outline" className="gap-2 h-9">
+          <Button onClick={handleCensusPdf} variant="outline" disabled={isLoading} className="gap-2 h-9">
             <Download className="h-4 w-4" />
             Census PDF
           </Button>
@@ -276,7 +371,7 @@ export default function PatientListPage() {
 
           {/* Bed unit filters */}
           <div className="flex flex-wrap items-center gap-1.5 bg-muted/50 p-1 rounded-lg border border-border/50">
-            {['All', 'CCU-7', 'CCU-8', 'ICU-North', 'ICU-South'].map((unit) => (
+            {availableUnits.map((unit) => (
               <button
                 key={unit}
                 onClick={() => setUnitFilter(unit)}
@@ -337,11 +432,11 @@ export default function PatientListPage() {
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Vitals</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">AI Risk</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Care Team</TableHead>
-                <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>
+                {!isNurse && <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPatients.map((p) => {
+              {paginatedPatients.map((p) => {
                 const initials = p.patient?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '??';
                 
                 return (
@@ -437,17 +532,19 @@ export default function PatientListPage() {
                     </TableCell>
 
                     {/* Open action button */}
-                    <TableCell className="pr-6 text-right">
-                      <Button
-                        onClick={() => navigate(`/patients/${p.id}`)}
-                        variant="secondary"
-                        size="sm"
-                        className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
-                      >
-                        Open
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
+                    {!isNurse && (
+                      <TableCell className="pr-6 text-right">
+                        <Button
+                          onClick={() => navigate(`/patients/${p.id}`)}
+                          variant="secondary"
+                          size="sm"
+                          className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
+                        >
+                          Open
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -457,7 +554,7 @@ export default function PatientListPage() {
       ) : (
         /* Grid layout view */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPatients.map((p) => {
+          {paginatedPatients.map((p) => {
             const initials = p.patient?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '??';
             
             return (
@@ -528,20 +625,54 @@ export default function PatientListPage() {
                       <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    <Button
-                      onClick={() => navigate(`/patients/${p.id}`)}
-                      variant="secondary"
-                      size="sm"
-                      className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
-                    >
-                      Open
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
+                    {!isNurse && (
+                      <Button
+                        onClick={() => navigate(`/patients/${p.id}`)}
+                        variant="secondary"
+                        size="sm"
+                        className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
+                      >
+                        Open
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!isLoading && !error && filteredPatients.length > 0 && totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
+          <p className="text-sm font-sans text-muted-foreground">
+            Showing <span className="font-bold text-foreground">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-foreground">{Math.min(currentPage * pageSize, filteredPatients.length)}</span> of <span className="font-bold text-foreground">{filteredPatients.length}</span> patients
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="font-sans text-xs font-semibold"
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-1 px-3 bg-muted/30 border border-border rounded-md">
+              <span className="text-xs font-sans font-medium text-foreground">Page {currentPage} of {totalPages}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="font-sans text-xs font-semibold"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </div>

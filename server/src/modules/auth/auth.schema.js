@@ -12,6 +12,19 @@ const loginSchema = Joi.object({
   }),
 });
 
+// currentPassword is optional — admins can skip it
+const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string().optional().allow('').messages({
+    "string.empty": "Current password cannot be empty (omit it if you are an admin)",
+  }),
+  newPassword: Joi.string().min(6).required().messages({
+    "any.required": "New password is required",
+    "string.empty": "New password is required",
+    "string.min": "New password must be at least 6 characters long",
+  }),
+});
+
 module.exports = {
   loginSchema,
+  changePasswordSchema,
 };

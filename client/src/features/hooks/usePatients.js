@@ -1,47 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 import { patientsService } from '../services/patientsService';
 
-export function usePatients() {
+export function usePatients(params = {}) {
   const [patients, setPatients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Use a stringified version of params in deps to avoid infinite loops if an object is passed inline
+  const paramsStr = JSON.stringify(params);
 
   const fetchPatientsCensus = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // 1. Fetch active admissions
-      const admissions = await patientsService.getActiveAdmissions();
+      const parsedParams = JSON.parse(paramsStr);
+      // Fetch active admissions (now optimized from backend to include latestVitals, diagnosesList, and nurses)
+      const admissions = await patientsService.getActiveAdmissions(parsedParams);
 
-      // 2. Fetch vitals, diagnoses, and nurses in parallel for each active admission
-      const enrichedAdmissions = await Promise.all(
-        admissions.map(async (admission) => {
-          try {
-            const [vitals, diagnoses, nurses] = await Promise.all([
-              patientsService.getLatestVitals(admission.id),
-              patientsService.getDiagnoses(admission.id),
-              patientsService.getAdmissionNurses(admission.id),
-            ]);
-
-            return {
-              ...admission,
-              latestVitals: vitals,
-              diagnosesList: diagnoses,
-              nursesList: nurses,
-            };
-          } catch (err) {
-            console.error(`Failed to fetch details for admission ${admission.id}:`, err);
-            // Return admission with fallback empty details if one request fails
-            return {
-              ...admission,
-              latestVitals: null,
-              diagnosesList: [],
-              nursesList: [],
-            };
-          }
-        })
-      );
+      // Ensure data maps exactly to what components expect
+      const enrichedAdmissions = admissions.map((admission) => ({
+        ...admission,
+        latestVitals: admission.latestVitals || null,
+        diagnosesList: admission.diagnosesList || [],
+        nursesList: admission.nurses || [],
+      }));
 
       setPatients(enrichedAdmissions);
     } catch (err) {
@@ -50,9 +33,10 @@ export function usePatients() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [paramsStr]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPatientsCensus();
   }, [fetchPatientsCensus]);
 

@@ -3,7 +3,7 @@ import api from '@/lib/api';
 export const usersService = {
   async getUsers(params = {}) {
     const { data } = await api.get('/admin/users', { params });
-    return data.data;
+    return data;
   },
 
   async getUserStats() {
@@ -24,5 +24,5 @@ export const usersService = {
   async deleteUser(id) {
     const { data } = await api.delete(`/admin/users/${id}`);
     return data;
-  }
+  },
 };

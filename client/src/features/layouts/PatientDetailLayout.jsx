@@ -7,7 +7,7 @@ import {
   Stethoscope,
   StickyNote,
   FileText,
-  Clock,
+  ClipboardList,
   Bell,
   Bot,
   LayoutDashboard,
@@ -26,9 +26,9 @@ const TABS = [
   { label: 'Diagnoses',    path: 'diagnoses',    icon: Stethoscope },
   { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Documents',    path: 'documents',    icon: FileText },
-  { label: 'Timeline',     path: 'timeline',     icon: Clock },
+  { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
-  { label: 'AI Assistant', path: 'ai-assistant', icon: Bot },
+  { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
 ];
 
 // ─── Acuity ───────────────────────────────────────────────────────────────────
@@ -88,11 +88,10 @@ export default function PatientDetailLayout() {
     try {
       setIsLoading(true);
       setError(null);
-      const [all, v] = await Promise.all([
-        patientsService.getActiveAdmissions(),
+      const [found, v] = await Promise.all([
+        patientsService.getAdmissionById(admissionId),
         patientsService.getLatestVitals(admissionId),
       ]);
-      const found = all.find((a) => String(a.id) === String(admissionId));
       if (!found) throw new Error('Admission not found.');
       setAdmission(found);
       setVitals(v);

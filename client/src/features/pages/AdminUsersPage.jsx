@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -7,9 +7,16 @@ import {
   Upload, 
   Download, 
   UserPlus, 
-  Search
+  Search,
+  MoreHorizontal,
+  Inbox,
+  Clock,
+  KeyRound,
+  Send,
 } from 'lucide-react';
 import { useUsers } from '../hooks/useUsers';
+import { passwordResetRequestService } from '../services/passwordResetRequestService';
+import { useAuthStore } from '../store/authStore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -41,17 +48,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function AdminUsersPage() {
-  // Hardcode initial filters for visual matching with mockup
-  const { users, stats, filters, setFilters, isLoading, error, createUser } = useUsers({
+  const currentUser = useAuthStore((state) => state.user);
+  
+  const { users, stats, meta, filters, setFilters, isLoading, error, createUser, updateUser } = useUsers({
     role: '',
     status: '',
-    search: ''
+    search: '',
+    page: 1,
+    limit: 10
   });
 
   const [searchInput, setSearchInput] = useState('');
-  
+
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,6 +76,7 @@ export default function AdminUsersPage() {
     first_name: '',
     last_name: '',
     email: '',
+    password: '',
     role: 'resident'
   });
 
@@ -70,7 +87,7 @@ export default function AdminUsersPage() {
       setIsSubmitting(true);
       await createUser(formData);
       setIsAddOpen(false);
-      setFormData({ first_name: '', last_name: '', email: '', role: 'resident' });
+      setFormData({ first_name: '', last_name: '', email: '', password: '', role: 'resident' });
     } catch (err) {
       setAddError(err.response?.data?.message || err.message || 'An unknown error occurred');
     } finally {
@@ -101,8 +118,7 @@ export default function AdminUsersPage() {
   const statuses = [
     { label: 'All', value: '' },
     { label: 'Active', value: 'ACTIVE' },
-    { label: 'Inactive', value: 'INACTIVE' },
-    { label: 'Suspended', value: 'SUSPENDED' }
+    { label: 'Inactive', value: 'INACTIVE' }
   ];
 
   return (
@@ -168,6 +184,17 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="password" className="font-sans text-xs font-semibold">Password</Label>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={formData.password} 
+                    onChange={e => setFormData({...formData, password: e.target.value})} 
+                    className="font-sans text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="role" className="font-sans text-xs font-semibold">Role</Label>
                   <Select 
                     value={formData.role} 
@@ -199,7 +226,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard 
           icon={<Users className="h-5 w-5 text-purple-600" />} 
           iconBg="bg-purple-100"
@@ -213,16 +240,10 @@ export default function AdminUsersPage() {
           value={stats?.active ?? <Skeleton className="h-8 w-12" />} 
         />
         <StatCard 
-          icon={<ShieldAlert className="h-5 w-5 text-red-600" />} 
-          iconBg="bg-red-100"
-          title="Suspended" 
-          value={stats?.suspended ?? <Skeleton className="h-8 w-12" />} 
-        />
-        <StatCard 
-          icon={<Shield className="h-5 w-5 text-orange-500" />} 
-          iconBg="bg-orange-100"
-          title="Pending 2FA" 
-          value={stats?.pending2FA ?? <Skeleton className="h-8 w-12" />} 
+          icon={<Shield className="h-5 w-5 text-gray-500" />} 
+          iconBg="bg-gray-100"
+          title="Inactive" 
+          value={stats?.inactive ?? <Skeleton className="h-8 w-12" />} 
         />
       </div>
 
@@ -281,6 +302,7 @@ export default function AdminUsersPage() {
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Role</TableHead>
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Status</TableHead>
                 <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11">Last Active</TableHead>
+                <TableHead className="font-sans font-semibold text-muted-foreground uppercase text-[11px] tracking-wider h-11 w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -331,11 +353,76 @@ export default function AdminUsersPage() {
                     <TableCell className="font-sans text-xs text-muted-foreground">
                       {formatTimeAgo(user.lastLogin)}
                     </TableCell>
+
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger render={
+                          <Button variant="ghost" className="h-8 w-8 p-0" />
+                        }>
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="font-sans">
+                          {user.id === currentUser?.id ? (
+                            <DropdownMenuItem disabled className="text-muted-foreground">
+                              Cannot modify own status
+                            </DropdownMenuItem>
+                          ) : (
+                            <>
+                              {user.status === 'ACTIVE' ? (
+                                <DropdownMenuItem 
+                                  className="text-orange-600 focus:bg-orange-600 focus:text-orange-50 cursor-pointer"
+                                  onClick={() => updateUser(user.id, { status: 'INACTIVE' })}
+                                >
+                                  Deactivate User
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem 
+                                  className="text-emerald-600 focus:bg-emerald-600 focus:text-emerald-50 cursor-pointer"
+                                  onClick={() => updateUser(user.id, { status: 'ACTIVE' })}
+                                >
+                                  Activate User
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+        )}
+
+        {/* Pagination Section */}
+        {meta && meta.total > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-border/50 bg-muted/10">
+            <span className="font-sans text-xs font-medium text-muted-foreground">
+              Showing {Math.min((meta.page - 1) * meta.limit + 1, meta.total)} to {Math.min(meta.page * meta.limit, meta.total)} of {meta.total} users
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-sans text-xs h-8"
+                disabled={meta.page <= 1 || isLoading}
+                onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-sans text-xs h-8"
+                disabled={meta.page * meta.limit >= meta.total || isLoading}
+                onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -381,6 +468,7 @@ function formatRole(roleStr) {
     'ICU_PHYSICIAN': 'ICU Physician',
     'ICU_NURSE': 'ICU Nurse',
     'ICU_SPECIALIST': 'Specialist',
+    'MEDICAL_RESIDENT': 'Medical Resident',
     'SUPPORT': 'Support'
   };
   return map[roleStr] || roleStr.replace('_', ' ');
@@ -388,7 +476,6 @@ function formatRole(roleStr) {
 
 function formatTimeAgo(dateStr) {
   if (!dateStr) return 'Never';
-  // Extremely naive mock time formatter to match the '2m ago' style in UI
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now - date;
@@ -399,4 +486,12 @@ function formatTimeAgo(dateStr) {
   if (diffHrs < 24) return `${diffHrs}h ago`;
   const diffDays = Math.floor(diffHrs / 24);
   return `${diffDays}d ago`;
+}
+
+function formatDateShort(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
 }

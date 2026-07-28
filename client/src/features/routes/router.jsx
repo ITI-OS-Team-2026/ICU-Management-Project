@@ -17,8 +17,11 @@ import LabResultsPage from '../pages/LabResultsPage';
 import DischargePage from '../pages/DischargePage';
 import AdminUsersPage from '../pages/AdminUsersPage';
 import AdminBedsPage from '../pages/AdminBedsPage';
+import AuditLogsPage from '../pages/AuditLogsPage';
 import NursingNotesPage from '../pages/NursingNotesPage';
 import NotFoundPage from '../pages/NotFoundPage';
+import SettingsPage from '../pages/SettingsPage';
+import HelpPage from '../pages/HelpPage';
 
 // Patient detail tab pages
 import PatientOverviewPage    from '../pages/patient/PatientOverviewPage';
@@ -27,7 +30,7 @@ import PatientMedicationsPage from '../pages/patient/PatientMedicationsPage';
 import PatientDiagnosesPage   from '../pages/patient/PatientDiagnosesPage';
 import PatientNotesPage       from '../pages/patient/PatientNotesPage';
 import PatientDocumentsPage   from '../pages/patient/PatientDocumentsPage';
-import PatientTimelinePage    from '../pages/patient/PatientTimelinePage';
+import PatientFollowUpsPage   from '../pages/patient/PatientFollowUpsPage';
 import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
 import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
 
@@ -92,7 +95,7 @@ export const router = createBrowserRouter([
           { path: 'diagnoses',    element: <PatientDiagnosesPage /> },
           { path: 'notes',        element: <PatientNotesPage /> },
           { path: 'documents',    element: <PatientDocumentsPage /> },
-          { path: 'timeline',     element: <PatientTimelinePage /> },
+          { path: 'follow-ups',    element: <PatientFollowUpsPage /> },
           { path: 'alerts',       element: <PatientAlertsPage /> },
           { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
         ],
@@ -142,6 +145,14 @@ export const router = createBrowserRouter([
         element: <NursingNotesPage />,
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
+      {
+        path: 'settings',
+        element: <SettingsPage />,
+      },
+      {
+        path: 'help',
+        element: <HelpPage />,
+      },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /
       {
@@ -152,6 +163,11 @@ export const router = createBrowserRouter([
       {
         path: 'admin/beds',
         element: <AdminBedsPage />,
+        loader: roleGuardLoader(['SYSTEM_ADMIN']),
+      },
+      {
+        path: 'admin/audit-logs',
+        element: <AuditLogsPage />,
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
     ],

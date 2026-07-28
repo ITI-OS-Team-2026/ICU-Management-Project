@@ -65,8 +65,24 @@ const getMe = async (req, res, next) => {
   }
 };
 
+// PUT /auth/password - Change current user's password
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    await authService.changePassword({
+      userId: req.user.id,
+      currentPassword,
+      newPassword,
+    });
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 module.exports = {
   login,
   logout,
   getMe,
+  changePassword,
 };

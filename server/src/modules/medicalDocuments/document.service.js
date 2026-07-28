@@ -1,7 +1,6 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
-const crypto = require("crypto");
 
 const createDocument = async (admissionId, uploadedBy, file, documentType, req) => {
   const admission = await prisma.admission.findUnique({
@@ -34,35 +33,6 @@ const createDocument = async (admissionId, uploadedBy, file, documentType, req) 
       result: doc,
     };
   });
-
-  setTimeout(async () => {
-    try {
-      const dummyId = crypto.randomUUID();
-      const dummyVector = "[" + Array(768).fill(0.0).join(",") + "]";
-      
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO document_embeddings (id, document_id, admission_id, chunk_text, embedding) VALUES ($1, $2, $3, $4, $5::vector)`,
-        dummyId,
-        document.id,
-        admissionId,
-        `Chunk text from original document ${file.originalname}`,
-        dummyVector
-      );
-
-      await prisma.medicalDocument.update({
-        where: { id: document.id },
-        data: { embeddingStatus: "COMPLETED" },
-      });
-    } catch (err) {
-      console.error("Async embedding job simulation failed:", err);
-      try {
-        await prisma.medicalDocument.update({
-          where: { id: document.id },
-          data: { embeddingStatus: "FAILED" },
-        });
-      } catch (e) {}
-    }
-  }, 100);
 
   return document;
 };

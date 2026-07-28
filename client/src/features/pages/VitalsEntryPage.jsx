@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Activity,
   AlertCircle,
@@ -30,16 +30,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-
-// Critical ranges matching vitalSign.schema.js
-const NORMAL_RANGES = {
-  temperature: { min: 36.0, max: 38.5 },
-  pulse: { min: 40, max: 140 },
-  systolic_bp: { min: 80, max: 180 },
-  diastolic_bp: { min: 50, max: 110 },
-  respiratory_rate: { min: 8, max: 30 },
-  spo2: { min: 85, max: 100 },
-};
+import { VITAL_NORMAL_RANGES } from '@/features/utils/vitalStatus';
 
 export default function VitalsEntryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -87,7 +78,7 @@ export default function VitalsEntryPage() {
   ];
 
   // React Hook Form for Vitals logging
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       temperature: '',
       pulse: '',
@@ -117,22 +108,22 @@ export default function VitalsEntryPage() {
   // Determine if there are critical values in real-time
   const getCriticalFields = () => {
     const fields = [];
-    if (watchedTemp && (parseFloat(watchedTemp) < NORMAL_RANGES.temperature.min || parseFloat(watchedTemp) > NORMAL_RANGES.temperature.max)) {
+    if (watchedTemp && (parseFloat(watchedTemp) < VITAL_NORMAL_RANGES.temperature.min || parseFloat(watchedTemp) > VITAL_NORMAL_RANGES.temperature.max)) {
       fields.push(`Temperature: ${watchedTemp}°C`);
     }
-    if (watchedPulse && (parseInt(watchedPulse, 10) < NORMAL_RANGES.pulse.min || parseInt(watchedPulse, 10) > NORMAL_RANGES.pulse.max)) {
+    if (watchedPulse && (parseInt(watchedPulse, 10) < VITAL_NORMAL_RANGES.pulse.min || parseInt(watchedPulse, 10) > VITAL_NORMAL_RANGES.pulse.max)) {
       fields.push(`Pulse: ${watchedPulse} bpm`);
     }
-    if (watchedSys && (parseInt(watchedSys, 10) < NORMAL_RANGES.systolic_bp.min || parseInt(watchedSys, 10) > NORMAL_RANGES.systolic_bp.max)) {
+    if (watchedSys && (parseInt(watchedSys, 10) < VITAL_NORMAL_RANGES.systolic_bp.min || parseInt(watchedSys, 10) > VITAL_NORMAL_RANGES.systolic_bp.max)) {
       fields.push(`Systolic BP: ${watchedSys} mmHg`);
     }
-    if (watchedDia && (parseInt(watchedDia, 10) < NORMAL_RANGES.diastolic_bp.min || parseInt(watchedDia, 10) > NORMAL_RANGES.diastolic_bp.max)) {
+    if (watchedDia && (parseInt(watchedDia, 10) < VITAL_NORMAL_RANGES.diastolic_bp.min || parseInt(watchedDia, 10) > VITAL_NORMAL_RANGES.diastolic_bp.max)) {
       fields.push(`Diastolic BP: ${watchedDia} mmHg`);
     }
-    if (watchedRR && (parseInt(watchedRR, 10) < NORMAL_RANGES.respiratory_rate.min || parseInt(watchedRR, 10) > NORMAL_RANGES.respiratory_rate.max)) {
+    if (watchedRR && (parseInt(watchedRR, 10) < VITAL_NORMAL_RANGES.respiratory_rate.min || parseInt(watchedRR, 10) > VITAL_NORMAL_RANGES.respiratory_rate.max)) {
       fields.push(`Resp Rate: ${watchedRR}/min`);
     }
-    if (watchedSpO2 && (parseInt(watchedSpO2, 10) < NORMAL_RANGES.spo2.min || parseInt(watchedSpO2, 10) > NORMAL_RANGES.spo2.max)) {
+    if (watchedSpO2 && (parseInt(watchedSpO2, 10) < VITAL_NORMAL_RANGES.spo2.min || parseInt(watchedSpO2, 10) > VITAL_NORMAL_RANGES.spo2.max)) {
       fields.push(`SpO2: ${watchedSpO2}%`);
     }
     return fields;
@@ -146,7 +137,7 @@ export default function VitalsEntryPage() {
     async function initPage() {
       try {
         setIsLoading(true);
-        const { data: adData } = await api.get('/admissions?status=ACTIVE');
+        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         setAdmissions(adData.data || []);
 
         // Pick initial admission
@@ -158,7 +149,19 @@ export default function VitalsEntryPage() {
           initialAd = adData.data.find(a => a.patient?.name?.includes('Porter')) || adData.data[0];
           setSearchParams({ view: currentView, admissionId: initialAd.id }, { replace: true });
         }
+        
         setActiveAdmission(initialAd);
+
+        if (initialAd) {
+          // Await the history fetch before removing the loading screen to fix 'pop-in' delay
+          const [vitalsRes, notesRes] = await Promise.all([
+            api.get(`/admissions/${initialAd.id}/vitals?limit=20`),
+            api.get(`/admissions/${initialAd.id}/notes/nursing`)
+          ]);
+          setVitalsHistory(vitalsRes.data || []);
+          setNursingNotes(notesRes.data || []);
+        }
+
       } catch (err) {
         console.error("Initialization error:", err);
         setErrorMsg("Failed to load active patients list.");
@@ -172,8 +175,14 @@ export default function VitalsEntryPage() {
   // Fetch patient history when active patient switches
   useEffect(() => {
     if (!activeAdmission) return;
+    
+    // Check if we already have vitals for this admission (e.g. from initPage)
+    const alreadyHasCorrectVitals = vitalsHistory.length > 0 && vitalsHistory[0]?.admissionId === activeAdmission.id;
+    if (alreadyHasCorrectVitals) return;
+
     async function fetchHistory() {
       try {
+        setIsLoading(true);
         const [vitalsRes, notesRes] = await Promise.all([
           api.get(`/admissions/${activeAdmission.id}/vitals?limit=20`),
           api.get(`/admissions/${activeAdmission.id}/notes/nursing`)
@@ -182,14 +191,18 @@ export default function VitalsEntryPage() {
         setNursingNotes(notesRes.data || []);
       } catch (err) {
         console.error("Fetch history error:", err);
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchHistory();
-  }, [activeAdmission]);
+  }, [activeAdmission, vitalsHistory]);
 
   const handlePatientSwitch = (val) => {
     const selected = admissions.find(a => a.id === val);
     setActiveAdmission(selected);
+    // Clear old vitals so the loading spinner triggers correctly
+    setVitalsHistory([]);
     setSearchParams({ view: currentView, admissionId: val });
   };
 

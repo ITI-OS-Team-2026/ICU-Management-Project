@@ -13,6 +13,8 @@ import {
   FileText,
   Save,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthStore } from '../store/authStore';
 
 export default function NursingNotesPage() {
@@ -41,6 +44,10 @@ export default function NursingNotesPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Pagination for Patient Switcher
+  const [currentPage, setCurrentPage] = useState(1);
+  const patientsPerPage = 8;
+
   // Form Inputs State
   const [noteType, setNoteType] = useState('Nursing Progress Note');
   const [assessment, setAssessment] = useState('');
@@ -54,7 +61,8 @@ export default function NursingNotesPage() {
     async function initPage() {
       try {
         setIsLoading(true);
-        const { data: adData } = await api.get('/admissions?status=ACTIVE');
+        // Fetch up to 100 active admissions to ensure all patients are retrieved
+        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         const activeAds = adData.data || [];
         setAdmissions(activeAds);
 
@@ -63,10 +71,15 @@ export default function NursingNotesPage() {
         let initialAd = null;
         if (urlAdmissionId) {
           initialAd = activeAds.find(a => a.id === urlAdmissionId);
+          if (initialAd) {
+            const targetIndex = activeAds.findIndex(a => a.id === urlAdmissionId);
+            setCurrentPage(Math.floor(targetIndex / patientsPerPage) + 1);
+          }
         }
         if (!initialAd && activeAds.length > 0) {
           initialAd = activeAds[0];
           setSearchParams({ admissionId: initialAd.id }, { replace: true });
+          setCurrentPage(1);
         }
         setActiveAdmission(initialAd);
       } catch (err) {
@@ -202,9 +215,59 @@ export default function NursingNotesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-3 font-sans text-sm text-muted-foreground">Loading active patients...</span>
+      <div className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+        {/* Heading Skeleton */}
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-12 w-12 rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        </div>
+
+        {/* Patient Switcher Skeleton */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-28" />
+              <div className="flex gap-1.5"><Skeleton className="h-6 w-16" /></div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-9 w-24 rounded-full" />
+              <Skeleton className="h-9 w-32 rounded-full" />
+              <Skeleton className="h-9 w-28 rounded-full" />
+              <Skeleton className="h-9 w-36 rounded-full" />
+            </div>
+          </div>
+        </div>
+
+        {/* Templates Skeleton */}
+        <div className="rounded-xl border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-8 w-28 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-32 rounded-full" />
+          </div>
+        </div>
+
+        {/* Form Skeleton */}
+        <Card className="border-border bg-card">
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-10 w-full" /></div>
+              <div className="space-y-2"><Skeleton className="h-3 w-24" /><Skeleton className="h-10 w-full" /></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -230,15 +293,41 @@ export default function NursingNotesPage() {
       {/* ── Patient Switcher ─────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <User className="h-3.5 w-3.5" />
-            <span>Select Patient</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
+              <span>Select Patient</span>
+            </div>
+            
+            {admissions.length > patientsPerPage && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline" size="icon-sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-6 w-6 rounded-md border-border/50 bg-background hover:bg-muted"
+                >
+                  <ChevronLeft size={12} />
+                </Button>
+                <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
+                  {currentPage} / {Math.ceil(admissions.length / patientsPerPage)}
+                </span>
+                <Button
+                  variant="outline" size="icon-sm"
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(admissions.length / patientsPerPage), p + 1))}
+                  disabled={currentPage === Math.ceil(admissions.length / patientsPerPage)}
+                  className="h-6 w-6 rounded-md border-border/50 bg-background hover:bg-muted"
+                >
+                  <ChevronRight size={12} />
+                </Button>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {admissions.length === 0 ? (
               <p className="text-xs text-muted-foreground">No active patient admissions found.</p>
             ) : (
-              admissions.map((ad) => {
+              admissions.slice((currentPage - 1) * patientsPerPage, currentPage * patientsPerPage).map((ad) => {
                 const isActive = activeAdmission?.id === ad.id;
                 // Highlight critical patients with red warning dots
                 const isCritical = ad.patient?.name?.includes('Emma') || ad.patient?.name?.includes('Sofia') || ad.patient?.name?.includes('Porter');

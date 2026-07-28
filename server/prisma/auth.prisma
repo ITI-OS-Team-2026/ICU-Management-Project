@@ -53,6 +53,8 @@ model User {
   uploadedDocuments       MedicalDocument[]
   aiSummariesRequested    AiSummary[]  @relation("AiSummaryRequester")
   aiQueriesAsked          AiQueryLog[] @relation("AiQueryAsker")
+  passwordResetRequests   PasswordResetRequest[] @relation("PasswordResetRequests")
+  resolvedPasswordResets  PasswordResetRequest[] @relation("PasswordResetResolutions")
 
   @@index([role])
   @@index([status])

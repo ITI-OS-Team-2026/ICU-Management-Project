@@ -3,6 +3,7 @@ require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const prisma = require("../src/utils/prismaClient");
 const bcrypt = require("bcrypt");
+const { seedICUPatients } = require("./icuPatientSeed");
 
 // Shared helper to seed a user. Uses upsert to be idempotent.
 // Does not overwrite password hash on update.
@@ -108,12 +109,45 @@ async function main() {
     console.warn("Skipping ICU Specialist seed — SEED_SPECIALIST_EMAIL/PASSWORD not set");
   }
 
+  const specialist2User = await seedUser({
+    email: "specialist2@smartcare.icu",
+    password: specialistPassword,
+    firstName: "Alexandra",
+    lastName: "Vance",
+    role: "ICU_SPECIALIST",
+  });
+
+  const resident2User = await seedUser({
+    email: "resident2@smartcare.icu",
+    password: residentPassword,
+    firstName: "Tariq",
+    lastName: "Al-Mansoor",
+    role: "MEDICAL_RESIDENT",
+  });
+
+  const nurse2User = await seedUser({
+    email: "nurse2@smartcare.icu",
+    password: nursePassword,
+    firstName: "Sarah",
+    lastName: "Jenkins",
+    role: "ICU_NURSE",
+  });
+
   if (residentEmail && specialistEmail && nurseEmail) {
     const specialistUser = await prisma.user.findUnique({ where: { email: specialistEmail.toLowerCase() } });
     const residentUser = await prisma.user.findUnique({ where: { email: residentEmail.toLowerCase() } });
     const nurseUser = await prisma.user.findUnique({ where: { email: nurseEmail.toLowerCase() } });
 
     if (specialistUser && residentUser && nurseUser) {
+      await seedICUPatients({
+        specialistUser,
+        specialist2User,
+        residentUser,
+        resident2User,
+        nurseUser,
+        nurse2User,
+      });
+
       const seedPatients = [
         { name: "Emma Rodriguez", mrn: "MRN-EMMA-001", age: 52, gender: "Female", bedNumber: "CCU-7/R3" },
         { name: "James Porter", mrn: "MRN-JAMES-002", age: 59, gender: "Male", bedNumber: "CCU-7/B5" },
@@ -277,6 +311,80 @@ async function main() {
                 });
               }
             }
+
+            // Seed Medical History, Allergies, Diagnoses, and Labs for testing patients
+            const existingHistory = await tx.medicalHistory.findUnique({ where: { patientId: patient.id } });
+            if (!existingHistory) {
+              await tx.medicalHistory.create({
+                data: {
+                  patientId: patient.id,
+                  diabetesDm: true,
+                  hypertensionHtn: true,
+                  pastDiseases: p.mrn === "MRN-JAMES-002" ? ["T1DM"] : ["Asthma"],
+                  previousOperations: true,
+                  operationsDetails: "Cesarean section (2020)",
+                  hasAllergies: true,
+                }
+              });
+
+              await tx.allergy.create({
+                data: {
+                  patientId: patient.id,
+                  allergen: "Latex",
+                  severity: "Mild"
+                }
+              });
+              console.log(`Seeded medical history and allergies for ${p.name}`);
+            }
+
+            const diagCount = await tx.diagnosis.count({ where: { admissionId: admission.id } });
+            if (diagCount === 0) {
+              await tx.diagnosis.create({
+                data: {
+                  admissionId: admission.id,
+                  conditionName: "Acute Respiratory Failure",
+                  status: "ACTIVE",
+                  diagnosedById: specialistUser.id
+                }
+              });
+
+              await tx.diagnosis.create({
+                data: {
+                  admissionId: admission.id,
+                  conditionName: "Sepsis, unspecified organism",
+                  status: "ACTIVE",
+                  diagnosedById: specialistUser.id
+                }
+              });
+              console.log(`Seeded diagnoses for ${p.name}`);
+            }
+
+            const labCount = await tx.labResult.count({ where: { admissionId: admission.id } });
+            if (labCount === 0) {
+              await tx.labResult.create({
+                data: {
+                  admissionId: admission.id,
+                  recordedById: specialistUser.id,
+                  testName: "Serum Potassium",
+                  resultValue: "5.8 mEq/L",
+                  abnormal: true,
+                  recordedAt: new Date()
+                }
+              });
+
+              await tx.labResult.create({
+                data: {
+                  admissionId: admission.id,
+                  recordedById: specialistUser.id,
+                  testName: "White Blood Cells (WBC)",
+                  resultValue: "14.2 x10^3/uL",
+                  abnormal: true,
+                  recordedAt: new Date()
+                }
+              });
+              console.log(`Seeded lab results for ${p.name}`);
+            }
+            
             console.log(`Seeded medication orders & history for patient ${p.name}`);
           }
         }, { maxWait: 10000, timeout: 30000 });

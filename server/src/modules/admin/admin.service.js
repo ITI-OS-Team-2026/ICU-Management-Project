@@ -29,7 +29,7 @@ const createUser = async (data) => {
     throw new APIError("Email already exists", 409);
   }
 
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
+  const passwordHash = await bcrypt.hash(data.password || "ChangeMe123!", 10);
   
   const user = await prisma.user.create({
     data: {
@@ -108,7 +108,6 @@ const getUsers = async ({ role, status, search, page, limit }) => {
       ...u,
       first_name: u.firstName,
       last_name: u.lastName,
-      twoFactorEnabled: true,
       firstName: undefined,
       lastName: undefined
     })),
@@ -121,17 +120,16 @@ const getUsers = async ({ role, status, search, page, limit }) => {
 };
 
 const getUserStats = async () => {
-  const [total, active, suspended] = await Promise.all([
+  const [total, active, inactive] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { status: 'ACTIVE' } }),
-    prisma.user.count({ where: { status: 'SUSPENDED' } })
+    prisma.user.count({ where: { status: 'INACTIVE' } })
   ]);
   
   return {
     total,
     active,
-    suspended,
-    pending2FA: 4 // Mocked for now since DB doesn't have this
+    inactive
   };
 };
 
@@ -162,6 +160,10 @@ const getUserById = async (id) => {
 const updateUser = async (req, id, data) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new APIError("User not found", 404);
+
+  if (req.user.id === id && data.status && data.status !== "ACTIVE") {
+    throw new APIError("You cannot deactivate or suspend your own account", 403);
+  }
 
   const updateData = {};
   if (data.role) updateData.role = mapRoleToPrisma(data.role);
@@ -221,6 +223,10 @@ const deleteUser = async (req, id) => {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new APIError("User not found", 404);
 
+  if (req.user.id === id) {
+    throw new APIError("You cannot delete your own account", 403);
+  }
+
   return auditedTransaction(req, { action: "ARCHIVE", targetTable: "User" }, async (tx) => {
     await tx.user.update({
       where: { id },
@@ -230,6 +236,26 @@ const deleteUser = async (req, id) => {
       targetId: id,
       oldValues: { status: user.status },
       newValues: { status: "INACTIVE" },
+      result: true
+    };
+  });
+};
+
+const resetUserPassword = async (req, id, newPassword) => {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new APIError("User not found", 404);
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  
+  return auditedTransaction(req, { action: "UPDATE", targetTable: "User" }, async (tx) => {
+    await tx.user.update({
+      where: { id },
+      data: { passwordHash }
+    });
+    return {
+      targetId: id,
+      oldValues: { passwordHash: "HIDDEN" },
+      newValues: { passwordHash: "HIDDEN_NEW" },
       result: true
     };
   });
@@ -319,15 +345,170 @@ const updateBed = async (req, id, data) => {
   const bed = await prisma.bed.findUnique({ where: { id } });
   if (!bed) throw new APIError("Bed not found", 404);
 
-  const updated = await prisma.bed.update({
-    where: { id },
-    data: { status: data.status }
+  const newStatus = data.status;
+
+  if (newStatus === "OCCUPIED") {
+    throw new APIError("Bed status can only be set to OCCUPIED through the admission workflow", 400);
+  }
+
+  const activeAdmission = await prisma.admission.findFirst({
+    where: { bedId: id, status: "ACTIVE" }
+  });
+
+  if (activeAdmission) {
+    throw new APIError("Cannot change bed status while there is an active admission. Please discharge or transfer the patient first.", 409);
+  }
+
+  if (newStatus === "MAINTENANCE" || newStatus === "OUT_OF_SERVICE") {
+    if (bed.status !== "AVAILABLE") {
+      throw new APIError("Bed must be AVAILABLE before taking it offline.", 409);
+    }
+  }
+
+  return auditedTransaction(req, { action: "UPDATE", targetTable: "Bed", targetId: id }, async (tx) => {
+    const updated = await tx.bed.update({
+      where: { id },
+      data: { status: newStatus }
+    });
+
+    return {
+      targetId: id,
+      oldValues: { status: bed.status },
+      newValues: { status: newStatus },
+      result: {
+        id: updated.id,
+        bed_number: updated.bedNumber,
+        status: updated.status
+      }
+    };
+  });
+};
+
+
+
+const getAuditLogs = async (query = {}) => {
+  const { search, page = 1, limit = 10, eventLevel, category } = query;
+  
+  const where = {};
+  
+  if (search) {
+    where.OR = [
+      { targetTable: { contains: search, mode: "insensitive" } },
+      {
+        user: {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } }
+          ]
+        }
+      }
+    ];
+  }
+
+  if (eventLevel && eventLevel !== 'All') {
+    if (eventLevel === 'Critical') {
+      where.action = { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] };
+    } else if (eventLevel === 'Warning') {
+      where.action = { in: ['UPDATE'] };
+    } else if (eventLevel === 'Info') {
+      where.action = { in: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW'] };
+    }
+  }
+
+  if (category && category !== 'All') {
+    if (category === 'Patients') {
+      where.targetTable = { in: ['Patient', 'Allergy', 'MedicalHistory'] };
+    } else if (category === 'Admissions') {
+      where.targetTable = { in: ['Admission', 'AdmissionNurse'] };
+    } else if (category === 'Documents') {
+      where.targetTable = { in: ['MedicalDocument'] };
+    } else if (category === 'Admin') {
+      where.targetTable = { in: ['User', 'Bed'] };
+    }
+  }
+  
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [totalCount, logs] = await Promise.all([
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: Number(limit),
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    })
+  ]);
+  
+  const mappedLogs = logs.map(log => ({
+    id: log.id,
+    action: log.action,
+    targetTable: log.targetTable,
+    targetId: log.targetId,
+    ipAddress: log.ipAddress,
+    createdAt: log.createdAt,
+    user: log.user ? {
+      name: `${log.user.firstName} ${log.user.lastName}`,
+      email: log.user.email,
+      role: log.user.role
+    } : null
+  }));
+
+  return {
+    data: mappedLogs,
+    meta: {
+      total: totalCount,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(totalCount / Number(limit)),
+    }
+  };
+};
+
+const getAuditLogStats = async () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const totalEventsToday = await prisma.auditLog.count({
+    where: { createdAt: { gte: today } }
+  });
+
+  const criticalEvents = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      action: { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] }
+    }
+  });
+
+  const warningEvents = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      action: { in: ['UPDATE'] }
+    }
+  });
+
+  const adminActions = await prisma.auditLog.count({
+    where: { 
+      createdAt: { gte: today },
+      user: { role: 'SYSTEM_ADMIN' }
+    }
   });
 
   return {
-    id: updated.id,
-    bed_number: updated.bedNumber,
-    status: updated.status
+    totalEventsToday,
+    criticalEvents,
+    warningEvents,
+    adminActions
   };
 };
 
@@ -337,8 +518,11 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
+  resetUserPassword,
   createBed,
   getBeds,
   updateBed,
-  getUserStats
+  getUserStats,
+  getAuditLogs,
+  getAuditLogStats
 };

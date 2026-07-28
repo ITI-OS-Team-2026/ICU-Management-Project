@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
+import { VITAL_NORMAL_RANGES } from "@/features/utils/vitalStatus";
 
 // Matches server vitalSign.schema.js
 export const VITAL_ABSOLUTE_RANGES = {
@@ -16,14 +17,7 @@ export const VITAL_ABSOLUTE_RANGES = {
   spo2: { min: 0, max: 100 },
 };
 
-export const VITAL_NORMAL_RANGES = {
-  temperature: { min: 36.0, max: 38.5 },
-  pulse: { min: 40, max: 140 },
-  systolic_bp: { min: 80, max: 180 },
-  diastolic_bp: { min: 50, max: 110 },
-  respiratory_rate: { min: 8, max: 30 },
-  spo2: { min: 85, max: 100 },
-};
+export { VITAL_NORMAL_RANGES } from "@/features/utils/vitalStatus";
 
 const VITAL_LABELS = {
   temperature: "Temperature",
