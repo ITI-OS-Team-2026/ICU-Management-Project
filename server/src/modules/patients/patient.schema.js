@@ -10,6 +10,8 @@ const patientCreateSchema = Joi.object({
   occupation: Joi.string().allow(null, "").optional(),
   marital_status: Joi.string().valid("SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER").allow(null, "").optional(),
   handedness: Joi.string().valid("RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN").allow(null, "").optional(),
+  children_count: Joi.number().integer().min(0).allow(null).optional(),
+  youngest_child_age: Joi.string().allow(null, "").optional(),
 });
 
 const patientQuerySchema = Joi.object({
@@ -39,6 +41,8 @@ const medicalHistoryCreateSchema = Joi.object({
   inherited_diseases: Joi.alternatives().try(Joi.array(), Joi.object()).allow(null).optional(),
   free_text: Joi.string().allow(null, "").optional(),
   custom_fields: Joi.object().allow(null).optional(),
+  special_habits: Joi.string().allow(null, "").optional(),
+  blood_transfusion: Joi.boolean().optional(),
 });
 
 const medicalHistoryUpdateSchema = Joi.object({
@@ -55,6 +59,8 @@ const medicalHistoryUpdateSchema = Joi.object({
   inherited_diseases: Joi.alternatives().try(Joi.array(), Joi.object()).allow(null).optional(),
   free_text: Joi.string().allow(null, "").optional(),
   custom_fields: Joi.object().allow(null).optional(),
+  special_habits: Joi.string().allow(null, "").optional(),
+  blood_transfusion: Joi.boolean().optional(),
 }).min(1);
 
 module.exports = {

@@ -300,6 +300,11 @@ export default function PatientOverviewPage() {
               <InfoRow icon={MapPin} label="Residence" value={patient?.residence} />
               <InfoRow icon={Briefcase} label="Occupation" value={patient?.occupation} />
               <InfoRow icon={Hand} label="Handedness" value={patient?.handedness} />
+              <InfoRow 
+                icon={Users} 
+                label="Children" 
+                value={patient?.children_count != null ? `${patient.children_count} ${patient.children_count === 1 ? 'child' : 'children'}${patient.youngest_child_age ? ` (Youngest: ${patient.youngest_child_age})` : ''}` : null} 
+              />
             </CardContent>
           </Card>
 
@@ -438,9 +443,11 @@ export default function PatientOverviewPage() {
                       <ul className="font-sans text-sm text-foreground list-disc pl-4 space-y-1">
                         {extraData.history.diabetes_dm && <li>Diabetes Mellitus</li>}
                         {extraData.history.hypertension_htn && <li>Hypertension</li>}
+                        {extraData.history.blood_transfusion && <li>Blood Transfusion</li>}
                         {extraData.history.past_diseases?.map((d, i) => <li key={i}>{d}</li>)}
                         {extraData.history.previous_operations && <li>Previous Operations: {extraData.history.operations_details}</li>}
-                        {!extraData.history.diabetes_dm && !extraData.history.hypertension_htn && (!extraData.history.past_diseases || extraData.history.past_diseases.length === 0) && (
+                        {extraData.history.special_habits && <li>Special Habits: {extraData.history.special_habits}</li>}
+                        {!extraData.history.diabetes_dm && !extraData.history.hypertension_htn && !extraData.history.blood_transfusion && !extraData.history.special_habits && (!extraData.history.past_diseases || extraData.history.past_diseases.length === 0) && (
                           <span className="text-muted-foreground text-xs">No significant past medical history.</span>
                         )}
                       </ul>

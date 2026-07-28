@@ -56,16 +56,16 @@ export default function PastHistorySection({ form }) {
           name="past_history_paragraph"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Past History Summary (Free text)</FormLabel>
+              <FormLabel>Summary</FormLabel>
               <FormControl>
-                <Textarea placeholder="Free-text summary (optional)..." rows={4} className="resize-none" {...field} />
+                <Textarea placeholder="Summary..." rows={4} className="resize-none" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-border">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 border-t border-border">
           <FormField
             control={form.control}
             name="previous_operations"
@@ -96,6 +96,18 @@ export default function PastHistorySection({ form }) {
             render={({ field }) => (
               <FormItem className="flex flex-col gap-2">
                 <FormLabel>Traveled Abroad</FormLabel>
+                <FormControl>
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="blood_transfusion"
+            render={({ field }) => (
+              <FormItem className="flex flex-col gap-2">
+                <FormLabel>Blood Transfusion</FormLabel>
                 <FormControl>
                   <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>

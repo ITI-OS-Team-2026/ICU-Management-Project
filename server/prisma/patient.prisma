@@ -24,6 +24,8 @@ model Patient {
   occupation    String?        @db.Text
   maritalStatus MaritalStatus? @map("marital_status")
   handedness    Handedness?
+  childrenCount Int?           @map("children_count")
+  youngestChildAge String?     @map("youngest_child_age") @db.VarChar(50)
   isArchived    Boolean        @default(false) @map("is_archived")
   archivedAt    DateTime?      @map("archived_at")
   createdAt     DateTime       @default(now()) @map("created_at")
@@ -53,6 +55,8 @@ model MedicalHistory {
   inheritedDiseases       Json?    @map("inherited_diseases")
   freeText                String?  @map("free_text") @db.Text
   customFields            Json?    @map("custom_fields")
+  specialHabits           String?  @map("special_habits") @db.Text
+  bloodTransfusion        Boolean  @default(false) @map("blood_transfusion")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
