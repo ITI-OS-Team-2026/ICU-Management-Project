@@ -13,8 +13,8 @@ model FollowUp {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  author      User      @relation(fields: [authorId], references: [id])
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id])
 
   @@index([admissionId])
   @@index([authorId])

@@ -35,11 +35,11 @@ model User {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  loginAttempts      LoginAttempt[]
-  refreshTokens      RefreshToken[]
-  auditLogs          AuditLog[]
-  admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
-  nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
+  loginAttempts           LoginAttempt[]
+  refreshTokens           RefreshToken[]
+  auditLogs               AuditLog[]
+  admissionsAsDoctor      Admission[]                @relation("AdmissionDoctor")
+  nurseAssignments        AdmissionNurse[]           @relation("AdmissionNurseAssignments")
   diagnoses               Diagnosis[]
   vitalSigns              VitalSign[]
   prescribedMedications   Medication[]               @relation("MedicationPrescriber")
@@ -51,10 +51,11 @@ model User {
   nursingNotes            NursingNote[]
   followUps               FollowUp[]
   uploadedDocuments       MedicalDocument[]
-  aiSummariesRequested    AiSummary[]  @relation("AiSummaryRequester")
-  aiQueriesAsked          AiQueryLog[] @relation("AiQueryAsker")
-  passwordResetRequests   PasswordResetRequest[] @relation("PasswordResetRequests")
-  resolvedPasswordResets  PasswordResetRequest[] @relation("PasswordResetResolutions")
+  aiSummariesRequested    AiSummary[]                @relation("AiSummaryRequester")
+  aiQueriesAsked          AiQueryLog[]               @relation("AiQueryAsker")
+  passwordResetRequests   PasswordResetRequest[]     @relation("PasswordResetRequests")
+  resolvedPasswordResets  PasswordResetRequest[]     @relation("PasswordResetResolutions")
+  notifications           Notification[]             @relation("UserNotifications")
 
   @@index([role])
   @@index([status])

@@ -32,7 +32,7 @@ router.get(
 router.get(
   "/users",
   verifyToken,
-  restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT"]),
+  restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT", "ICU_NURSE"]),
   adminController.getUsers
 );
 
