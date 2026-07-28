@@ -150,14 +150,17 @@ function PreviousInvestigationsDisplay({ data }) {
   if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return null;
   return (
     <div className="space-y-1.5">
-      {Object.entries(data).map(([key, value]) => (
-        <div key={key} className="flex items-start gap-2">
-          <span className="font-sans text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 min-w-[100px] mt-0.5">
-            {key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
-          </span>
-          <span className="font-sans text-xs text-foreground break-words">{String(value)}</span>
-        </div>
-      ))}
+      {Object.entries(data).map(([key, value]) => {
+        if (value === null || value === undefined || value === '' || value === false) return null;
+        return (
+          <div key={key} className="flex items-start gap-2">
+            <span className="font-sans text-[10px] font-semibold uppercase tracking-wider text-muted-foreground shrink-0 min-w-[100px] mt-0.5">
+              {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (s) => s.toUpperCase())}
+            </span>
+            <span className="font-sans text-xs text-foreground break-words">{String(value)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -300,6 +303,11 @@ export default function PatientOverviewPage() {
               <InfoRow icon={MapPin} label="Residence" value={patient?.residence} />
               <InfoRow icon={Briefcase} label="Occupation" value={patient?.occupation} />
               <InfoRow icon={Hand} label="Handedness" value={patient?.handedness} />
+              <InfoRow 
+                icon={Users} 
+                label="Children" 
+                value={patient?.children_count != null ? `${patient.children_count} ${patient.children_count === 1 ? 'child' : 'children'}${patient.youngest_child_age ? ` (Youngest: ${patient.youngest_child_age})` : ''}` : null} 
+              />
             </CardContent>
           </Card>
 
@@ -438,9 +446,11 @@ export default function PatientOverviewPage() {
                       <ul className="font-sans text-sm text-foreground list-disc pl-4 space-y-1">
                         {extraData.history.diabetes_dm && <li>Diabetes Mellitus</li>}
                         {extraData.history.hypertension_htn && <li>Hypertension</li>}
+                        {extraData.history.blood_transfusion && <li>Blood Transfusion</li>}
                         {extraData.history.past_diseases?.map((d, i) => <li key={i}>{d}</li>)}
                         {extraData.history.previous_operations && <li>Previous Operations: {extraData.history.operations_details}</li>}
-                        {!extraData.history.diabetes_dm && !extraData.history.hypertension_htn && (!extraData.history.past_diseases || extraData.history.past_diseases.length === 0) && (
+                        {extraData.history.special_habits && <li>Special Habits: {extraData.history.special_habits}</li>}
+                        {!extraData.history.diabetes_dm && !extraData.history.hypertension_htn && !extraData.history.blood_transfusion && !extraData.history.special_habits && (!extraData.history.past_diseases || extraData.history.past_diseases.length === 0) && (
                           <span className="text-muted-foreground text-xs">No significant past medical history.</span>
                         )}
                       </ul>
@@ -448,6 +458,26 @@ export default function PatientOverviewPage() {
                       <p className="font-sans text-xs text-muted-foreground">No history recorded.</p>
                     )}
                   </div>
+
+                  {extraData.history?.menstrual_history && Object.keys(extraData.history.menstrual_history).length > 0 && (
+                    <>
+                      <Separator className="bg-border" />
+                      <div className="space-y-2">
+                        <SectionLabel>Menstrual History</SectionLabel>
+                        <PreviousInvestigationsDisplay data={extraData.history.menstrual_history} />
+                      </div>
+                    </>
+                  )}
+
+                  {extraData.history?.obstetric_history && Object.keys(extraData.history.obstetric_history).length > 0 && (
+                    <>
+                      <Separator className="bg-border" />
+                      <div className="space-y-2">
+                        <SectionLabel>Obstetric History</SectionLabel>
+                        <PreviousInvestigationsDisplay data={extraData.history.obstetric_history} />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </CardContent>

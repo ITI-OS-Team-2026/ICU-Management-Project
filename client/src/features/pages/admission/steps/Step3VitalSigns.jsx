@@ -97,7 +97,7 @@ export default function Step3VitalSigns({ form }) {
             name="pulse"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Heart Rate (bpm)</FormLabel>
+                <FormLabel>Heart Rate (rr)</FormLabel>
                 <FormControl>
                   <Input type="number" placeholder="e.g. 80" className="font-tnum" {...field} />
                 </FormControl>

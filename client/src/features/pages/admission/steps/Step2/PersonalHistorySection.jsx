@@ -155,6 +155,63 @@ export default function PersonalHistorySection({ form }) {
             )}
           />
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="children_count"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Number of Children</FormLabel>
+                <FormControl>
+                  <Input 
+                    type="text" 
+                    inputMode="numeric" 
+                    placeholder="e.g., 2" 
+                    value={field.value ?? ""}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "");
+                      field.onChange(digitsOnly);
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {parseInt(form.watch("children_count") || "0", 10) > 0 && (
+            <FormField
+              control={form.control}
+              name="youngest_child_age"
+              render={({ field }) => (
+                <FormItem className="animate-in fade-in slide-in-from-top-2">
+                  <FormLabel>Age of Youngest Child</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 6 months" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
+        <FormField
+          control={form.control}
+          name="special_habits"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Special Habits</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Smoking, Alcohol, etc." {...field} value={field.value || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </CardContent>
     </Card>
   );

@@ -18,7 +18,7 @@ export default function FamilyHistorySection({ form }) {
               <FormControl>
                 <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
-              <FormLabel className="font-medium cursor-pointer">Consanguinity (Parents are relatives)</FormLabel>
+              <FormLabel className="font-medium cursor-pointer">Consanguinity</FormLabel>
             </FormItem>
           )}
         />
