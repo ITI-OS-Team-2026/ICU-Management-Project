@@ -45,14 +45,6 @@ export function useAdminDashboard() {
         };
       });
 
-      // Fallback if empty
-      if (formattedActivities.length === 0) {
-        formattedActivities.push(
-          { id: 1, title: 'System Login', desc: 'System Admin logged in', time: '5m ago', dotColor: 'bg-primary' },
-          { id: 2, title: 'User Updated', desc: 'Dr. Smith permissions updated', time: '1h ago', dotColor: 'bg-amber-500' }
-        );
-      }
-
       setActivities(formattedActivities);
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);

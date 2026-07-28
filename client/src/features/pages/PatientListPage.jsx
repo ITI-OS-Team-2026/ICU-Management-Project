@@ -223,7 +223,71 @@ export default function PatientListPage() {
   }, [filteredPatients, currentPage, pageSize]);
 
   const handleCensusPdf = () => {
-    alert("Generating Census PDF report...");
+    const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const rows = filteredPatients.map(p => `
+      <tr>
+        <td>${p.patient?.name || '—'}</td>
+        <td>${p.patient?.mrn || '—'}</td>
+        <td>${p.patient?.age ?? '—'}y ${p.patient?.gender || ''}</td>
+        <td class="acuity-${(p.acuity || '').toLowerCase()}">${p.acuity || '—'}</td>
+        <td>${p.primaryDiagnosis || '—'}</td>
+        <td>${p.bed?.bed_number || 'Unassigned'}</td>
+        <td>${p.latestVitals?.pulse ? `HR ${p.latestVitals.pulse} | SpO₂ ${p.latestVitals.spo2}% | BP ${p.latestVitals.systolicBp}/${p.latestVitals.diastolicBp}` : '—'}</td>
+        <td>${p.doctorName || '—'}</td>
+      </tr>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ICU Census Report — ${date}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 24px; }
+    h1 { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+    .subtitle { color: #555; font-size: 11px; margin-bottom: 16px; }
+    .stats { display: flex; gap: 24px; margin-bottom: 16px; padding: 10px 14px; background: #f5f5f5; border-radius: 6px; }
+    .stat { display: flex; flex-direction: column; }
+    .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; }
+    .stat-value { font-size: 20px; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f0f0f0; text-align: left; padding: 7px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: #555; border-bottom: 2px solid #ddd; }
+    td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .acuity-critical { color: #dc2626; font-weight: bold; }
+    .acuity-watchful { color: #d97706; font-weight: bold; }
+    .acuity-stable { color: #16a34a; font-weight: bold; }
+    .footer { margin-top: 20px; font-size: 9px; color: #999; text-align: center; }
+    @media print { body { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <h1>ICU Patient Census Report</h1>
+  <p class="subtitle">Generated on ${date} &mdash; ${filteredPatients.length} patient(s) listed</p>
+  <div class="stats">
+    <div class="stat"><span class="stat-label">Total</span><span class="stat-value">${filteredPatients.length}</span></div>
+    <div class="stat"><span class="stat-label">Critical</span><span class="stat-value" style="color:#dc2626">${filteredPatients.filter(p => p.acuity === 'Critical').length}</span></div>
+    <div class="stat"><span class="stat-label">Watchful</span><span class="stat-value" style="color:#d97706">${filteredPatients.filter(p => p.acuity === 'Watchful').length}</span></div>
+    <div class="stat"><span class="stat-label">Stable</span><span class="stat-value" style="color:#16a34a">${filteredPatients.filter(p => p.acuity === 'Stable').length}</span></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Patient Name</th><th>MRN</th><th>Age / Gender</th><th>Acuity</th>
+        <th>Diagnosis</th><th>Bed</th><th>Latest Vitals</th><th>Attending</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <p class="footer">ICU Management System &mdash; Confidential clinical document &mdash; Do not share without authorization.</p>
+  <script>window.onload = () => { window.print(); };<\/script>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
   };
 
   return (
@@ -239,7 +303,7 @@ export default function PatientListPage() {
           <Button onClick={refetch} variant="outline" size="icon" disabled={isLoading} className="h-9 w-9">
             <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleCensusPdf} variant="outline" className="gap-2 h-9">
+          <Button onClick={handleCensusPdf} variant="outline" disabled={isLoading} className="gap-2 h-9">
             <Download className="h-4 w-4" />
             Census PDF
           </Button>

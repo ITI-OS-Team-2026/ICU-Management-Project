@@ -41,7 +41,7 @@ export function useUsers(initialFilters = {}) {
 
   const updateUser = async (id, data) => {
     const updatedUser = await usersService.updateUser(id, data);
-    setUsers((prev) => prev.map((u) => (u.id === id ? updatedUser : u)));
+    await fetchData(); // refetch both users list and stats so counters stay in sync
     return updatedUser;
   };
 

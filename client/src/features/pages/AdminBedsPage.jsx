@@ -1,6 +1,6 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
 import { useMemo, useState, useEffect } from 'react';
-import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, HelpCircle } from 'lucide-react';
+import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
 import {
@@ -166,9 +166,14 @@ export default function AdminBedsPage() {
       </div>
 
       {updateError && (
-        <div className="bg-destructive/10 text-destructive text-sm font-sans p-4 rounded-md border border-destructive/20 mt-2 mb-2">
-          <p className="font-semibold">Error Updating Bed</p>
-          <p>{updateError}</p>
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-destructive text-destructive-foreground text-sm font-sans p-4 rounded-lg shadow-xl flex items-start gap-3 animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="flex-1">
+            <p className="font-semibold">Error Updating Bed</p>
+            <p className="mt-0.5 opacity-90">{updateError}</p>
+          </div>
+          <button onClick={() => setUpdateError(null)} className="shrink-0 mt-0.5 hover:opacity-70 transition-opacity">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
