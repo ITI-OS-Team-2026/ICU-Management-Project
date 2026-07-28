@@ -14,6 +14,7 @@ const { admissionFollowUpRouter, followUpRouter } = require("../modules/followUp
 const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/medicalDocuments/document.routes");
 const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
 const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRouter } = require("../modules/passwordResetRequests/passwordReset.routes");
+const notificationRoutes = require("../modules/notifications/notification.routes");
 
 const router = express.Router();
 
@@ -43,5 +44,6 @@ router.use("/admissions", admissionDocumentsRouter);
 router.use("/documents", baseDocumentsRouter);
 router.use("/ai", aiRouter);
 router.use("/admissions", admissionAiRouter);
+router.use("/notifications", notificationRoutes);
 
 module.exports = router;

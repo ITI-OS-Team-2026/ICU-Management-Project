@@ -15,11 +15,11 @@ model Diagnosis {
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
-  admission     Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  diagnosedBy   User            @relation(fields: [diagnosedById], references: [id])
+  admission   Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  diagnosedBy User      @relation(fields: [diagnosedById], references: [id])
 
-  @@map("diagnoses")
   @@index([admissionId])
   @@index([diagnosedById])
   @@index([status])
+  @@map("diagnoses")
 }

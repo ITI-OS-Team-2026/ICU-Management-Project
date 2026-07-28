@@ -3,6 +3,7 @@ import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 import { MobileSidebar } from './MobileSidebar';
 
@@ -59,6 +60,7 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
         >
           <HelpCircle className="h-4 w-4" />
         </Button>
+        <NotificationDropdown />
         <ThemeToggle />
       </div>
     </header>

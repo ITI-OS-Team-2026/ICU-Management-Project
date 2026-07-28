@@ -1,0 +1,29 @@
+// Notification models for real-time and historical alerts
+
+enum NotificationType {
+  INFO
+  ALERT
+  SUMMON
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  user      User               @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType   @default(INFO)
+  status    NotificationStatus @default(UNREAD)
+  metadata  Json?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
