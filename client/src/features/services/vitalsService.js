@@ -1,8 +1,19 @@
 import api from '@/lib/api';
 
 export const vitalsService = {
-  async getVitalsHistory(admissionId, limit = 50) {
-    const { data } = await api.get(`/admissions/${admissionId}/vitals?limit=${limit}`);
+  /**
+   * Fetch vitals history for an admission.
+   * @param {string} admissionId
+   * @param {{ limit?: number, from?: string, to?: string }} options
+   */
+  async getVitalsHistory(admissionId, options = {}) {
+    const { limit, from, to } = options;
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', String(limit));
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    const qs = params.toString();
+    const { data } = await api.get(`/admissions/${admissionId}/vitals${qs ? `?${qs}` : ''}`);
     return Array.isArray(data) ? data : [];
   },
 
