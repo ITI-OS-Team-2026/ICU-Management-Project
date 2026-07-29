@@ -30,8 +30,8 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
   const pageTitle = ROUTE_TITLES[location.pathname] || 'SmartCare ICU';
 
   return (
-    <header className="relative flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-6">
-      <div className="flex items-center gap-4">
+    <header className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6 gap-3">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Desktop Toggle */}
         <Button
           variant="ghost"
@@ -46,11 +46,11 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
         <MobileSidebar />
       </div>
 
-      <h1 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-lg font-semibold text-foreground">
+      <h1 className="flex-1 truncate text-center font-display text-base sm:text-lg font-semibold text-foreground">
         {pageTitle}
       </h1>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <Button
           variant="ghost"
           size="icon"
