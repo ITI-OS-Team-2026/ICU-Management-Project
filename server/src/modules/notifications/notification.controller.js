@@ -21,7 +21,13 @@ const summonDoctor = catchAsync(async (req, res, next) => {
     return next(new APIError("No doctor specified for this admission", 400));
   }
 
-  let message = `Nurse ${req.user.firstName} ${req.user.lastName} requires your presence for Patient ${admission.patient.name} in Bed ${admission.bed.bed_number}`;
+  const nurse = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: { firstName: true, lastName: true }
+  });
+
+  const nurseName = nurse ? `${nurse.firstName} ${nurse.lastName}` : 'Unknown';
+  let message = `Nurse ${nurseName} requires your presence for Patient ${admission.patient.name} in Bed ${admission.bed.bedNumber}`;
   if (reason && reason.trim()) {
     message += `. Reason: ${reason}`;
   }
