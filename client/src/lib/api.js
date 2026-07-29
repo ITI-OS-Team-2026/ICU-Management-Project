@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../features/store/authStore';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -18,8 +19,8 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       if (window.location.pathname !== '/login') {
         console.warn("Unauthorized access detected (401). Redirecting to login.");
-        // Clear zustand session by triggering a custom event or modifying localStorage directly if persisted.
-        // Easiest is just redirecting, the route loader will try to fetch /auth/me, fail, and clear state.
+        // Clear zustand session so route loaders don't think we are still logged in
+        useAuthStore.getState().clearUser();
         window.location.href = '/login';
       }
     }
