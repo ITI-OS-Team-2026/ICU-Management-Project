@@ -155,6 +155,24 @@ const createFullAdmission = async (req, data) => {
         previousTreatments: data.admission.previous_treatments || null,
         provisionalDiagnosis: data.admission.provisional_diagnosis || null,
       },
+      include: {
+        patient: true,
+        bed: true,
+        doctor: true,
+        nurses: {
+          where: { isArchived: false },
+          include: {
+            nurse: true,
+          },
+        },
+        vitalSigns: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+        diagnoses: {
+          where: { isArchived: false },
+        },
+      },
     });
 
     // 5. Create Vital Signs (if provided)
@@ -235,6 +253,24 @@ const createAdmission = async (req, data) => {
           previousTreatments: data.previous_treatments || null,
           provisionalDiagnosis: data.provisional_diagnosis || null,
           status: "ACTIVE",
+        },
+        include: {
+          patient: true,
+          bed: true,
+          doctor: true,
+          nurses: {
+            where: { isArchived: false },
+            include: {
+              nurse: true,
+            },
+          },
+          vitalSigns: {
+            orderBy: { recordedAt: "desc" },
+            take: 1,
+          },
+          diagnoses: {
+            where: { isArchived: false },
+          },
         },
       });
 
