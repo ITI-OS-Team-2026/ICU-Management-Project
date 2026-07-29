@@ -386,12 +386,34 @@ const updateBed = async (req, id, data) => {
 
 
 
+// Every AuditAction must belong to exactly one level, otherwise rows written with
+// that action are invisible to every level filter. Keep in sync with the enum in
+// prisma/audit.prisma and with the badge colours in the client's AuditLogsPage.
+const AUDIT_LEVEL_ACTIONS = {
+  Critical: ['ARCHIVE', 'ACCOUNT_LOCKED'],
+  Warning: ['UPDATE'],
+  Info: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW', 'GENERATE_SUMMARY', 'QUERY_RAG'],
+};
+
+const AUDIT_CATEGORY_TABLES = {
+  Patients: ['Patient', 'Allergy', 'MedicalHistory'],
+  Admissions: ['Admission', 'AdmissionNurse'],
+  Documents: ['MedicalDocument'],
+  Admin: ['User', 'Bed'],
+};
+
 const getAuditLogs = async (query = {}) => {
   const { search, page = 1, limit = 10, eventLevel, category } = query;
-  
+
   const where = {};
-  
+
   if (search) {
+    // `action` is an enum, so `contains` cannot be used on it — match whole
+    // action names instead so searching "LOGIN" or "archive" finds those events.
+    const matchedActions = Object.values(AUDIT_LEVEL_ACTIONS)
+      .flat()
+      .filter((action) => action.includes(search.trim().toUpperCase().replace(/\s+/g, "_")));
+
     where.OR = [
       { targetTable: { contains: search, mode: "insensitive" } },
       {
@@ -403,30 +425,20 @@ const getAuditLogs = async (query = {}) => {
         }
       }
     ];
-  }
 
-  if (eventLevel && eventLevel !== 'All') {
-    if (eventLevel === 'Critical') {
-      where.action = { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] };
-    } else if (eventLevel === 'Warning') {
-      where.action = { in: ['UPDATE'] };
-    } else if (eventLevel === 'Info') {
-      where.action = { in: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW'] };
+    if (matchedActions.length > 0) {
+      where.OR.push({ action: { in: matchedActions } });
     }
   }
 
-  if (category && category !== 'All') {
-    if (category === 'Patients') {
-      where.targetTable = { in: ['Patient', 'Allergy', 'MedicalHistory'] };
-    } else if (category === 'Admissions') {
-      where.targetTable = { in: ['Admission', 'AdmissionNurse'] };
-    } else if (category === 'Documents') {
-      where.targetTable = { in: ['MedicalDocument'] };
-    } else if (category === 'Admin') {
-      where.targetTable = { in: ['User', 'Bed'] };
-    }
+  if (eventLevel && eventLevel !== 'All' && AUDIT_LEVEL_ACTIONS[eventLevel]) {
+    where.action = { in: AUDIT_LEVEL_ACTIONS[eventLevel] };
   }
-  
+
+  if (category && category !== 'All' && AUDIT_CATEGORY_TABLES[category]) {
+    where.targetTable = { in: AUDIT_CATEGORY_TABLES[category] };
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
 
   const [totalCount, logs] = await Promise.all([
@@ -479,30 +491,29 @@ const getAuditLogStats = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const totalEventsToday = await prisma.auditLog.count({
-    where: { createdAt: { gte: today } }
-  });
-
-  const criticalEvents = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      action: { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] }
-    }
-  });
-
-  const warningEvents = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      action: { in: ['UPDATE'] }
-    }
-  });
-
-  const adminActions = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      user: { role: 'SYSTEM_ADMIN' }
-    }
-  });
+  // Counted in one round trip instead of four sequential ones, and reusing the
+  // same level map as the list filter so the cards can't disagree with the rows.
+  const [totalEventsToday, criticalEvents, warningEvents, adminActions] = await Promise.all([
+    prisma.auditLog.count({ where: { createdAt: { gte: today } } }),
+    prisma.auditLog.count({
+      where: {
+        createdAt: { gte: today },
+        action: { in: AUDIT_LEVEL_ACTIONS.Critical }
+      }
+    }),
+    prisma.auditLog.count({
+      where: {
+        createdAt: { gte: today },
+        action: { in: AUDIT_LEVEL_ACTIONS.Warning }
+      }
+    }),
+    prisma.auditLog.count({
+      where: {
+        createdAt: { gte: today },
+        user: { role: 'SYSTEM_ADMIN' }
+      }
+    }),
+  ]);
 
   return {
     totalEventsToday,

@@ -28,10 +28,21 @@ const userResetPasswordSchema = Joi.object({
   }),
 });
 
+const auditLogQuerySchema = Joi.object({
+  search: Joi.string().trim().max(100).allow("").optional(),
+  eventLevel: Joi.string().valid("All", "Info", "Warning", "Critical").optional(),
+  category: Joi.string()
+    .valid("All", "Patients", "Admissions", "Documents", "Admin")
+    .optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});
+
 module.exports = {
   userCreateSchema,
   userUpdateSchema,
   userResetPasswordSchema,
   bedCreateSchema,
   bedUpdateSchema,
+  auditLogQuerySchema,
 };

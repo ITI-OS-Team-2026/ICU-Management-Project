@@ -1,5 +1,5 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
@@ -214,6 +214,11 @@ function BedCard({ bed, updateBedStatus }) {
 
   const isAlert = isOccupied && (bed.heartRate > 100 || bed.spo2 < 95);
 
+  // Mirrors the API rules in admin.service.js#updateBed:
+  // OCCUPIED is admission-driven only, and a bed must be AVAILABLE before going offline.
+  const canRelease = isMaintenance || isReserved;
+  const canTakeOffline = isAvailable;
+
   const getBadge = () => {
     if (isOccupied) return <Badge className="bg-status-occupied hover:bg-status-occupied text-primary-foreground uppercase text-[10px] tracking-wider">Occupied</Badge>;
     if (isAvailable) return <Badge variant="outline" className="text-status-available border-status-available uppercase text-[10px] tracking-wider">Available</Badge>;
@@ -258,8 +263,22 @@ function BedCard({ bed, updateBedStatus }) {
               <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="font-sans">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>Set Available</DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'MAINTENANCE'); }}>Set Maintenance</DropdownMenuItem>
+              {/* Only the transitions the API actually accepts for this status. */}
+              {canRelease && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>
+                  {isReserved ? 'Release Reservation' : 'Return to Service'}
+                </DropdownMenuItem>
+              )}
+              {canTakeOffline && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'MAINTENANCE'); }}>
+                  Set Maintenance
+                </DropdownMenuItem>
+              )}
+              {!canRelease && !canTakeOffline && (
+                <DropdownMenuItem disabled className="text-muted-foreground">
+                  {isOccupied ? 'Discharge patient to free bed' : 'No status changes available'}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </CardHeader>

@@ -7,7 +7,6 @@ import {
   CheckCircle,
   // Clock,
   Info,
-  Loader2,
   Pill,
   // Shield,
   User,
@@ -19,6 +18,7 @@ import { Card, CardContent,/* CardHeader, CardTitle*/ } from '@/components/ui/ca
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -32,7 +32,8 @@ export default function MedAdministrationPage() {
   const [admissions, setAdmissions] = useState([]);
   const [activeAdmission, setActiveAdmission] = useState(null);
   const [medications, setMedications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
+  const [isLoadingMedications, setIsLoadingMedications] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -43,49 +44,51 @@ export default function MedAdministrationPage() {
   const [actionStatus, setActionStatus] = useState(''); // 'REFUSED' | 'HELD'
   const [actionNotes, setActionNotes] = useState('');
 
-  // Fetch active admissions on mount
+  // Fetch active admissions ONCE on mount
   useEffect(() => {
     async function initPage() {
       try {
-        setIsLoading(true);
+        setIsLoadingAdmissions(true);
         const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         const activeList = adData.data || [];
         setAdmissions(activeList);
 
-        // Pick initial admission
+        // Pick initial admission from URL or use first
         let initialAd = null;
         if (admissionIdFromUrl) {
           initialAd = activeList.find(a => a.id === admissionIdFromUrl);
         }
         if (!initialAd && activeList.length > 0) {
           initialAd = activeList.find(a => a.patient?.name?.includes('Emma')) || activeList[0];
-          setSearchParams({ admissionId: initialAd.id }, { replace: true });
         }
         setActiveAdmission(initialAd);
       } catch (err) {
         console.error("Initialization error:", err);
         setErrorMsg("Failed to load active patient admissions.");
       } finally {
-        setIsLoading(false);
+        setIsLoadingAdmissions(false);
       }
     }
     initPage();
-  }, [admissionIdFromUrl]);
+  }, []); // Empty array: runs only on mount
 
-  // Fetch medications for the selected patient
+  // Fetch medications when activeAdmission changes
   useEffect(() => {
     if (!activeAdmission) return;
     async function fetchMedications() {
       try {
+        setIsLoadingMedications(true);
         const { data: medsData } = await api.get(`/admissions/${activeAdmission.id}/medications`);
         setMedications(medsData || []);
       } catch (err) {
         console.error("Fetch medications error:", err);
         setErrorMsg("Failed to load patient medications.");
+      } finally {
+        setIsLoadingMedications(false);
       }
     }
     fetchMedications();
-  }, [activeAdmission]);
+  }, [activeAdmission?.id]); // Only depend on the ID to prevent reference changes
 
   const handlePatientSwitch = (val) => {
     const selected = admissions.find(a => a.id === val);
@@ -148,11 +151,61 @@ export default function MedAdministrationPage() {
   const recordedMedsCount = medications.filter(med => med.administrations?.length > 0).length;
   const progressPercent = totalMedsCount > 0 ? (recordedMedsCount / totalMedsCount) * 100 : 0;
 
-  if (isLoading) {
+  if (isLoadingAdmissions) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-3 font-sans text-sm text-muted-foreground">Loading MAR records...</span>
+      <div className="mx-auto max-w-5xl px-4 py-6">
+        {/* Header */}
+        <div className="mb-6 flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-64" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+        </div>
+
+        {/* Patient list pills */}
+        <div className="mb-8">
+          <Skeleton className="mb-3 h-3 w-24" />
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <Skeleton key={idx} className="h-[62px] w-28 rounded-xl" />
+            ))}
+          </div>
+        </div>
+
+        {/* Active patient info block */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-52" />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+
+        {/* Medication cards */}
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <Card key={idx} className="border-border">
+              <CardContent className="p-4 flex items-center gap-4">
+                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -180,16 +233,18 @@ export default function MedAdministrationPage() {
         <div className="text-xs font-label uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
           Patient List
         </div>
-        <div className="flex flex-wrap gap-2">
+        {/* One swipeable row on phones. Wrapping this list pushed the medication
+            cards ~430px down a 812px screen once the ward had a dozen patients. */}
+        <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
           {admissions.map(ad => {
             const isSelected = activeAdmission?.id === ad.id;
             return (
               <Button
                 key={ad.id}
                 variant={isSelected ? "default" : "outline"}
-                className={`h-auto px-4 py-3 flex flex-col items-start gap-1 rounded-xl transition-all ${
-                  isSelected 
-                    ? "bg-primary text-white border-primary shadow-sm" 
+                className={`h-auto shrink-0 snap-start px-4 py-3 flex flex-col items-start gap-1 rounded-xl transition-all ${
+                  isSelected
+                    ? "bg-primary text-white border-primary shadow-sm"
                     : "bg-card text-foreground hover:bg-muted/50 border-border"
                 }`}
                 onClick={() => handlePatientSwitch(ad.id)}
@@ -252,7 +307,25 @@ export default function MedAdministrationPage() {
 
       {/* ── Medications Checklist ────────────────────────────────────────────── */}
       <div className="space-y-4 mb-24">
-        {medications.length === 0 ? (
+        {isLoadingMedications ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, idx) => (
+              <Card key={idx} className="border-border">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : medications.length === 0 ? (
           <Card className="border-border bg-card p-8 text-center">
             <Info className="mx-auto h-12 w-12 text-muted-foreground/60 mb-4" />
             <h3 className="font-display text-base font-semibold text-foreground mb-2">No Active Medication Orders</h3>
@@ -329,14 +402,17 @@ export default function MedAdministrationPage() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                  {/* Actions — full width on phones so each is a comfortable tap
+                      target rather than three narrow buttons crammed on one row. */}
+                  <div className="flex w-full flex-wrap items-center gap-2 self-end sm:w-auto sm:flex-nowrap sm:shrink-0 sm:self-center">
                     {!latestAdmin ? (
                       <>
+                        {/* Administered is the routine action, so it takes the full
+                            first row on phones; the two exceptions share the next. */}
                         <Button
                           variant="default"
                           size="sm"
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-sans font-semibold flex items-center gap-1.5"
+                          className="h-10 w-full sm:h-9 sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-sans font-semibold flex items-center justify-center gap-1.5"
                           disabled={isSubmitting}
                           onClick={() => logMedAction(med.id, 'ADMINISTERED', med.dosage)}
                         >
@@ -346,7 +422,7 @@ export default function MedAdministrationPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-destructive hover:bg-destructive/10 border-destructive/20 font-sans"
+                          className="h-10 flex-1 sm:h-9 sm:flex-none text-destructive hover:bg-destructive/10 border-destructive/20 font-sans"
                           disabled={isSubmitting}
                           onClick={() => triggerRefusalOrWithhold(med, 'REFUSED')}
                         >
@@ -355,7 +431,7 @@ export default function MedAdministrationPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-amber-600 hover:bg-amber-500/10 border-amber-500/20 font-sans"
+                          className="h-10 flex-1 sm:h-9 sm:flex-none text-amber-600 hover:bg-amber-500/10 border-amber-500/20 font-sans"
                           disabled={isSubmitting}
                           onClick={() => triggerRefusalOrWithhold(med, 'HELD')}
                         >

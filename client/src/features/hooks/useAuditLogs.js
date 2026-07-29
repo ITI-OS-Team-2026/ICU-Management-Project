@@ -16,15 +16,11 @@ export function useAuditLogs() {
     try {
       setIsLoading(true);
       setError(null);
-      
-      const [logsData, statsData] = await Promise.all([
-        auditService.getAuditLogs({ search, page, limit: 10, eventLevel, category }),
-        auditService.getAuditLogStats()
-      ]);
-      
+
+      const logsData = await auditService.getAuditLogs({ search, page, limit: 10, eventLevel, category });
+
       setLogs(logsData.data || []);
       setMeta(logsData.meta || null);
-      setStats(statsData);
     } catch (err) {
       setError(err?.response?.data?.message || err.message || 'Failed to fetch audit logs');
     } finally {
@@ -32,33 +28,55 @@ export function useAuditLogs() {
     }
   }, [search, page, eventLevel, category]);
 
+  // Stats are a global "today" summary and ignore the filters, so they are
+  // fetched on mount (and on explicit retry) rather than on every keystroke.
+  const [statsNonce, setStatsNonce] = useState(0);
+  const refetchStats = useCallback(() => setStatsNonce((n) => n + 1), []);
+
   useEffect(() => {
-    // Basic debounce for search if needed, but for now we fetch directly
+    let cancelled = false;
+    (async () => {
+      try {
+        const statsData = await auditService.getAuditLogStats();
+        if (!cancelled) setStats(statsData);
+      } catch (err) {
+        console.error('Failed to fetch audit log stats:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [statsNonce]);
+
+  useEffect(() => {
+    // Debounce so typing in the search box issues one request, not one per key.
     const timer = setTimeout(() => {
       fetchLogs();
     }, 300);
     return () => clearTimeout(timer);
   }, [fetchLogs]);
 
-  // Reset page to 1 when search or filters change
-  useEffect(() => {
+  // Changing a filter must send you back to page 1, otherwise the narrower
+  // result set can have fewer pages than the page you are currently on.
+  // Done in the setters rather than an effect so it happens in the same render
+  // pass — an effect would queue a second render and a redundant fetch.
+  const applyFilter = useCallback((setter) => (value) => {
+    setter(value);
     setPage(1);
-  }, [search, eventLevel, category]);
+  }, []);
 
-  return { 
-    logs, 
+  return {
+    logs,
     meta,
-    stats, 
-    isLoading, 
-    error, 
-    search, 
-    setSearch, 
+    stats,
+    isLoading,
+    error,
+    search,
+    setSearch: applyFilter(setSearch),
     eventLevel,
-    setEventLevel,
+    setEventLevel: applyFilter(setEventLevel),
     category,
-    setCategory,
+    setCategory: applyFilter(setCategory),
     page,
     setPage,
-    refetch: fetchLogs 
+    refetch: () => { fetchLogs(); refetchStats(); }
   };
 }

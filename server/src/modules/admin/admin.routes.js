@@ -7,7 +7,8 @@ const {
   userCreateSchema,
   userUpdateSchema,
   bedCreateSchema,
-  bedUpdateSchema
+  bedUpdateSchema,
+  auditLogQuerySchema
 } = require("./admin.schema");
 
 const router = express.Router();
@@ -94,6 +95,7 @@ router.get(
   "/audit-logs",
   verifyToken,
   restrictTo(["SYSTEM_ADMIN"]),
+  validate({ query: auditLogQuerySchema }),
   adminController.getAuditLogs
 );
 

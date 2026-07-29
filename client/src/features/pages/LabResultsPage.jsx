@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LabResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -191,7 +192,9 @@ export default function LabResultsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 bg-muted/20 min-h-[calc(100vh-4rem)]">
+    /* MainLayout's <main> already supplies the horizontal gutter; repeating it
+       here cost 32px of a 375px screen. Only vertical rhythm is added. */
+    <div className="flex flex-col gap-6 py-2 md:py-4 bg-muted/20 min-h-[calc(100vh-4rem)]">
       {/* ── Header and Breadcrumbs ────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -214,15 +217,17 @@ export default function LabResultsPage() {
           Patient
         </span>
         {isLoadingPatients ? (
-          <div className="flex gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-7 w-24 bg-card border border-border animate-pulse rounded-full" />
+          <div className="flex gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:overflow-x-visible sm:pb-0">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-28 shrink-0 rounded-full" />
             ))}
           </div>
         ) : patientsError ? (
           <p className="text-xs text-destructive font-sans">Error loading active census.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          /* One swipeable row on phones — wrapping 17 patients built a 334px
+             block that pushed the upload form off an 812px screen. */
+          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:snap-none sm:overflow-x-visible sm:pb-0">
             {patients.map((p) => {
               const pulse = p.latestVitals?.pulse;
               const firstName = p.patient?.name?.split(' ')[0] || 'Patient';
@@ -250,7 +255,7 @@ export default function LabResultsPage() {
                 <button
                   key={p.id}
                   onClick={() => handleSelectPatient(p.id)}
-                  className={`px-3.5 py-1.5 rounded-full border text-xs font-sans font-semibold flex items-center gap-1.5 transition-all focus:outline-none cursor-pointer ${
+                  className={`shrink-0 snap-start whitespace-nowrap px-3.5 py-2 rounded-full border text-xs font-sans font-semibold flex items-center gap-1.5 transition-all focus:outline-none cursor-pointer ${
                     isSelected ? 'ring-2 ring-primary/20 scale-[1.02]' : 'hover:bg-muted/30 text-foreground/80'
                   } ${badgeStyle}`}
                 >
@@ -303,12 +308,12 @@ export default function LabResultsPage() {
         {/* Upload dropzone */}
         <div className="md:col-span-2">
           <Card className="rounded-[1.25rem] border border-border bg-card shadow-2xs h-full flex flex-col justify-center">
-            <CardContent className="p-6 md:p-8">
+            <CardContent className="p-4 sm:p-6 md:p-8">
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all ${
+                className={`border-2 border-dashed rounded-xl p-5 sm:p-8 flex flex-col items-center justify-center text-center transition-all ${
                   isDragging ? 'border-primary bg-primary/5' : 'border-border/80 hover:border-primary/40'
                 }`}
               >
@@ -415,9 +420,24 @@ export default function LabResultsPage() {
         </h2>
 
         {isLoadingDocs ? (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-14 bg-card border border-border animate-pulse rounded-lg" />
+              <div
+                key={i}
+                className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-3.5 shadow-2xs"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                  <div className="flex flex-col gap-1.5">
+                    <Skeleton className="h-3 w-48 sm:w-64" />
+                    <Skeleton className="h-2.5 w-36 sm:w-52" />
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Skeleton className="h-7 w-7 rounded-md" />
+                  <Skeleton className="h-7 w-7 rounded-md" />
+                </div>
+              </div>
             ))}
           </div>
         ) : docsError ? (
@@ -449,17 +469,19 @@ export default function LabResultsPage() {
               return (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between p-3.5 bg-card border border-border rounded-xl shadow-2xs hover:border-primary/20 transition-all gap-4"
+                  className="flex items-center justify-between p-3.5 bg-card border border-border rounded-xl shadow-2xs hover:border-primary/20 transition-all gap-2 sm:gap-4"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
                       <DocIcon className="h-4 w-4" />
                     </div>
-                    <div className="flex flex-col items-start min-w-0">
-                      <span className="font-sans text-xs font-bold text-foreground truncate max-w-[240px] sm:max-w-md">
+                    {/* min-w-0 + truncate lets these shrink to the real space left
+                        after the icon and buttons instead of forcing the row wider. */}
+                    <div className="flex flex-col items-start min-w-0 flex-1">
+                      <span className="font-sans text-xs font-bold text-foreground truncate w-full">
                         {doc.originalFilename}
                       </span>
-                      <span className="font-sans text-[10px] text-muted-foreground mt-0.5 font-tnum">
+                      <span className="font-sans text-[10px] text-muted-foreground mt-0.5 font-tnum truncate w-full">
                         {doc.documentType} · {uploaderName} · {formattedDate}, {formattedTime} · {formatMockSize(doc.id)}
                       </span>
                     </div>

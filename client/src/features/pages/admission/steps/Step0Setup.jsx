@@ -89,7 +89,12 @@ export default function Step0Setup({ form }) {
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an available bed" />
+                    <SelectValue placeholder="Select an available bed">
+                      {(value) => {
+                        const bed = beds.find((b) => b.id === value);
+                        return bed ? `Bed ${bed.bed_number}` : null;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -124,7 +129,12 @@ export default function Step0Setup({ form }) {
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select attending specialist" />
+                      <SelectValue placeholder="Select attending specialist">
+                        {(value) => {
+                          const doc = doctors.find((d) => d.id === value);
+                          return doc ? `Dr. ${doc.first_name} ${doc.last_name}` : null;
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

@@ -136,7 +136,12 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
                 <div className="w-full sm:w-64">
                   <Select value={activeAdmissionId} onValueChange={handlePatientSelect}>
                     <SelectTrigger className="w-full h-8 bg-login-brand border-login-brand-ring/60 text-xs font-sans">
-                      <SelectValue placeholder="Select patient..." />
+                      <SelectValue placeholder="Select patient...">
+                        {(value) => {
+                          const a = admissions.find((ad) => ad.id === value);
+                          return a ? `${a.patient?.name} (${a.bed?.bed_number || 'No Bed'})` : null;
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-login-brand text-login-brand-foreground border-login-brand-ring">
                       {admissions.map((a) => (
