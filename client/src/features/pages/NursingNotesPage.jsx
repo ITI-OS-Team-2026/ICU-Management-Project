@@ -40,6 +40,7 @@ export default function NursingNotesPage() {
   const [nursingNotes, setNursingNotes] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -99,18 +100,21 @@ export default function NursingNotesPage() {
     if (!activeAdmission) return;
     async function fetchNotes() {
       try {
+        setIsNotesLoading(true);
         const notesRes = await api.get(`/admissions/${activeAdmission.id}/notes/nursing`);
         setNursingNotes(notesRes.data.data || []);
       } catch (err) {
         console.error("Fetch notes error:", err);
+      } finally {
+        setIsNotesLoading(false);
       }
     }
     fetchNotes();
   }, [activeAdmission]);
 
   const handlePatientSwitch = (admissionId) => {
-    const selected = admissions.find(a => a.id === admissionId);
-    setActiveAdmission(selected);
+    // Let the URL be the single source of truth.
+    // The sync useEffect will automatically update activeAdmission.
     setSearchParams({ admissionId });
     setSuccessMsg('');
     setErrorMsg('');
@@ -561,7 +565,41 @@ export default function NursingNotesPage() {
             </h2>
             
             <div className="space-y-4">
-              {nursingNotes.length === 0 ? (
+              {isNotesLoading ? (
+                <>
+                  <Card className="border-border bg-card">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-[90%]" />
+                        <Skeleton className="h-4 w-[60%]" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border bg-card">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <Skeleton className="h-4 w-28" />
+                        </div>
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-[95%]" />
+                        <Skeleton className="h-4 w-[70%]" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : nursingNotes.length === 0 ? (
                 <Card className="border-border bg-card p-6 text-center">
                   <FileText className="mx-auto h-8 w-8 text-muted-foreground opacity-50 mb-2" />
                   <p className="text-sm font-sans text-muted-foreground">No previous nursing notes logged for this admission.</p>
