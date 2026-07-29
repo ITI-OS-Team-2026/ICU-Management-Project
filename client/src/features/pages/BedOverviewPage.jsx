@@ -1,5 +1,5 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { RefreshCcw, Activity, Droplet } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
@@ -15,9 +15,31 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+
+const BEDS_PER_PAGE = 8;
 
 export default function BedOverviewPage() {
   const { beds, isLoading, error, refetch } = useBeds();
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil((beds?.length || 0) / BEDS_PER_PAGE));
+
+  // Clamped during render rather than in an effect: if the list shrinks under us
+  // (refetch, bed removed) the grid must not land on a page that no longer
+  // exists and render empty, and an effect would cost an extra render to fix it.
+  const safePage = Math.min(page, totalPages);
+
+  const pagedBeds = useMemo(
+    () => (beds || []).slice((safePage - 1) * BEDS_PER_PAGE, safePage * BEDS_PER_PAGE),
+    [beds, safePage]
+  );
 
   const stats = useMemo(() => {
     if (!beds) return { occupied: 0, available: 0, maintenance: 0, reserved: 0, total: 0 };
@@ -87,9 +109,36 @@ export default function BedOverviewPage() {
       {/* Bed Grid - Catalogue Structure */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {isLoading
-          ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
-          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} />)}
+          ? Array.from({ length: BEDS_PER_PAGE }).map((_, i) => <BedCardSkeleton key={i} />)
+          : pagedBeds.map((bed) => <BedCard key={bed.id} bed={bed} />)}
       </div>
+
+      {!isLoading && totalPages > 1 && (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className={safePage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+
+            <div className="flex items-center justify-center px-4 text-sm font-sans text-muted-foreground">
+              Page {safePage} of {totalPages}
+              <span className="ml-2 hidden sm:inline">
+                ({beds.length} bed{beds.length === 1 ? '' : 's'})
+              </span>
+            </div>
+
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className={safePage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
     </div>
   );
 }

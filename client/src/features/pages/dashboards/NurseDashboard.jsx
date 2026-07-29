@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -8,7 +7,6 @@ import {
   Pill,
   Users,
   FileText,
-  FlaskConical,
 } from 'lucide-react';
 
 import { useDashboard } from '../../hooks/useDashboard';
@@ -16,7 +14,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function NurseDashboard({ user, greetingName, currentFormattedDate }) {
+export default function NurseDashboard({ greetingName, currentFormattedDate }) {
   const navigate = useNavigate();
   const { stats, activities, isLoading } = useDashboard();
 
@@ -52,12 +50,12 @@ export default function NurseDashboard({ user, greetingName, currentFormattedDat
 
       {/* ── Summary Stats Cards (4 Cards) ────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Badges show values derived from the fetched data. Comparisons such as
+            "+2 today" are omitted because no historical baseline is fetched. */}
         <StatsCard
           title="Active Patients"
           value={isLoading ? '-' : stats.activePatients}
-          subText="Across 3 ICU wards"
-          badgeText="+2 today"
-          badgeColor="bg-status-available/10 text-status-available border-status-available/20"
+          subText="Currently admitted"
           icon={Users}
           iconClass="text-primary bg-primary/10"
         />
@@ -65,7 +63,7 @@ export default function NurseDashboard({ user, greetingName, currentFormattedDat
           title="Critical Cases"
           value={isLoading ? '-' : stats.criticalCases}
           subText="Require immediate attention"
-          badgeText="+3 from yesterday"
+          badgeText={!isLoading && stats.criticalCases > 0 ? 'Action needed' : undefined}
           badgeColor="bg-destructive/10 text-destructive border-destructive/20"
           icon={AlertCircle}
           iconClass="text-destructive bg-destructive/10"
@@ -74,17 +72,13 @@ export default function NurseDashboard({ user, greetingName, currentFormattedDat
           title="Pending Labs"
           value={isLoading ? '-' : stats.pendingLabs}
           subText="Awaiting review"
-          badgeText="8 urgent"
-          badgeColor="bg-status-reserved/10 text-status-reserved border-status-reserved/20"
           icon={Activity}
           iconClass="text-status-reserved bg-status-reserved/10"
         />
         <StatsCard
-          title="Tasks"
-          value={isLoading ? '-' : '12'}
-          subText="Upcoming nursing tasks"
-          badgeText="Next due in 15m"
-          badgeColor="bg-status-available/10 text-status-available border-status-available/20"
+          title="AI Alerts"
+          value={isLoading ? '-' : stats.aiAlerts}
+          subText="Raised from abnormal vitals"
           icon={Heart}
           iconClass="text-primary bg-primary/10"
         />
@@ -151,6 +145,10 @@ export default function NurseDashboard({ user, greetingName, currentFormattedDat
                     </div>
                   </div>
                 ))
+              ) : activities.length === 0 ? (
+                <p className="font-sans text-xs text-muted-foreground py-6 text-center">
+                  No recent activity recorded.
+                </p>
               ) : (
                 activities.map((act, idx) => (
                   <div key={idx} className="flex gap-3">
@@ -171,10 +169,12 @@ export default function NurseDashboard({ user, greetingName, currentFormattedDat
               )}
             </div>
 
+            {/* The feed is fetched once on mount — there is no polling or socket
+                subscription, so this must not claim to be live. */}
             <div className="flex items-center gap-2 text-border/80 border-t border-border/40 pt-4 mt-auto">
-              <span className="h-2 w-2 rounded-full bg-status-available animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-status-available" />
               <span className="font-sans text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                Live updates enabled
+                Updated on page load
               </span>
             </div>
           </CardContent>
@@ -205,9 +205,11 @@ function StatsCard({ title, value, subText, badgeText, badgeColor, icon: Icon, i
           <span className="font-sans text-xs text-muted-foreground truncate">
             {subText}
           </span>
-          <Badge variant="outline" className={`text-[10px] font-sans font-semibold border ${badgeColor} self-start sm:self-auto`}>
-            {badgeText}
-          </Badge>
+          {badgeText && (
+            <Badge variant="outline" className={`text-[10px] font-sans font-semibold border ${badgeColor} self-start sm:self-auto`}>
+              {badgeText}
+            </Badge>
+          )}
         </div>
       </CardContent>
     </Card>

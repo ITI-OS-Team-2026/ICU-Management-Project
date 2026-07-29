@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Loader2, BellRing, User, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 import {
@@ -25,22 +25,14 @@ export function SummonDoctorModal({ open, onClose, admission }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Fetch doctors when modal opens
-  useEffect(() => {
-    if (open) {
-      setErrorMsg('');
-      setSuccessMsg('');
-      setReason('');
-      setSelectedDoctorId(admission?.doctorId || ''); // Default to assigned doctor
-      fetchDoctors();
-    }
-  }, [open, admission]);
-
-  const fetchDoctors = async () => {
+  const fetchDoctors = useCallback(async () => {
     try {
       setIsLoading(true);
-      const res = await api.get('/admin/users');
-      // Filter for doctors
+      // `role` only accepts a single value server-side, but we need both
+      // doctor roles, so fetch broadly (status=ACTIVE, high limit) and
+      // filter client-side rather than relying on the default limit=10,
+      // which was silently truncating the list once total users passed 10.
+      const res = await api.get('/admin/users', { params: { status: 'ACTIVE', limit: 100 } });
       const doctorRoles = ['MEDICAL_RESIDENT', 'ICU_SPECIALIST'];
       const activeDoctors = res.data.data.filter(u => doctorRoles.includes(u.role) && u.status === 'ACTIVE');
       setDoctors(activeDoctors);
@@ -50,7 +42,19 @@ export function SummonDoctorModal({ open, onClose, admission }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Fetch doctors when modal opens
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setErrorMsg('');
+      setSuccessMsg('');
+      setReason('');
+      setSelectedDoctorId(admission?.doctor?.id || ''); // Default to assigned doctor
+      fetchDoctors();
+    }
+  }, [open, admission, fetchDoctors]);
 
   const handleSummon = async () => {
     if (!admission) return;
@@ -112,15 +116,20 @@ export function SummonDoctorModal({ open, onClose, admission }) {
             ) : (
               <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a doctor to summon" />
+                  <SelectValue placeholder="Select a doctor to summon">
+                    {(value) => {
+                      const d = doctors.find((doc) => doc.id === value);
+                      return d ? `Dr. ${d.first_name} ${d.last_name}` : null;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {doctors.map(doctor => (
                     <SelectItem key={doctor.id} value={doctor.id}>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span>Dr. {doctor.firstName} {doctor.lastName}</span>
-                        {doctor.id === admission?.doctorId && (
+                        <span>Dr. {doctor.first_name} {doctor.last_name}</span>
+                        {doctor.id === admission?.doctor?.id && (
                           <Badge variant="secondary" className="ml-2 text-[10px]">Primary</Badge>
                         )}
                         <span className="text-xs text-muted-foreground ml-1">
@@ -154,7 +163,7 @@ export function SummonDoctorModal({ open, onClose, admission }) {
             ) : (
               <BellRing className="mr-2 h-4 w-4" />
             )}
-            Summon {selectedDoctor ? `Dr. ${selectedDoctor.lastName}` : ''}
+            Summon {selectedDoctor ? `Dr. ${selectedDoctor.last_name}` : ''}
           </Button>
         </DialogFooter>
       </DialogContent>

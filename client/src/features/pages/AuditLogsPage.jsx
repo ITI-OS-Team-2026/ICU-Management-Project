@@ -1,5 +1,5 @@
 import { useAuditLogs } from '../hooks/useAuditLogs';
-import { Search, History, AlertCircle, AlertTriangle, ShieldCheck, CheckCircle2, Info } from 'lucide-react';
+import { Search, History, AlertCircle, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,20 +13,13 @@ import {
 } from "@/components/ui/pagination";
 
 export default function AuditLogsPage() {
-  const { 
+  const {
     logs, meta, stats, isLoading, error, page, setPage,
     search, setSearch,
     eventLevel, setEventLevel,
-    category, setCategory
+    category, setCategory,
+    refetch
   } = useAuditLogs();
-
-  if (error) {
-    return (
-      <div className="flex h-full items-center justify-center p-6">
-        <p className="text-destructive font-sans">Error loading audit logs: {error}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 bg-muted/20 min-h-[calc(100vh-4rem)]">
@@ -44,25 +37,25 @@ export default function AuditLogsPage() {
         <StatCard 
           icon={<History className="h-5 w-5 text-blue-500" />} 
           title="Total Events Today" 
-          value={isLoading || !stats ? '-' : stats.totalEventsToday} 
+          value={!stats ? '-' : stats.totalEventsToday} 
           iconBg="bg-blue-50"
         />
         <StatCard 
           icon={<AlertCircle className="h-5 w-5 text-destructive" />} 
           title="Critical Events" 
-          value={isLoading || !stats ? '-' : stats.criticalEvents} 
+          value={!stats ? '-' : stats.criticalEvents} 
           iconBg="bg-destructive/10"
         />
         <StatCard 
           icon={<AlertTriangle className="h-5 w-5 text-amber-500" />} 
           title="Warning Events" 
-          value={isLoading || !stats ? '-' : stats.warningEvents} 
+          value={!stats ? '-' : stats.warningEvents} 
           iconBg="bg-amber-50"
         />
         <StatCard 
           icon={<ShieldCheck className="h-5 w-5 text-purple-500" />} 
           title="Admin Actions" 
-          value={isLoading || !stats ? '-' : stats.adminActions} 
+          value={!stats ? '-' : stats.adminActions} 
           iconBg="bg-purple-50"
         />
       </div>
@@ -114,6 +107,15 @@ export default function AuditLogsPage() {
       <div className="flex flex-col gap-3 mt-4">
         {isLoading ? (
           Array.from({ length: 5 }).map((_, i) => <LogSkeleton key={i} />)
+        ) : error ? (
+          /* Shown inline so the search box and filters stay usable after a failed query. */
+          <div className="flex flex-col items-center justify-center gap-3 py-12 bg-card rounded-xl border border-border">
+            <AlertCircle className="h-6 w-6 text-destructive" />
+            <p className="text-destructive font-sans text-sm">Error loading audit logs: {error}</p>
+            <Button variant="outline" size="sm" onClick={refetch} className="font-sans">
+              Try Again
+            </Button>
+          </div>
         ) : logs?.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground font-sans bg-card rounded-xl border border-border">
             No audit logs found.
@@ -168,36 +170,41 @@ function StatCard({ icon, title, value, iconBg }) {
   );
 }
 
-function LogRow({ log }) {
-  // Format based on action
-  let Icon = Info;
-  let iconColor = "text-blue-500";
-  let iconBg = "bg-blue-50";
-  let badgeColor = "text-blue-500";
-  let avatarBg = "bg-blue-600";
-  let eventType = "Info";
+// Must match AUDIT_LEVEL_ACTIONS in the server's admin.service.js, otherwise a
+// row's badge will disagree with the level filter that returned it.
+const LEVEL_STYLES = {
+  Critical: {
+    Icon: AlertCircle,
+    iconColor: "text-destructive",
+    iconBg: "bg-destructive/10",
+    badgeColor: "text-destructive",
+    avatarBg: "bg-destructive",
+  },
+  Warning: {
+    Icon: AlertTriangle,
+    iconColor: "text-amber-500",
+    iconBg: "bg-amber-50",
+    badgeColor: "text-amber-500",
+    avatarBg: "bg-blue-800",
+  },
+  Info: {
+    Icon: CheckCircle2,
+    iconColor: "text-teal-500",
+    iconBg: "bg-teal-50",
+    badgeColor: "text-teal-500",
+    avatarBg: "bg-blue-600",
+  },
+};
 
-  if (log.action === "ARCHIVE" || log.action === "ACCOUNT_LOCKED") {
-    Icon = AlertCircle;
-    iconColor = "text-destructive";
-    iconBg = "bg-destructive/10";
-    badgeColor = "text-destructive";
-    avatarBg = "bg-destructive";
-    eventType = "Critical";
-  } else if (log.action === "UPDATE") {
-    Icon = AlertTriangle;
-    iconColor = "text-amber-500";
-    iconBg = "bg-amber-50";
-    badgeColor = "text-amber-500";
-    avatarBg = "bg-blue-800";
-    eventType = "Warning";
-  } else {
-    Icon = CheckCircle2;
-    iconColor = "text-teal-500";
-    iconBg = "bg-teal-50";
-    badgeColor = "text-teal-500";
-    avatarBg = "bg-blue-600";
-  }
+function getEventLevel(action) {
+  if (action === "ARCHIVE" || action === "ACCOUNT_LOCKED") return "Critical";
+  if (action === "UPDATE") return "Warning";
+  return "Info";
+}
+
+function LogRow({ log }) {
+  const eventType = getEventLevel(log.action);
+  const { Icon, iconColor, iconBg, badgeColor, avatarBg } = LEVEL_STYLES[eventType];
 
   const formatTime = (dateString) => {
     const d = new Date(dateString);
@@ -212,7 +219,9 @@ function LogRow({ log }) {
       "LOGIN": "Logged In",
       "LOGOUT": "Logged Out",
       "ACCOUNT_LOCKED": "Account Locked",
-      "VIEW": "Viewed"
+      "VIEW": "Viewed",
+      "GENERATE_SUMMARY": "Summary Generated",
+      "QUERY_RAG": "AI Query Run"
     };
     return `${table} Record ${actionMap[action] || action}`;
   };
