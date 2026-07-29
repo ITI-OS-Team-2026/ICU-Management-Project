@@ -30,6 +30,7 @@ const summonDoctor = catchAsync(async (req, res, next) => {
     userId: targetDoctorId,
     title: "Urgent: Nurse Summons",
     message,
+    type: "SUMMON",
   });
 
   res.status(200).json({
