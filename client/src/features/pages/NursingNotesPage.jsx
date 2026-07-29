@@ -58,30 +58,13 @@ export default function NursingNotesPage() {
 
   // Fetch admissions on mount
   useEffect(() => {
-    async function initPage() {
+    async function fetchAdmissions() {
       try {
         setIsLoading(true);
         // Fetch up to 100 active admissions to ensure all patients are retrieved
         const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
         const activeAds = adData.data || [];
         setAdmissions(activeAds);
-
-        // Pick initial admission from URL or first available
-        const urlAdmissionId = searchParams.get('admissionId');
-        let initialAd = null;
-        if (urlAdmissionId) {
-          initialAd = activeAds.find(a => a.id === urlAdmissionId);
-          if (initialAd) {
-            const targetIndex = activeAds.findIndex(a => a.id === urlAdmissionId);
-            setCurrentPage(Math.floor(targetIndex / patientsPerPage) + 1);
-          }
-        }
-        if (!initialAd && activeAds.length > 0) {
-          initialAd = activeAds[0];
-          setSearchParams({ admissionId: initialAd.id }, { replace: true });
-          setCurrentPage(1);
-        }
-        setActiveAdmission(initialAd);
       } catch (err) {
         console.error("Initialization error:", err);
         setErrorMsg("Failed to load active patients list.");
@@ -89,8 +72,27 @@ export default function NursingNotesPage() {
         setIsLoading(false);
       }
     }
-    initPage();
-  }, [searchParams, setSearchParams]);
+    fetchAdmissions();
+  }, []);
+
+  // Sync active admission with URL changes
+  useEffect(() => {
+    if (admissions.length === 0) return;
+
+    const urlAdmissionId = searchParams.get('admissionId');
+    if (urlAdmissionId) {
+      if (activeAdmission?.id !== urlAdmissionId) {
+        const selected = admissions.find(a => a.id === urlAdmissionId);
+        if (selected) {
+          setActiveAdmission(selected);
+          const targetIndex = admissions.findIndex(a => a.id === urlAdmissionId);
+          setCurrentPage(Math.floor(targetIndex / patientsPerPage) + 1);
+        }
+      }
+    } else {
+      setSearchParams({ admissionId: admissions[0].id }, { replace: true });
+    }
+  }, [searchParams, admissions, activeAdmission, patientsPerPage, setSearchParams]);
 
   // Fetch patient notes when active patient switches
   useEffect(() => {
