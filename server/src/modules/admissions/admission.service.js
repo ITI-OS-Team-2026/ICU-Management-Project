@@ -155,6 +155,24 @@ const createFullAdmission = async (req, data) => {
         previousTreatments: data.admission.previous_treatments || null,
         provisionalDiagnosis: data.admission.provisional_diagnosis || null,
       },
+      include: {
+        patient: true,
+        bed: true,
+        doctor: true,
+        nurses: {
+          where: { isArchived: false },
+          include: {
+            nurse: true,
+          },
+        },
+        vitalSigns: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+        diagnoses: {
+          where: { isArchived: false },
+        },
+      },
     });
 
     // 5. Create Vital Signs (if provided)
@@ -180,6 +198,9 @@ const createFullAdmission = async (req, data) => {
       where: { id: data.admission.bed_id },
       data: { status: "OCCUPIED" },
     });
+    // The admission was fetched (with its `bed` relation) before this update,
+    // so the in-memory copy still shows the pre-admission bed status.
+    if (admission.bed) admission.bed.status = "OCCUPIED";
 
     return {
       targetId: admission.id,
@@ -236,12 +257,33 @@ const createAdmission = async (req, data) => {
           provisionalDiagnosis: data.provisional_diagnosis || null,
           status: "ACTIVE",
         },
+        include: {
+          patient: true,
+          bed: true,
+          doctor: true,
+          nurses: {
+            where: { isArchived: false },
+            include: {
+              nurse: true,
+            },
+          },
+          vitalSigns: {
+            orderBy: { recordedAt: "desc" },
+            take: 1,
+          },
+          diagnoses: {
+            where: { isArchived: false },
+          },
+        },
       });
 
       await tx.bed.update({
         where: { id: data.bed_id },
         data: { status: "OCCUPIED" },
       });
+      // The admission was fetched (with its `bed` relation) before this update,
+      // so the in-memory copy still shows the pre-admission bed status.
+      if (admission.bed) admission.bed.status = "OCCUPIED";
 
       return {
         targetId: admission.id,
@@ -265,6 +307,15 @@ const getAdmissions = async (query) => {
   const where = { isArchived: false };
   if (query.status) where.status = query.status;
   if (query.bed_id) where.bedId = query.bed_id;
+  if (query.search && query.search.trim()) {
+    const search = query.search.trim();
+    where.patient = {
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { mrn: { contains: search, mode: "insensitive" } },
+      ],
+    };
+  }
 
   const [admissions, total] = await Promise.all([
     prisma.admission.findMany({
@@ -338,12 +389,33 @@ const dischargeAdmission = async (req, id) => {
         status: "DISCHARGED",
         dischargedAt,
       },
+      include: {
+        patient: true,
+        bed: true,
+        doctor: true,
+        nurses: {
+          where: { isArchived: false },
+          include: {
+            nurse: true,
+          },
+        },
+        vitalSigns: {
+          orderBy: { recordedAt: "desc" },
+          take: 1,
+        },
+        diagnoses: {
+          where: { isArchived: false },
+        },
+      },
     });
 
     await tx.bed.update({
       where: { id: admission.bedId },
       data: { status: "AVAILABLE" },
     });
+    // The admission was fetched (with its `bed` relation) before this update,
+    // so the in-memory copy still shows the pre-discharge bed status.
+    if (updated.bed) updated.bed.status = "AVAILABLE";
 
     return {
       targetId: id,

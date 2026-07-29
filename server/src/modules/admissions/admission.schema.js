@@ -22,8 +22,9 @@ const admissionCreateSchema = Joi.object({
 const admissionQuerySchema = Joi.object({
   status: Joi.string().valid("ACTIVE", "DISCHARGED", "ARCHIVED").optional(),
   bed_id: Joi.string().uuid().optional(),
+  search: Joi.string().trim().max(100).allow("").optional(),
   page: Joi.number().integer().min(1).default(1).optional(),
-  limit: Joi.number().integer().min(1).default(10).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
 });
 
 const nurseAssignSchema = Joi.object({
