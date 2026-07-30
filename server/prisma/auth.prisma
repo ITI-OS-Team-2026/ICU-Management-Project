@@ -56,6 +56,10 @@ model User {
   passwordResetRequests   PasswordResetRequest[]     @relation("PasswordResetRequests")
   resolvedPasswordResets  PasswordResetRequest[]     @relation("PasswordResetResolutions")
   notifications           Notification[]             @relation("UserNotifications")
+  treatmentApprovalsAsked TreatmentApproval[]        @relation("TreatmentApprovalRequester")
+  treatmentApprovalsMade  TreatmentApproval[]        @relation("TreatmentApprovalApprover")
+  treatmentsStarted       TreatmentApproval[]        @relation("TreatmentApprovalStarter")
+  treatmentsCompleted     TreatmentApproval[]        @relation("TreatmentApprovalCompleter")
 
   @@index([role])
   @@index([status])

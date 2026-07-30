@@ -15,6 +15,12 @@ export const patientsService = {
     return data;
   },
 
+  /** Ward-wide acuity counts and the list of bed units currently in use. */
+  async getAdmissionCensus(status = 'ACTIVE') {
+    const { data } = await api.get('/admissions/census', { params: { status } });
+    return data?.data || { stats: { total: 0, critical: 0, watchful: 0, stable: 0 }, units: [] };
+  },
+
   async getAdmissionById(id) {
     const { data } = await api.get(`/admissions/${id}`);
     return data;

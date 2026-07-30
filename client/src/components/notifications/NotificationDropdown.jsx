@@ -46,6 +46,10 @@ const NotificationDropdown = () => {
         return `/patients/${metadata.entityId}`;
       case "ALERT":
         return `/alerts/${metadata.entityId}`;
+      case "TREATMENT_APPROVAL":
+        return metadata.admissionId
+          ? `/patients/${metadata.admissionId}/treatment-approvals`
+          : null;
       default:
         return null;
     }

@@ -382,7 +382,7 @@ export default function PatientDocumentsPage() {
   const filtered = filter === 'all' ? documents : documents.filter(d => d.documentType?.toLowerCase() === filter);
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-5 pb-8">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

@@ -1,0 +1,47 @@
+// Bedside execution state of an *approved* treatment. Stays NOT_STARTED
+// while the request is pending or rejected.
+enum TreatmentExecutionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Treatment approval requests — a resident/specialist requests a treatment,
+// an ICU specialist approves or rejects it, then a nurse carries it out.
+model TreatmentApproval {
+  id                    String    @id @default(uuid())
+  admissionId           String    @map("admission_id")
+  requestedBy           String    @map("requested_by")
+  approvedBy            String?   @map("approved_by")
+  treatmentName         String    @map("treatment_name") @db.VarChar(255)
+  clinicalJustification String?   @map("clinical_justification") @db.Text
+  approvalStatus        Boolean?  @map("approval_status")
+  requestedAt           DateTime  @default(now()) @map("requested_at")
+  approvedAt            DateTime? @map("approved_at")
+
+  // Bedside execution — recorded by the nurse who carries the treatment out.
+  executionStatus TreatmentExecutionStatus @default(NOT_STARTED) @map("execution_status")
+  startedBy       String?                  @map("started_by")
+  startedAt       DateTime?                @map("started_at")
+  completedBy     String?                  @map("completed_by")
+  completedAt     DateTime?                @map("completed_at")
+  executionNotes  String?                  @map("execution_notes") @db.Text
+
+  isArchived Boolean   @default(false) @map("is_archived")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  admission Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  requester User      @relation("TreatmentApprovalRequester", fields: [requestedBy], references: [id])
+  approver  User?     @relation("TreatmentApprovalApprover", fields: [approvedBy], references: [id])
+  starter   User?     @relation("TreatmentApprovalStarter", fields: [startedBy], references: [id])
+  completer User?     @relation("TreatmentApprovalCompleter", fields: [completedBy], references: [id])
+
+  @@index([admissionId])
+  @@index([requestedBy])
+  @@index([approvedBy])
+  @@index([approvalStatus])
+  @@index([executionStatus])
+  @@map("treatment_approvals")
+}

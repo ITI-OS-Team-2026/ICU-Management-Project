@@ -32,6 +32,7 @@ import PatientNotesPage       from '../pages/patient/PatientNotesPage';
 import PatientDocumentsPage   from '../pages/patient/PatientDocumentsPage';
 import PatientFollowUpsPage   from '../pages/patient/PatientFollowUpsPage';
 import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
+import PatientTreatmentApprovalsPage from '../pages/patient/PatientTreatmentApprovalsPage';
 import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
 
 function RouteError() {
@@ -87,7 +88,9 @@ export const router = createBrowserRouter([
       {
         path: 'patients/:admissionId',
         element: <PatientDetailLayout />,
-        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+        // Nurses need read access to the clinical tabs and must be able to
+        // record treatment execution; per-endpoint roles are enforced server-side.
+        loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
         children: [
           { index: true,          element: <PatientOverviewPage /> },
           { path: 'vitals',       element: <PatientVitalsPage /> },
@@ -96,6 +99,7 @@ export const router = createBrowserRouter([
           { path: 'notes',        element: <PatientNotesPage /> },
           { path: 'documents',    element: <PatientDocumentsPage /> },
           { path: 'follow-ups',    element: <PatientFollowUpsPage /> },
+          { path: 'treatment-approvals', element: <PatientTreatmentApprovalsPage /> },
           { path: 'alerts',       element: <PatientAlertsPage /> },
           { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
         ],

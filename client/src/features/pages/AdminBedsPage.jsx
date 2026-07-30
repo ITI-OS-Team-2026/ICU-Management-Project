@@ -1,7 +1,9 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useMemo, useState } from 'react';
-import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X } from 'lucide-react';
+import { useState } from 'react';
+import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
+
+const BEDS_PER_PAGE = 12;
 
 import {
   Card,
@@ -32,7 +34,11 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 export default function AdminBedsPage() {
-  const { beds, isLoading, error, refetch, createBed, updateBedStatus } = useBeds();
+  // Paging and the ward-wide status counts are both served by the API.
+  const {
+    beds, meta, stats, page, setPage,
+    isLoading, error, refetch, createBed, updateBedStatus,
+  } = useBeds(undefined, { pageSize: BEDS_PER_PAGE });
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
@@ -64,19 +70,7 @@ export default function AdminBedsPage() {
     }
   };
 
-  const stats = useMemo(() => {
-    if (!beds) return { occupied: 0, available: 0, maintenance: 0, total: 0 };
-    return beds.reduce(
-      (acc, bed) => {
-        acc.total++;
-        if (bed.status === 'OCCUPIED') acc.occupied++;
-        else if (bed.status === 'AVAILABLE') acc.available++;
-        else if (bed.status === 'MAINTENANCE') acc.maintenance++;
-        return acc;
-      },
-      { occupied: 0, available: 0, maintenance: 0, total: 0 }
-    );
-  }, [beds]);
+  const totalPages = Math.max(1, meta.totalPages || 1);
 
   if (error) {
     return (
@@ -182,6 +176,37 @@ export default function AdminBedsPage() {
           ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
           : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={handleUpdateStatus} />)}
       </div>
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <p className="font-sans text-xs text-muted-foreground">
+            Showing <span className="font-bold text-foreground">{(page - 1) * BEDS_PER_PAGE + 1}</span> to{' '}
+            <span className="font-bold text-foreground">{Math.min(page * BEDS_PER_PAGE, meta.total)}</span> of{' '}
+            <span className="font-bold text-foreground">{meta.total}</span> beds
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline" size="sm"
+              className="gap-1 h-8"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Previous
+            </Button>
+            <span className="font-sans text-xs font-medium text-foreground tabular-nums">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline" size="sm"
+              className="gap-1 h-8"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -210,20 +235,18 @@ function BedCard({ bed, updateBedStatus }) {
   const isOccupied = bed.status === 'OCCUPIED';
   const isAvailable = bed.status === 'AVAILABLE';
   const isMaintenance = bed.status === 'MAINTENANCE';
-  const isReserved = bed.status === 'RESERVED';
 
   const isAlert = isOccupied && (bed.heartRate > 100 || bed.spo2 < 95);
 
   // Mirrors the API rules in admin.service.js#updateBed:
   // OCCUPIED is admission-driven only, and a bed must be AVAILABLE before going offline.
-  const canRelease = isMaintenance || isReserved;
+  const canRelease = isMaintenance;
   const canTakeOffline = isAvailable;
 
   const getBadge = () => {
     if (isOccupied) return <Badge className="bg-status-occupied hover:bg-status-occupied text-primary-foreground uppercase text-[10px] tracking-wider">Occupied</Badge>;
     if (isAvailable) return <Badge variant="outline" className="text-status-available border-status-available uppercase text-[10px] tracking-wider">Available</Badge>;
     if (isMaintenance) return <Badge variant="secondary" className="text-status-maintenance uppercase text-[10px] tracking-wider">Maintenance</Badge>;
-    if (isReserved) return <Badge variant="secondary" className="text-status-reserved uppercase text-[10px] tracking-wider">Reserved</Badge>;
     return null;
   };
 
@@ -266,7 +289,7 @@ function BedCard({ bed, updateBedStatus }) {
               {/* Only the transitions the API actually accepts for this status. */}
               {canRelease && (
                 <DropdownMenuItem onClick={(e) => { e.stopPropagation(); updateBedStatus(bed.id, 'AVAILABLE'); }}>
-                  {isReserved ? 'Release Reservation' : 'Return to Service'}
+                  Return to Service
                 </DropdownMenuItem>
               )}
               {canTakeOffline && (

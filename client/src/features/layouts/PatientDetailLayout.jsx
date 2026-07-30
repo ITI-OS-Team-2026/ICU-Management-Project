@@ -8,6 +8,7 @@ import {
   StickyNote,
   FileText,
   ClipboardList,
+  ShieldCheck,
   Bell,
   Bot,
   LayoutDashboard,
@@ -27,6 +28,7 @@ const TABS = [
   { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Documents',    path: 'documents',    icon: FileText },
   { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
+  { label: 'Approvals',    path: 'treatment-approvals', icon: ShieldCheck },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
   { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
 ];

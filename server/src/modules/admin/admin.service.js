@@ -133,6 +133,19 @@ const getUserStats = async () => {
   };
 };
 
+// Ward-wide bed counts. The bed grid is paged now, so it can no longer add
+// these up from the rows it has on screen.
+const getBedStats = async () => {
+  const [total, occupied, available, maintenance] = await Promise.all([
+    prisma.bed.count(),
+    prisma.bed.count({ where: { status: "OCCUPIED" } }),
+    prisma.bed.count({ where: { status: "AVAILABLE" } }),
+    prisma.bed.count({ where: { status: "MAINTENANCE" } }),
+  ]);
+
+  return { total, occupied, available, maintenance };
+};
+
 const getUserById = async (id) => {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -282,12 +295,20 @@ const createBed = async (data) => {
   };
 };
 
-const getBeds = async ({ status }) => {
+// Pagination is opt-in: callers that pass `page` get { data, meta }, while
+// bed-picker dropdowns that need every bed keep receiving a plain array.
+const getBeds = async ({ status, page, limit }) => {
   const where = {};
   if (status) where.status = status;
 
+  const paginated = page !== undefined && page !== null && page !== "";
+  const currentPage = Math.max(1, Number(page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(limit) || 12));
+
   const beds = await prisma.bed.findMany({
     where,
+    orderBy: { bedNumber: "asc" },
+    ...(paginated ? { skip: (currentPage - 1) * pageSize, take: pageSize } : {}),
     select: {
       id: true,
       bedNumber: true,
@@ -320,10 +341,10 @@ const getBeds = async ({ status }) => {
     }
   });
 
-  return beds.map(b => {
+  const rows = beds.map(b => {
     const activeAdmission = b.admissions?.[0] || null;
-    const patientName = activeAdmission?.patient 
-      ? activeAdmission.patient.name 
+    const patientName = activeAdmission?.patient
+      ? activeAdmission.patient.name
       : null;
     const latestVitals = activeAdmission?.vitalSigns?.[0] || null;
     const primaryDiagnosis = activeAdmission?.diagnoses?.[0]?.conditionName || null;
@@ -339,6 +360,20 @@ const getBeds = async ({ status }) => {
       spo2: latestVitals?.spo2 || null,
     };
   });
+
+  if (!paginated) return rows;
+
+  const total = await prisma.bed.count({ where });
+
+  return {
+    data: rows,
+    meta: {
+      total,
+      page: currentPage,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
 };
 
 const updateBed = async (req, id, data) => {
@@ -534,6 +569,7 @@ module.exports = {
   getBeds,
   updateBed,
   getUserStats,
+  getBedStats,
   getAuditLogs,
   getAuditLogStats
 };

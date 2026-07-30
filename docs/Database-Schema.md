@@ -538,12 +538,23 @@ Daily SOAP-style progress documentation.
 |--------|------|-------------|-------------|
 | id | UUID | PK | Approval id |
 | admission_id | UUID | FK → admissions, NOT NULL | Admission |
+| requested_by | UUID | FK → users, NOT NULL | Requesting clinician |
 | approved_by | UUID | FK → users | Approving specialist |
 | treatment_name | VARCHAR(255) | NOT NULL | Treatment |
 | clinical_justification | TEXT | NULL | Justification |
 | approval_status | BOOLEAN | NULL | Approved / rejected |
 | requested_at | TIMESTAMPTZ | DEFAULT NOW() | Request time |
 | approved_at | TIMESTAMPTZ | NULL | Decision time |
+| execution_status | treatment_execution_status | DEFAULT 'NOT_STARTED' | Bedside execution state |
+| started_by | UUID | FK → users | Nurse who started the treatment |
+| started_at | TIMESTAMPTZ | NULL | Execution start time |
+| completed_by | UUID | FK → users | Nurse who completed the treatment |
+| completed_at | TIMESTAMPTZ | NULL | Execution completion time |
+| execution_notes | TEXT | NULL | Bedside notes from the nurse |
+| is_archived | BOOLEAN | DEFAULT FALSE | Soft-delete flag (withdrawn request) |
+| archived_at | TIMESTAMPTZ | NULL | Withdrawal time |
+
+`treatment_execution_status` ENUM: `NOT_STARTED` · `IN_PROGRESS` · `COMPLETED` (forward-only).
 
 There is **no** `system_settings` table in the current ERD.
 

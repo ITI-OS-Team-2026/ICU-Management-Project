@@ -487,18 +487,45 @@
 
 # 17. Treatment Approvals
 
+`approval_status` is tri-state: `null` = pending, `true` = approved, `false` = rejected.
+
 ## `POST /admissions/:id/treatment-approvals`
 - **Auth:** Resident, Specialist
 - **Request Body:** `{ treatment_name, clinical_justification }`
 - **Responses:** `201 Created` — pending until Specialist decides
+- **Errors:** `404` unknown admission · `409` admission is not `ACTIVE`
+- **Side effect:** notifies every active Specialist (except the requester)
 
 ## `PATCH /treatment-approvals/:id`
 - **Auth:** Specialist only
 - **Request Body:** `{ approval_status: boolean }`
 - **Responses:** `200 OK` — sets `approved_by`, `approved_at`
+- **Errors:** `404` unknown approval · `409` already decided (decisions are final)
+- **Side effect:** notifies the requester of the decision
+
+## `PATCH /treatment-approvals/:id/execution`
+- **Auth:** Nurse only
+- **Description:** Bedside execution log — records that an *approved* treatment was actually carried out.
+- **Request Body:** `{ execution_status: "IN_PROGRESS" | "COMPLETED", execution_notes? }`
+- **Responses:** `200 OK` — stamps `started_by`/`started_at` or `completed_by`/`completed_at`
+- **Errors:** `404` unknown approval · `409` not approved yet, rejected, or a backwards transition
+- **Notes:** execution is forward-only (`NOT_STARTED → IN_PROGRESS → COMPLETED`). Completing straight
+  from `NOT_STARTED` also stamps the start time, for short procedures.
+- **Side effect:** notifies the requester and the approving specialist
 
 ## `GET /admissions/:id/treatment-approvals`
 - **Auth:** Nurse, Resident, Specialist
+- **Query:** `status` (`PENDING` / `APPROVED` / `REJECTED`), `execution` (`NOT_STARTED` / `IN_PROGRESS` / `COMPLETED`) — omit for all
+- **Responses:** `200 OK` — newest first, each row embeds `requester`, `approver`, `starter`, `completer`
+
+## `DELETE /treatment-approvals/:id`
+- **Auth:** Resident, Specialist — requester only
+- **Description:** Withdraws a still-pending request (soft archive).
+- **Responses:** `204 No Content`
+- **Errors:** `403` not the requester · `404` unknown approval · `409` already decided
+
+> **ERD note:** the table carries a `requested_by` FK in addition to the ERD's `approved_by`, so the
+> requesting clinician can be shown without joining the audit log.
 
 ---
 
@@ -546,7 +573,7 @@
 | AI | POST/GET | `/ai/summary`, `/ai/query`, logs | Resident/Specialist (+ GET summaries Nurse) |
 | Alerts | GET + reviews | `/alerts` … | Clinical |
 | Notifications | GET/PATCH | `/notifications` … | Own user |
-| Treatment | POST/PATCH/GET | `/treatment-approvals` … | Role-split |
+| Treatment | POST/GET/PATCH/DELETE | `/treatment-approvals` … | Role-split |
 | Audit | GET | `/admin/audit-logs` | Admin |
 
 **Removed vs prior API draft:** all `/fluids` endpoints.

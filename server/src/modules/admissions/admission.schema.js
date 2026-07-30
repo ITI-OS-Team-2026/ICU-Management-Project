@@ -23,8 +23,15 @@ const admissionQuerySchema = Joi.object({
   status: Joi.string().valid("ACTIVE", "DISCHARGED", "ARCHIVED").optional(),
   bed_id: Joi.string().uuid().optional(),
   search: Joi.string().trim().max(100).allow("").optional(),
+  // Derived filters — resolved from the latest vitals / bed number server-side.
+  acuity: Joi.string().valid("All", "Critical", "Watchful", "Stable").optional(),
+  unit: Joi.string().trim().max(50).allow("").optional(),
   page: Joi.number().integer().min(1).default(1).optional(),
   limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});
+
+const admissionCensusQuerySchema = Joi.object({
+  status: Joi.string().valid("ACTIVE", "DISCHARGED", "ARCHIVED").optional(),
 });
 
 const nurseAssignSchema = Joi.object({
@@ -60,6 +67,7 @@ const fullAdmissionCreateSchema = Joi.object({
 module.exports = {
   admissionCreateSchema,
   admissionQuerySchema,
+  admissionCensusQuerySchema,
   nurseAssignSchema,
   fullAdmissionCreateSchema,
 };

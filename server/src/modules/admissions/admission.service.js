@@ -299,6 +299,143 @@ const createAdmission = async (req, data) => {
   }
 };
 
+// Acuity and bed-unit are computed from the latest vitals reading and the bed
+// number rather than stored, so they're resolved in SQL here. The thresholds
+// and the unit prefixes mirror the ones the census screen used to apply in the
+// browser — keep the two in step if either changes.
+const resolveDerivedFilterIds = async (query) => {
+  const acuity = query.acuity && query.acuity !== "All" ? query.acuity : null;
+  const unit = query.unit && query.unit !== "All" ? query.unit : null;
+
+  if (!acuity && !unit) return null;
+
+  const rows = await prisma.$queryRaw`
+    WITH latest_vitals AS (
+      SELECT DISTINCT ON (v.admission_id)
+             v.admission_id, v.temperature, v.pulse, v.systolic_bp, v.spo2
+      FROM vital_signs v
+      WHERE v.is_archived = false
+      ORDER BY v.admission_id, v.recorded_at DESC
+    ),
+    scored AS (
+      SELECT a.id,
+             COALESCE(lv.spo2, 98)          AS spo2,
+             COALESCE(lv.pulse, 75)         AS pulse,
+             COALESCE(lv.temperature, 37.0) AS temp,
+             COALESCE(lv.systolic_bp, 120)  AS sbp,
+             b.bed_number
+      FROM admissions a
+      JOIN beds b ON b.id = a.bed_id
+      LEFT JOIN latest_vitals lv ON lv.admission_id = a.id
+      WHERE a.is_archived = false
+    ),
+    classified AS (
+      SELECT id,
+             CASE
+               WHEN (CASE WHEN spo2 < 90 THEN 2 ELSE 0 END)
+                  + (CASE WHEN pulse > 130 OR pulse < 45 THEN 1 ELSE 0 END)
+                  + (CASE WHEN temp > 39.0 OR temp < 35.5 THEN 1 ELSE 0 END)
+                  + (CASE WHEN sbp > 180 OR sbp < 85 THEN 1 ELSE 0 END) > 0
+                 THEN 'Critical'
+               WHEN (CASE WHEN spo2 >= 90 AND spo2 < 95 THEN 1 ELSE 0 END)
+                  + (CASE WHEN NOT (pulse > 130 OR pulse < 45)
+                            AND (pulse > 100 OR pulse < 55) THEN 1 ELSE 0 END)
+                  + (CASE WHEN NOT (temp > 39.0 OR temp < 35.5)
+                            AND (temp > 38.0 OR temp < 36.0) THEN 1 ELSE 0 END)
+                  + (CASE WHEN NOT (sbp > 180 OR sbp < 85)
+                            AND (sbp > 140 OR sbp < 95) THEN 1 ELSE 0 END) > 0
+                 THEN 'Watchful'
+               ELSE 'Stable'
+             END AS acuity,
+             CASE
+               WHEN bed_number LIKE 'CCU-7%' THEN 'CCU-7'
+               WHEN bed_number LIKE 'CCU-8%' THEN 'CCU-8'
+               WHEN bed_number LIKE 'ICU-N%' THEN 'ICU-North'
+               WHEN bed_number LIKE 'ICU-S%' THEN 'ICU-South'
+               WHEN bed_number LIKE '%-%'    THEN split_part(bed_number, '-', 1)
+               ELSE split_part(bed_number, '/', 1)
+             END AS unit
+      FROM scored
+    )
+    SELECT id FROM classified
+    WHERE (${acuity}::text IS NULL OR acuity = ${acuity})
+      AND (${unit}::text   IS NULL OR unit   = ${unit})
+  `;
+
+  return rows.map((row) => row.id);
+};
+
+// Census totals for the whole ward — the list screen can no longer derive these
+// from a single page, and the unit dropdown needs every unit in use, not just
+// the ones on screen.
+const getAdmissionCensus = async (query = {}) => {
+  const status = query.status || "ACTIVE";
+
+  const rows = await prisma.$queryRaw`
+    WITH latest_vitals AS (
+      SELECT DISTINCT ON (v.admission_id)
+             v.admission_id, v.temperature, v.pulse, v.systolic_bp, v.spo2
+      FROM vital_signs v
+      WHERE v.is_archived = false
+      ORDER BY v.admission_id, v.recorded_at DESC
+    ),
+    scored AS (
+      SELECT a.id,
+             COALESCE(lv.spo2, 98)          AS spo2,
+             COALESCE(lv.pulse, 75)         AS pulse,
+             COALESCE(lv.temperature, 37.0) AS temp,
+             COALESCE(lv.systolic_bp, 120)  AS sbp,
+             b.bed_number
+      FROM admissions a
+      JOIN beds b ON b.id = a.bed_id
+      LEFT JOIN latest_vitals lv ON lv.admission_id = a.id
+      WHERE a.is_archived = false AND a.status = ${status}::"AdmissionStatus"
+    )
+    SELECT
+      CASE
+        WHEN (CASE WHEN spo2 < 90 THEN 2 ELSE 0 END)
+           + (CASE WHEN pulse > 130 OR pulse < 45 THEN 1 ELSE 0 END)
+           + (CASE WHEN temp > 39.0 OR temp < 35.5 THEN 1 ELSE 0 END)
+           + (CASE WHEN sbp > 180 OR sbp < 85 THEN 1 ELSE 0 END) > 0
+          THEN 'Critical'
+        WHEN (CASE WHEN spo2 >= 90 AND spo2 < 95 THEN 1 ELSE 0 END)
+           + (CASE WHEN NOT (pulse > 130 OR pulse < 45)
+                     AND (pulse > 100 OR pulse < 55) THEN 1 ELSE 0 END)
+           + (CASE WHEN NOT (temp > 39.0 OR temp < 35.5)
+                     AND (temp > 38.0 OR temp < 36.0) THEN 1 ELSE 0 END)
+           + (CASE WHEN NOT (sbp > 180 OR sbp < 85)
+                     AND (sbp > 140 OR sbp < 95) THEN 1 ELSE 0 END) > 0
+          THEN 'Watchful'
+        ELSE 'Stable'
+      END AS acuity,
+      CASE
+        WHEN bed_number LIKE 'CCU-7%' THEN 'CCU-7'
+        WHEN bed_number LIKE 'CCU-8%' THEN 'CCU-8'
+        WHEN bed_number LIKE 'ICU-N%' THEN 'ICU-North'
+        WHEN bed_number LIKE 'ICU-S%' THEN 'ICU-South'
+        WHEN bed_number LIKE '%-%'    THEN split_part(bed_number, '-', 1)
+        ELSE split_part(bed_number, '/', 1)
+      END AS unit,
+      COUNT(*)::int AS count
+    FROM scored
+    GROUP BY 1, 2
+  `;
+
+  const stats = { total: 0, critical: 0, watchful: 0, stable: 0 };
+  const units = new Set();
+
+  for (const row of rows) {
+    const count = Number(row.count);
+    stats.total += count;
+    if (row.acuity === "Critical") stats.critical += count;
+    else if (row.acuity === "Watchful") stats.watchful += count;
+    else stats.stable += count;
+    if (row.unit) units.add(row.unit);
+  }
+
+  return { stats, units: Array.from(units).sort() };
+};
+
 const getAdmissions = async (query) => {
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
@@ -309,12 +446,29 @@ const getAdmissions = async (query) => {
   if (query.bed_id) where.bedId = query.bed_id;
   if (query.search && query.search.trim()) {
     const search = query.search.trim();
-    where.patient = {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { mrn: { contains: search, mode: "insensitive" } },
-      ],
-    };
+    where.OR = [
+      { patient: { name: { contains: search, mode: "insensitive" } } },
+      { patient: { mrn: { contains: search, mode: "insensitive" } } },
+      { provisionalDiagnosis: { contains: search, mode: "insensitive" } },
+      {
+        diagnoses: {
+          some: {
+            isArchived: false,
+            conditionName: { contains: search, mode: "insensitive" },
+          },
+        },
+      },
+    ];
+  }
+
+  // Acuity and bed-unit are derived values, so they can't be expressed as a
+  // Prisma `where`. Resolve them to a concrete id set first, then page over it.
+  const derivedIds = await resolveDerivedFilterIds(query);
+  if (derivedIds !== null) {
+    if (derivedIds.length === 0) {
+      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+    }
+    where.id = { in: derivedIds };
   }
 
   const [admissions, total] = await Promise.all([
@@ -347,7 +501,7 @@ const getAdmissions = async (query) => {
 
   return {
     data: admissions.map(formatAdmission),
-    meta: { total, page, limit },
+    meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
   };
 };
 
@@ -597,6 +751,7 @@ module.exports = {
   createAdmission,
   createFullAdmission,
   getAdmissions,
+  getAdmissionCensus,
   getAdmissionById,
   dischargeAdmission,
   archiveAdmission,
