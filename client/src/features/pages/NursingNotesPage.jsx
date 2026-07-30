@@ -1,6 +1,6 @@
 /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ClipboardList,
@@ -40,13 +40,15 @@ export default function NursingNotesPage() {
   const [nursingNotes, setNursingNotes] = useState([]);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isSwitcherLoading, setIsSwitcherLoading] = useState(false);
   const [isNotesLoading, setIsNotesLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Pagination for Patient Switcher
+  // Pagination for Patient Switcher — served page by page from the API.
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPatientPages, setTotalPatientPages] = useState(1);
   const patientsPerPage = 8;
 
   // Form Inputs State
@@ -57,43 +59,79 @@ export default function NursingNotesPage() {
   const [response, setResponse] = useState('');
   const [plan, setPlan] = useState('');
 
-  // Fetch admissions on mount
+  // Fetch the current page of active admissions. Only the very first load
+  // blanks the whole page — switching patient-switcher pages afterward should
+  // only refresh that small strip, not the form/notes the clinician is using.
   useEffect(() => {
+    let cancelled = false;
     async function fetchAdmissions() {
+      const isFirstLoad = admissions.length === 0;
       try {
-        setIsLoading(true);
-        // Fetch up to 100 active admissions to ensure all patients are retrieved
-        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
-        const activeAds = adData.data || [];
-        setAdmissions(activeAds);
+        if (isFirstLoad) setIsLoading(true);
+        else setIsSwitcherLoading(true);
+        const { data: adData } = await api.get('/admissions', {
+          params: { status: 'ACTIVE', page: currentPage, limit: patientsPerPage },
+        });
+        if (cancelled) return;
+        setAdmissions(adData.data || []);
+        setTotalPatientPages(Math.max(1, adData.meta?.totalPages || 1));
       } catch (err) {
+        if (cancelled) return;
         console.error("Initialization error:", err);
         setErrorMsg("Failed to load active patients list.");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setIsSwitcherLoading(false);
+        }
       }
     }
     fetchAdmissions();
-  }, []);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, patientsPerPage]);
 
-  // Sync active admission with URL changes
+  // Sync active admission with URL changes. The selected patient may live on a
+  // page we haven't loaded, so fall back to fetching that admission directly
+  // rather than searching the current page for it.
   useEffect(() => {
-    if (admissions.length === 0) return;
-
     const urlAdmissionId = searchParams.get('admissionId');
-    if (urlAdmissionId) {
-      if (activeAdmission?.id !== urlAdmissionId) {
-        const selected = admissions.find(a => a.id === urlAdmissionId);
-        if (selected) {
-          setActiveAdmission(selected);
-          const targetIndex = admissions.findIndex(a => a.id === urlAdmissionId);
-          setCurrentPage(Math.floor(targetIndex / patientsPerPage) + 1);
-        }
+
+    if (!urlAdmissionId) {
+      if (admissions.length > 0) {
+        setSearchParams({ admissionId: admissions[0].id }, { replace: true });
       }
-    } else {
-      setSearchParams({ admissionId: admissions[0].id }, { replace: true });
+      return;
     }
-  }, [searchParams, admissions, activeAdmission, patientsPerPage, setSearchParams]);
+
+    if (activeAdmission?.id === urlAdmissionId) return;
+
+    const onThisPage = admissions.find(a => a.id === urlAdmissionId);
+    if (onThisPage) {
+      setActiveAdmission(onThisPage);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get(`/admissions/${urlAdmissionId}`);
+        if (!cancelled && data) setActiveAdmission(data);
+      } catch (err) {
+        console.error("Failed to load selected admission:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [searchParams, admissions, activeAdmission, setSearchParams]);
+
+  // A deep-linked patient may sit on a switcher page we aren't showing. Pin
+  // them to the front of the list so it's always clear who is being documented.
+  const switcherAdmissions = useMemo(() => {
+    if (activeAdmission && !admissions.some(a => a.id === activeAdmission.id)) {
+      return [activeAdmission, ...admissions];
+    }
+    return admissions;
+  }, [admissions, activeAdmission]);
 
   // Fetch patient notes when active patient switches
   useEffect(() => {
@@ -305,23 +343,23 @@ export default function NursingNotesPage() {
               <span>Select Patient</span>
             </div>
             
-            {admissions.length > patientsPerPage && (
+            {totalPatientPages > 1 && (
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline" size="icon-sm"
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || isSwitcherLoading}
                   className="h-6 w-6 rounded-md border-border/50 bg-background hover:bg-muted"
                 >
                   <ChevronLeft size={12} />
                 </Button>
                 <span className="text-[10px] font-medium text-muted-foreground tabular-nums">
-                  {currentPage} / {Math.ceil(admissions.length / patientsPerPage)}
+                  {currentPage} / {totalPatientPages}
                 </span>
                 <Button
                   variant="outline" size="icon-sm"
-                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(admissions.length / patientsPerPage), p + 1))}
-                  disabled={currentPage === Math.ceil(admissions.length / patientsPerPage)}
+                  onClick={() => setCurrentPage(p => Math.min(totalPatientPages, p + 1))}
+                  disabled={currentPage === totalPatientPages || isSwitcherLoading}
                   className="h-6 w-6 rounded-md border-border/50 bg-background hover:bg-muted"
                 >
                   <ChevronRight size={12} />
@@ -330,10 +368,14 @@ export default function NursingNotesPage() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {admissions.length === 0 ? (
+            {isSwitcherLoading ? (
+              Array.from({ length: patientsPerPage }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-32 rounded-full" />
+              ))
+            ) : switcherAdmissions.length === 0 ? (
               <p className="text-xs text-muted-foreground">No active patient admissions found.</p>
             ) : (
-              admissions.slice((currentPage - 1) * patientsPerPage, currentPage * patientsPerPage).map((ad) => {
+              switcherAdmissions.map((ad) => {
                 const isActive = activeAdmission?.id === ad.id;
                 // Highlight critical patients with red warning dots
                 const isCritical = ad.patient?.name?.includes('Emma') || ad.patient?.name?.includes('Sofia') || ad.patient?.name?.includes('Porter');

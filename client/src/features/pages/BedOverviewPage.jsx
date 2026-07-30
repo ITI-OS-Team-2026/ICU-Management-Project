@@ -1,5 +1,4 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useMemo, useState } from "react";
 import { RefreshCcw, Activity, Droplet } from "lucide-react";
 import { useBeds } from "../hooks/useBeds";
 
@@ -20,41 +19,15 @@ import {
 const BEDS_PER_PAGE = 8;
 
 export default function BedOverviewPage() {
-  const { beds, isLoading, error, refetch } = useBeds();
-  const [page, setPage] = useState(1);
-
-  const totalPages = Math.max(
-    1,
-    Math.ceil((beds?.length || 0) / BEDS_PER_PAGE),
+  // Paging, and the ward-wide status counts, both come from the server.
+  const { beds, meta, stats, page, setPage, isLoading, error, refetch } = useBeds(
+    undefined,
+    { pageSize: BEDS_PER_PAGE },
   );
 
-  // Clamped during render rather than in an effect: if the list shrinks under us
-  // (refetch, bed removed) the grid must not land on a page that no longer
-  // exists and render empty, and an effect would cost an extra render to fix it.
+  const totalPages = Math.max(1, meta.totalPages || 1);
   const safePage = Math.min(page, totalPages);
-
-  const pagedBeds = useMemo(
-    () =>
-      (beds || []).slice(
-        (safePage - 1) * BEDS_PER_PAGE,
-        safePage * BEDS_PER_PAGE,
-      ),
-    [beds, safePage],
-  );
-
-  const stats = useMemo(() => {
-    if (!beds) return { occupied: 0, available: 0, maintenance: 0, total: 0 };
-    return beds.reduce(
-      (acc, bed) => {
-        acc.total++;
-        if (bed.status === "OCCUPIED") acc.occupied++;
-        else if (bed.status === "AVAILABLE") acc.available++;
-        else if (bed.status === "MAINTENANCE") acc.maintenance++;
-        return acc;
-      },
-      { occupied: 0, available: 0, maintenance: 0, total: 0 },
-    );
-  }, [beds]);
+  const pagedBeds = beds;
 
   if (error) {
     return (

@@ -6,6 +6,7 @@ const admissionController = require("./admission.controller");
 const {
   admissionCreateSchema,
   admissionQuerySchema,
+  admissionCensusQuerySchema,
   nurseAssignSchema,
   fullAdmissionCreateSchema,
 } = require("./admission.schema");
@@ -38,6 +39,15 @@ router.get(
   restrictTo(clinicalRoles),
   validate({ query: admissionQuerySchema }),
   admissionController.getAdmissions
+);
+
+// Must stay above "/:id" so "census" isn't parsed as an admission id.
+router.get(
+  "/census",
+  verifyToken,
+  restrictTo(clinicalRoles),
+  validate({ query: admissionCensusQuerySchema }),
+  admissionController.getAdmissionCensus
 );
 
 router.get(

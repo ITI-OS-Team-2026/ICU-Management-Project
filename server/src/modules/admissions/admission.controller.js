@@ -27,6 +27,15 @@ const getAdmissions = async (req, res, next) => {
   }
 };
 
+const getAdmissionCensus = async (req, res, next) => {
+  try {
+    const result = await admissionService.getAdmissionCensus(req.query);
+    res.status(200).json({ status: "success", data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getAdmissionById = async (req, res, next) => {
   try {
     const admission = await admissionService.getAdmissionById(req.params.id);
@@ -85,6 +94,7 @@ module.exports = {
   createAdmission,
   createFullAdmission,
   getAdmissions,
+  getAdmissionCensus,
   getAdmissionById,
   dischargeAdmission,
   archiveAdmission,

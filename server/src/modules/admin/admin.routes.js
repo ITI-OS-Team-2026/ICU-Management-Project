@@ -68,6 +68,14 @@ router.post(
   adminController.createBed
 );
 
+// Ward-wide counts for the bed grid, which is paged and can't total its own rows.
+router.get(
+  "/beds/stats",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN", "ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  adminController.getBedStats
+);
+
 router.get(
   "/beds",
   verifyToken,
