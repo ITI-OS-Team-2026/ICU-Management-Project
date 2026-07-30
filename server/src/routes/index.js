@@ -15,6 +15,7 @@ const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/me
 const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
 const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRouter } = require("../modules/passwordResetRequests/passwordReset.routes");
 const notificationRoutes = require("../modules/notifications/notification.routes");
+const { admissionTreatmentApprovalRouter, treatmentApprovalRouter } = require("../modules/treatmentApprovals/treatmentApproval.routes");
 
 const router = express.Router();
 
@@ -44,6 +45,8 @@ router.use("/admissions", admissionDocumentsRouter);
 router.use("/documents", baseDocumentsRouter);
 router.use("/ai", aiRouter);
 router.use("/admissions", admissionAiRouter);
+router.use("/admissions", admissionTreatmentApprovalRouter);
+router.use("/treatment-approvals", treatmentApprovalRouter);
 router.use("/notifications", notificationRoutes);
 
 module.exports = router;

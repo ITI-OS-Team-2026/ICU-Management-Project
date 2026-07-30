@@ -534,19 +534,21 @@ export default function PatientListPage() {
                       </div>
                     </TableCell>
 
-                    {/* Open / Summon action button */}
+                    {/* Open / Summon action buttons — nurses get both, so they
+                        can reach the chart to record treatment execution. */}
                     <TableCell className="pr-6 text-right">
-                      {isNurse ? (
-                        <Button
-                          onClick={() => setSummonTarget(p)}
-                          variant="destructive"
-                          size="sm"
-                          className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
-                        >
-                          Summon
-                          <BellRing className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : (
+                      <div className="flex items-center justify-end gap-2">
+                        {isNurse && (
+                          <Button
+                            onClick={() => setSummonTarget(p)}
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                          >
+                            Summon
+                            <BellRing className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           onClick={() => navigate(`/patients/${p.id}`)}
                           variant="secondary"
@@ -556,7 +558,7 @@ export default function PatientListPage() {
                           Open
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
-                      )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -638,17 +640,18 @@ export default function PatientListPage() {
                       <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    {isNurse ? (
-                      <Button
-                        onClick={() => setSummonTarget(p)}
-                        variant="destructive"
-                        size="sm"
-                        className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
-                      >
-                        Summon
-                        <BellRing className="h-3.5 w-3.5" />
-                      </Button>
-                    ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isNurse && (
+                        <Button
+                          onClick={() => setSummonTarget(p)}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                        >
+                          Summon
+                          <BellRing className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         onClick={() => navigate(`/patients/${p.id}`)}
                         variant="secondary"
@@ -658,7 +661,7 @@ export default function PatientListPage() {
                         Open
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
               </Card>
