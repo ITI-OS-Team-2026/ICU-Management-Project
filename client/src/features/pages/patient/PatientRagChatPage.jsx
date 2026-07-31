@@ -33,19 +33,19 @@ import KnowledgeBasePanel from '../../components/rag/KnowledgeBasePanel';
 import { useAuthStore } from '../../store/authStore';
 
 const PATIENT_QUESTIONS = [
-  'Summarise what changed in the last 24 hours.',
   'What are the most recent vital signs and are any abnormal?',
-  'Which laboratory results are flagged abnormal?',
-  'Are any active medications in conflict with a documented allergy?',
-  'What do the uploaded documents say about the working diagnosis?',
+  'Which laboratory results are flagged abnormal or need monitoring?',
+  'Are any active medications in conflict with documented allergies?',
+  'What trends do you see in this patient\'s condition over the last 48 hours?',
+  'What does the uploaded clinical documentation indicate about the diagnosis?',
 ];
 
 const KNOWLEDGE_QUESTIONS = [
-  'What smoking index indicates heavy smoking?',
-  'What occupational hazards cause chest diseases?',
-  'What are the cardinal symptoms of respiratory diseases?',
-  'What\'s the difference between acute and gradual onset?',
-  'What gender-specific history should I take from female patients?',
+  'What information should be gathered in a patient\'s past medical history?',
+  'What are the cardinal signs and symptoms of respiratory disease?',
+  'What is the pathophysiology of acute respiratory distress syndrome (ARDS)?',
+  'How do you manage acute hyponatremia in ICU patients?',
+  'What are the complications of prolonged mechanical ventilation?',
 ];
 
 function formatTime(value) {
