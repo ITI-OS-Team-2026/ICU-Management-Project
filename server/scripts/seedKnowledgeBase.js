@@ -10,6 +10,10 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const prisma = require("../src/utils/prismaClient");
+const {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} = require("../src/utils/cloudinaryClient");
 const cloudinary = require("../src/utils/cloudinaryClient");
 const { indexDocument } = require("../src/modules/rag/indexing.service");
 const fs = require("fs");
@@ -18,13 +22,38 @@ const KNOWLEDGE_BASE_DIR = path.join(__dirname, "../uploads/documents");
 
 const KNOWLEDGE_DOCS = [
   {
-    filename: "ICU_FundamentalsPDF_260312_203507.pdf",
-    displayName: "ICU Fundamentals",
+    filename: "ICU_Clinical_Fundamentals.pdf",
+    displayName: "ICU Clinical Fundamentals",
     docType: "clinical",
   },
   {
-    filename: "History taking 2025_260312_203405.pdf",
-    displayName: "History Taking 2025",
+    filename: "Patient_History_Taking_Protocol.pdf",
+    displayName: "Patient History Taking Protocol",
+    docType: "clinical",
+  },
+  {
+    filename: "Mechanical_Ventilation_Protocols.pdf",
+    displayName: "Mechanical Ventilation Protocols",
+    docType: "clinical",
+  },
+  {
+    filename: "Hemodynamics_and_Cardiovascular_Management.pdf",
+    displayName: "Hemodynamics & Cardiovascular Management",
+    docType: "clinical",
+  },
+  {
+    filename: "ICU_Medications_and_Sedation_Protocol.pdf",
+    displayName: "ICU Medications & Sedation Protocol",
+    docType: "clinical",
+  },
+  {
+    filename: "Laboratory_Results_Interpretation.pdf",
+    displayName: "Laboratory Results Interpretation",
+    docType: "clinical",
+  },
+  {
+    filename: "Common_ICU_Emergencies_Protocols.pdf",
+    displayName: "Common ICU Emergencies Protocols",
     docType: "clinical",
   },
 ];
@@ -69,7 +98,7 @@ async function seedKnowledgeBase() {
     }
 
     try {
-      // Check if already uploaded
+      // Check if already exists
       const existing = await prisma.medicalDocument.findFirst({
         where: {
           originalFilename: doc.filename,
@@ -77,21 +106,30 @@ async function seedKnowledgeBase() {
         },
       });
 
-      if (existing && existing.storageType === "cloudinary") {
-        console.log(`✓ Already indexed: ${doc.filename}`);
-        skipCount++;
-        continue;
+      // Delete old version from Cloudinary if it exists
+      if (existing && existing.cloudinaryPublicId) {
+        try {
+          console.log(`🗑️  Removing old version from Cloudinary...`);
+          await deleteFromCloudinary(existing.cloudinaryPublicId);
+          console.log(`   ✓ Old version deleted`);
+        } catch (err) {
+          console.warn(
+            `   ⚠️  Could not delete from Cloudinary: ${err.message}`,
+          );
+        }
       }
 
-      // Upload to Cloudinary
+      // Upload new version to Cloudinary
       console.log(`⬆️  Uploading ${doc.filename} to Cloudinary...`);
       const fileBuffer = fs.readFileSync(filePath);
-      const cloudinaryResult = await cloudinary.uploadToCloudinary(
+      const cloudinaryResult = await uploadToCloudinary(
         fileBuffer,
-        doc.filename
+        doc.filename,
       );
 
-      console.log(`   → URL: ${cloudinaryResult.secure_url.substring(0, 60)}...`);
+      console.log(
+        `   → URL: ${cloudinaryResult.secure_url.substring(0, 60)}...`,
+      );
 
       // Save or update in database
       const created = await prisma.medicalDocument.upsert({
@@ -117,14 +155,18 @@ async function seedKnowledgeBase() {
         },
       });
 
-      console.log(`✓ Registered: ${doc.displayName} (${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB)`);
+      console.log(
+        `✓ Registered: ${doc.displayName} (${(fileBuffer.length / 1024 / 1024).toFixed(1)}MB)`,
+      );
 
       // Embed synchronously (awaited, not queued) — this script exits and
       // disconnects Prisma right after, so a fire-and-forget queueIndexing()
       // call would get killed mid-write before it ever reaches COMPLETED.
       console.log(`   🧠 Embedding...`);
       const outcome = await indexDocument(created.id);
-      console.log(`   → ${outcome.status}: ${outcome.message || `${outcome.chunkCount} chunks`}\n`);
+      console.log(
+        `   → ${outcome.status}: ${outcome.message || `${outcome.chunkCount} chunks`}\n`,
+      );
 
       successCount++;
     } catch (error) {

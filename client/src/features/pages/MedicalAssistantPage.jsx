@@ -21,11 +21,11 @@ import { ragService, describeRagError } from '../../features/services/ragService
 import CitationList from '../../features/components/rag/CitationList';
 
 const KNOWLEDGE_PROMPTS = [
-  'What smoking index indicates heavy smoking?',
+  'What are the key elements to cover in a patient\'s present history of illness?',
   'What occupational hazards cause chest diseases?',
-  'What are the cardinal symptoms of respiratory diseases?',
-  'What\'s the difference between acute and gradual onset?',
-  'What gender-specific history should I take from female patients?',
+  'What should be included in a focused clinical examination for respiratory assessment?',
+  'How do you classify cyanosis and what does it indicate?',
+  'What is the pathophysiology of acute decompensated heart failure?',
 ];
 
 function formatTime(value) {
