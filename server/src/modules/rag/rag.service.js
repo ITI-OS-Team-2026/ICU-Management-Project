@@ -28,7 +28,7 @@ const RAG_SYSTEM_PROMPT = `You are the SmartCare ICU clinical retrieval assistan
 1. **Grounding.** Every clinical statement must come from the retrieved context. Never use outside medical knowledge to assert a fact about this patient. If the context does not contain the answer, say so plainly — do not guess, extrapolate, or fill gaps.
 2. **Insufficient context.** If the retrieved context cannot support an answer, reply with exactly this sentence and nothing else: "Not enough recorded data to answer this for the current admission."
 3. **Single-patient scope.** The context is one admission. If the question asks about another patient, a ward-wide comparison, or anything outside this admission, reply: "That is outside the current admission's recorded data." Never speculate about other patients.
-4. **Citations.** Cite the source immediately after each fact, in square brackets, copying the source label exactly as given in the context. Example: "SpO2 was 91% [Vitals log, 04 Aug 04:15]." A statement without a citation is a rule violation.
+4. **Clean answer, no source mentions.** Do NOT mention documents, resources, sources, or where information comes from anywhere in your answer. Do NOT use phrases like "According to", "The document states", "General medical knowledge suggests", or reference any source by name. Just answer the question directly. Sources will be displayed separately.
 5. **No new orders.** You may describe and interpret what is recorded. You must not prescribe, direct, or recommend specific therapy. Supportive phrasing only: "Consider reviewing…", "Continue monitoring…", "Reassess…".
 6. **Conservative certainty.** Use "suggests", "consistent with", "may indicate". Avoid "confirms", "definitely", "clearly". Do not infer a trend from a single measurement — if there is only one reading, say so.
 7. **Safety.** If the context contains an allergy conflicting with an active medication, surface it even if the question did not ask.
@@ -38,6 +38,7 @@ const RAG_SYSTEM_PROMPT = `You are the SmartCare ICU clinical retrieval assistan
 - Answer directly in the first sentence. No preamble, no restating the question.
 - Keep it to what was asked — usually 1-4 short paragraphs or a tight bullet list.
 - Use Markdown for structure when listing several values.
+- No mention of sources, documents, or where information came from anywhere in the answer.
 - End with nothing extra: no disclaimers, no sign-off.`;
 
 /**
@@ -55,9 +56,9 @@ You have two sources of information:
 
 ## RULES
 
-1. **Prefer retrieved excerpts.** If the excerpts answer the question, ground your answer in them and cite each fact using the exact source label given, e.g. "[Document: ICU_Fundamentals.pdf, part 12]".
+1. **Prefer retrieved excerpts.** If the excerpts answer the question, ground your answer in them.
 2. **Fill gaps with general knowledge.** If the excerpts are missing, empty, or only partially answer the question, use your own general medical knowledge to complete the answer.
-3. **Always disclose the source.** Every clinical sentence must end with either a document citation, or the tag "[General medical knowledge]" if it is not from an excerpt. Never let a general-knowledge statement read as if it came from the uploaded documents.
+3. **Clean answer, no source mentions.** Do NOT mention documents, resources, sources, or where information comes from anywhere in your answer. Do NOT use phrases like "According to", "The document states", "In clinical practice", or "General medical knowledge suggests". Just answer the question directly. Sources will be displayed separately.
 4. **Stay general.** This is not about a specific patient. If asked about an individual patient's data, decline and say the physician should use that patient's own AI chat, which has access to their record.
 5. **Clinical caution.** Explain concepts, guidelines, and reasoning frameworks. Do not issue a directive treatment plan for a real patient. Supportive phrasing only.
 6. **Honesty about uncertainty.** If neither the excerpts nor general medical knowledge can answer confidently, say so plainly rather than guessing.
@@ -66,7 +67,7 @@ You have two sources of information:
 
 - Answer directly in the first sentence. No preamble, no restating the question.
 - Use Markdown for structure when listing several values.
-- Every clinical sentence ends with a citation tag: a document label, or "[General medical knowledge]".
+- No mention of sources, documents, or where information came from anywhere in the answer.
 - End with nothing extra: no disclaimers, no sign-off.`;
 
 // ─── Prompt construction ─────────────────────────────────────────────────────
@@ -212,6 +213,52 @@ const buildKnowledgeUserMessage = (question, context, history) => {
 // ─── Citations ───────────────────────────────────────────────────────────────
 
 /**
+ * Extract document name from filename for flexible citation matching.
+ * E.g., "ICU_Fundamentals.pdf" → ["icu fundamentals", "icu_fundamentals"]
+ */
+const getDocumentVariants = (filename) => {
+  const base = filename.replace(/\.[^/.]+$/, ""); // Remove extension
+  return [
+    base.toLowerCase(),
+    base.toLowerCase().replace(/_/g, " "),
+  ];
+};
+
+/**
+ * Check if a source is cited in the answer text using flexible matching.
+ * Looks for:
+ * 1. Exact label match (for bracketed citations)
+ * 2. Natural reference to document name
+ * 3. Natural reference to record type/label
+ */
+const isCitedInAnswer = (label, answerText, sourceType, filename) => {
+  const answer = String(answerText || "").toLowerCase();
+
+  // 1. Try exact match first
+  if (answer.includes(label.toLowerCase())) {
+    return true;
+  }
+
+  // 2. For documents, try filename variants
+  if (sourceType === "document_chunk" && filename) {
+    const variants = getDocumentVariants(filename);
+    if (variants.some((v) => answer.includes(v))) {
+      return true;
+    }
+  }
+
+  // 3. For clinical records, try partial label match (e.g., "vitals log" for "Vitals log, 04 Aug 04:15")
+  if (sourceType !== "document_chunk") {
+    const labelParts = label.toLowerCase().split(",")[0]; // Get first part before comma
+    if (labelParts && answer.includes(labelParts.trim())) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Build the citation list returned to the client. Sources actually referenced by
  * the answer text are marked `cited`, so the UI can highlight them without
  * hiding the rest of what was retrieved.
@@ -222,6 +269,8 @@ const buildCitedSources = (context, answerText) => {
 
   for (const chunk of context.chunks) {
     const label = `Document: ${chunk.original_filename}, part ${chunk.chunk_index + 1}`;
+    const cited = isCitedInAnswer(label, answer, "document_chunk", chunk.original_filename);
+
     sources.push({
       type: "document_chunk",
       id: chunk.id,
@@ -230,32 +279,34 @@ const buildCitedSources = (context, answerText) => {
       label,
       excerpt: chunk.chunk_text.slice(0, 320),
       score: Number(chunk.score.toFixed(4)),
-      cited: answer.includes(label),
+      cited,
     });
   }
 
   for (const record of context.records) {
     if (record.matched_terms === 0 && sources.length >= 12) continue;
+    const cited = isCitedInAnswer(record.label, answer, record.type);
+
     sources.push({
       type: record.type,
       id: record.id,
       label: record.label,
       timestamp: record.timestamp,
       excerpt: record.text.slice(0, 320),
-      cited: answer.includes(record.label),
+      cited,
     });
   }
 
-  // Knowledge mode tags every non-document sentence with this exact marker
-  // (see KNOWLEDGE_SYSTEM_PROMPT) — surface it as its own source so the
-  // client's citation row shows "general knowledge was used" instead of only
-  // ever listing PDF chunks, some of which may not have been used at all.
-  if (answer.includes("[General medical knowledge]")) {
+  // Only add general knowledge if there are retrieved sources but none were cited
+  const allSourcesCited = sources.some((s) => s.cited);
+  const hasRetrievedSources = sources.length > 0;
+
+  if (hasRetrievedSources && !allSourcesCited) {
     sources.push({
       type: "general_knowledge",
       id: "general-knowledge",
       label: "General medical knowledge",
-      excerpt: "Parts of this answer come from the AI's own medical training, not the uploaded knowledge base documents.",
+      excerpt: "Parts of this answer come from the AI's own medical training, not the retrieved sources.",
       cited: true,
     });
   }
