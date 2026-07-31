@@ -3,396 +3,447 @@ require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const prisma = require("../src/utils/prismaClient");
 const bcrypt = require("bcrypt");
+const fs = require("fs");
 const { seedICUPatients } = require("./icuPatientSeed");
 
 // Shared helper to seed a user. Uses upsert to be idempotent.
-// Does not overwrite password hash on update.
 async function seedUser({ email, password, firstName, lastName, role }) {
   const normalizedEmail = email.toLowerCase();
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.upsert({
     where: { email: normalizedEmail },
-    update: {
-      firstName,
-      lastName,
-      role,
-      status: "ACTIVE",
-    },
-    create: {
-      email: normalizedEmail,
-      passwordHash,
-      firstName,
-      lastName,
-      role,
-      status: "ACTIVE",
-    },
+    update: { firstName, lastName, role, status: "ACTIVE" },
+    create: { email: normalizedEmail, passwordHash, firstName, lastName, role, status: "ACTIVE" },
   });
 
   return user;
 }
 
 async function main() {
-  console.log("Starting database seeding...");
+  console.log("Starting comprehensive database seeding...");
 
+  // ── Seed users ─────────────────────────────────────────────────────────
   const adminEmail = (process.env.SEED_ADMIN_EMAIL || "admin@smartcare.icu").trim();
   const adminPassword = (process.env.SEED_ADMIN_PASSWORD || "SuperSecurePassword2026!").trim();
-  const adminFirstName = process.env.SEED_ADMIN_FIRST_NAME || "System";
-  const adminLastName = process.env.SEED_ADMIN_LAST_NAME || "Admin";
-
   if (!adminEmail || !adminPassword) {
-    throw new Error(
-      "Missing required environment variables: SEED_ADMIN_EMAIL and/or SEED_ADMIN_PASSWORD must be defined."
-    );
+    throw new Error("Missing SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD");
   }
 
   const admin = await seedUser({
     email: adminEmail,
     password: adminPassword,
-    firstName: adminFirstName,
-    lastName: adminLastName,
+    firstName: process.env.SEED_ADMIN_FIRST_NAME || "System",
+    lastName: process.env.SEED_ADMIN_LAST_NAME || "Admin",
     role: "SYSTEM_ADMIN",
   });
-  console.log(`System Admin successfully seeded/updated (ID: ${admin.id})`);
+  console.log(`✓ System Admin (ID: ${admin.id})`);
 
   const nurseEmail = (process.env.SEED_NURSE_EMAIL || "nurse@smartcare.icu").trim();
   const nursePassword = (process.env.SEED_NURSE_PASSWORD || "SuperSecurePassword2026!").trim();
-  const nurseFirstName = process.env.SEED_NURSE_FIRST_NAME || "Test";
-  const nurseLastName = process.env.SEED_NURSE_LAST_NAME || "Nurse";
-
-  if (nurseEmail && nursePassword) {
-    const nurse = await seedUser({
-      email: nurseEmail,
-      password: nursePassword,
-      firstName: nurseFirstName,
-      lastName: nurseLastName,
-      role: "ICU_NURSE",
-    });
-    console.log(`ICU Nurse successfully seeded/updated (ID: ${nurse.id})`);
-  } else {
-    console.warn("Skipping ICU Nurse seed — SEED_NURSE_EMAIL/PASSWORD not set");
-  }
+  const nurse = nurseEmail && nursePassword ? await seedUser({
+    email: nurseEmail, password: nursePassword,
+    firstName: process.env.SEED_NURSE_FIRST_NAME || "Test",
+    lastName: process.env.SEED_NURSE_LAST_NAME || "Nurse",
+    role: "ICU_NURSE",
+  }) : null;
+  if (nurse) console.log(`✓ ICU Nurse (ID: ${nurse.id})`);
 
   const residentEmail = (process.env.SEED_RESIDENT_EMAIL || "resident@smartcare.icu").trim();
   const residentPassword = (process.env.SEED_RESIDENT_PASSWORD || "SuperSecurePassword2026!").trim();
-  const residentFirstName = process.env.SEED_RESIDENT_FIRST_NAME || "Test";
-  const residentLastName = process.env.SEED_RESIDENT_LAST_NAME || "Resident";
-
-  if (residentEmail && residentPassword) {
-    const resident = await seedUser({
-      email: residentEmail,
-      password: residentPassword,
-      firstName: residentFirstName,
-      lastName: residentLastName,
-      role: "MEDICAL_RESIDENT",
-    });
-    console.log(`Medical Resident successfully seeded/updated (ID: ${resident.id})`);
-  } else {
-    console.warn("Skipping Medical Resident seed — SEED_RESIDENT_EMAIL/PASSWORD not set");
-  }
+  const resident = residentEmail && residentPassword ? await seedUser({
+    email: residentEmail, password: residentPassword,
+    firstName: process.env.SEED_RESIDENT_FIRST_NAME || "Test",
+    lastName: process.env.SEED_RESIDENT_LAST_NAME || "Resident",
+    role: "MEDICAL_RESIDENT",
+  }) : null;
+  if (resident) console.log(`✓ Medical Resident (ID: ${resident.id})`);
 
   const specialistEmail = (process.env.SEED_SPECIALIST_EMAIL || "specialist@smartcare.icu").trim();
   const specialistPassword = (process.env.SEED_SPECIALIST_PASSWORD || "SuperSecurePassword2026!").trim();
-  const specialistFirstName = process.env.SEED_SPECIALIST_FIRST_NAME || "Test";
-  const specialistLastName = process.env.SEED_SPECIALIST_LAST_NAME || "Specialist";
+  const specialist = specialistEmail && specialistPassword ? await seedUser({
+    email: specialistEmail, password: specialistPassword,
+    firstName: process.env.SEED_SPECIALIST_FIRST_NAME || "Test",
+    lastName: process.env.SEED_SPECIALIST_LAST_NAME || "Specialist",
+    role: "ICU_SPECIALIST",
+  }) : null;
+  if (specialist) console.log(`✓ ICU Specialist (ID: ${specialist.id})`);
 
-  if (specialistEmail && specialistPassword) {
-    const specialist = await seedUser({
-      email: specialistEmail,
-      password: specialistPassword,
-      firstName: specialistFirstName,
-      lastName: specialistLastName,
-      role: "ICU_SPECIALIST",
-    });
-    console.log(`ICU Specialist successfully seeded/updated (ID: ${specialist.id})`);
-  } else {
-    console.warn("Skipping ICU Specialist seed — SEED_SPECIALIST_EMAIL/PASSWORD not set");
+  const specialist2 = await seedUser({
+    email: "specialist2@smartcare.icu", password: specialistPassword,
+    firstName: "Alexandra", lastName: "Vance", role: "ICU_SPECIALIST",
+  });
+
+  const resident2 = await seedUser({
+    email: "resident2@smartcare.icu", password: residentPassword,
+    firstName: "Tariq", lastName: "Al-Mansoor", role: "MEDICAL_RESIDENT",
+  });
+
+  const nurse2 = await seedUser({
+    email: "nurse2@smartcare.icu", password: nursePassword,
+    firstName: "Sarah", lastName: "Jenkins", role: "ICU_NURSE",
+  });
+
+  if (!specialist || !resident || !nurse) {
+    console.log("Missing critical roles; stopping seed.");
+    process.exit(0);
   }
 
-  const specialist2User = await seedUser({
-    email: "specialist2@smartcare.icu",
-    password: specialistPassword,
-    firstName: "Alexandra",
-    lastName: "Vance",
-    role: "ICU_SPECIALIST",
-  });
+  await seedICUPatients({ specialistUser: specialist, specialist2User: specialist2, residentUser: resident, resident2User: resident2, nurseUser: nurse, nurse2User: nurse2 });
 
-  const resident2User = await seedUser({
-    email: "resident2@smartcare.icu",
-    password: residentPassword,
-    firstName: "Tariq",
-    lastName: "Al-Mansoor",
-    role: "MEDICAL_RESIDENT",
-  });
+  // ── Reference medical knowledge base (available to all patients) ──────────
+  const referenceDocPath = path.join(__dirname, "../uploads/documents/history-taking-chest-diseases.pdf");
+  const referenceDocExists = fs.existsSync(referenceDocPath);
+  const referenceDocStats = referenceDocExists ? fs.statSync(referenceDocPath) : null;
 
-  const nurse2User = await seedUser({
-    email: "nurse2@smartcare.icu",
-    password: nursePassword,
-    firstName: "Sarah",
-    lastName: "Jenkins",
-    role: "ICU_NURSE",
-  });
+  // ── Comprehensive patient seed ──────────────────────────────────────────
+  const seedPatients = [
+    { name: "Emma Rodriguez", mrn: "MRN-EMMA-001", age: 52, gender: "Female", bedNumber: "CCU-7/R3", chiefComplaint: "Chest pain and dyspnea" },
+    { name: "James Porter", mrn: "MRN-JAMES-002", age: 59, gender: "Male", bedNumber: "CCU-7/B5", chiefComplaint: "Acute MI with cardiogenic shock" },
+    { name: "Liu Wei", mrn: "MRN-LIU-003", age: 64, gender: "Male", bedNumber: "CCU-8/B2", chiefComplaint: "Septic shock, pneumonia" },
+    { name: "Sofia Martinez", mrn: "MRN-SOFIA-004", age: 41, gender: "Female", bedNumber: "ICU-N/R7", chiefComplaint: "Respiratory failure post-op" },
+    { name: "Derek Thompson", mrn: "MRN-DEREK-005", age: 48, gender: "Male", bedNumber: "ICU-S/R4", chiefComplaint: "Acute liver failure" },
+    { name: "Fatima Al-Hassan", mrn: "MRN-FATIMA-006", age: 37, gender: "Female", bedNumber: "ICU-S/R1", chiefComplaint: "Severe DKA" },
+  ];
 
-  if (residentEmail && specialistEmail && nurseEmail) {
-    const specialistUser = await prisma.user.findUnique({ where: { email: specialistEmail.toLowerCase() } });
-    const residentUser = await prisma.user.findUnique({ where: { email: residentEmail.toLowerCase() } });
-    const nurseUser = await prisma.user.findUnique({ where: { email: nurseEmail.toLowerCase() } });
-
-    if (specialistUser && residentUser && nurseUser) {
-      await seedICUPatients({
-        specialistUser,
-        specialist2User,
-        residentUser,
-        resident2User,
-        nurseUser,
-        nurse2User,
+  for (const p of seedPatients) {
+    await prisma.$transaction(async (tx) => {
+      const patient = await tx.patient.upsert({
+        where: { mrn: p.mrn },
+        update: { name: p.name, age: p.age, gender: p.gender },
+        create: { mrn: p.mrn, name: p.name, age: p.age, gender: p.gender },
       });
 
-      const seedPatients = [
-        { name: "Emma Rodriguez", mrn: "MRN-EMMA-001", age: 52, gender: "Female", bedNumber: "CCU-7/R3" },
-        { name: "James Porter", mrn: "MRN-JAMES-002", age: 59, gender: "Male", bedNumber: "CCU-7/B5" },
-        { name: "Liu Wei", mrn: "MRN-LIU-003", age: 64, gender: "Male", bedNumber: "CCU-8/B2" },
-        { name: "Sofia Martinez", mrn: "MRN-SOFIA-004", age: 41, gender: "Female", bedNumber: "ICU-N/R7" },
-        { name: "Derek Thompson", mrn: "MRN-DEREK-005", age: 48, gender: "Male", bedNumber: "ICU-S/R4" },
-        { name: "Fatima Al-Hassan", mrn: "MRN-FATIMA-006", age: 37, gender: "Female", bedNumber: "ICU-S/R1" },
-      ];
+      const bed = await tx.bed.upsert({
+        where: { bedNumber: p.bedNumber },
+        update: { status: "OCCUPIED" },
+        create: { bedNumber: p.bedNumber, status: "OCCUPIED" },
+      });
 
-      for (const p of seedPatients) {
-        await prisma.$transaction(async (tx) => {
-          const patient = await tx.patient.upsert({
-            where: { mrn: p.mrn },
-            update: { name: p.name, age: p.age, gender: p.gender },
-            create: { mrn: p.mrn, name: p.name, age: p.age, gender: p.gender },
-          });
+      let admission = await tx.admission.findFirst({
+        where: { patientId: patient.id, status: "ACTIVE", isArchived: false },
+      });
 
-          const bed = await tx.bed.upsert({
-            where: { bedNumber: p.bedNumber },
-            update: { status: "OCCUPIED" },
-            create: { bedNumber: p.bedNumber, status: "OCCUPIED" },
-          });
-
-          let admission = await tx.admission.findFirst({
-            where: { patientId: patient.id, status: "ACTIVE" },
-          });
-
-          if (!admission) {
-            admission = await tx.admission.create({
-              data: {
-                patientId: patient.id,
-                bedId: bed.id,
-                doctorId: specialistUser.id,
-                status: "ACTIVE",
-              },
-            });
-          } else {
-            admission = await tx.admission.update({
-              where: { id: admission.id },
-              data: { bedId: bed.id, doctorId: specialistUser.id },
-            });
-          }
-          console.log(`Seeded patient ${p.name} on bed ${p.bedNumber} (Admission: ${admission.id})`);
-
-          if (p.mrn === "MRN-JAMES-002") {
-            const vitalsCount = await tx.vitalSign.count({
-              where: { admissionId: admission.id },
-            });
-
-            if (vitalsCount === 0) {
-              const now = new Date();
-              const historicalVitals = [
-                { hoursAgo: 24, temp: 37.5, pulse: 80, sBp: 120, dBp: 80, rr: 18, spo2: 98 },
-                { hoursAgo: 22, temp: 37.8, pulse: 85, sBp: 118, dBp: 78, rr: 19, spo2: 97 },
-                { hoursAgo: 20, temp: 38.1, pulse: 90, sBp: 115, dBp: 75, rr: 20, spo2: 96 },
-                { hoursAgo: 18, temp: 38.4, pulse: 95, sBp: 110, dBp: 70, rr: 22, spo2: 95 },
-                { hoursAgo: 16, temp: 38.8, pulse: 100, sBp: 105, dBp: 65, rr: 24, spo2: 94 },
-                { hoursAgo: 14, temp: 39.1, pulse: 105, sBp: 100, dBp: 60, rr: 25, spo2: 93 },
-                { hoursAgo: 12, temp: 39.3, pulse: 110, sBp: 95, dBp: 58, rr: 26, spo2: 92 },
-                { hoursAgo: 10, temp: 39.5, pulse: 112, sBp: 92, dBp: 55, rr: 27, spo2: 91 },
-                { hoursAgo: 8, temp: 39.6, pulse: 115, sBp: 90, dBp: 54, rr: 28, spo2: 91 },
-                { hoursAgo: 6, temp: 39.7, pulse: 116, sBp: 89, dBp: 53, rr: 28, spo2: 91 },
-                { hoursAgo: 4, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-                { hoursAgo: 2, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-                { hoursAgo: 0, temp: 39.8, pulse: 118, sBp: 88, dBp: 52, rr: 28, spo2: 91 },
-              ];
-
-              for (const v of historicalVitals) {
-                const recordedAt = new Date(now.getTime() - v.hoursAgo * 60 * 60 * 1000);
-                await tx.vitalSign.create({
-                  data: {
-                    admissionId: admission.id,
-                    recordedById: residentUser.id,
-                    temperature: v.temp,
-                    pulse: v.pulse,
-                    systolicBp: v.sBp,
-                    diastolicBp: v.dBp,
-                    respiratoryRate: v.rr,
-                    spo2: v.spo2,
-                    recordedAt,
-                  },
-                });
-              }
-              console.log("Seeded vital sign history for James Porter");
-            }
-          }
-
-          // Seed medications for the patient
-          const medsCount = await tx.medication.count({ where: { admissionId: admission.id } });
-          if (medsCount === 0) {
-            const medicationsToPrescribe = [
-              { drugName: "Heparin", dosage: "25,000 u/250mL", frequency: "Continuous" },
-              { drugName: "Nitroglycerin", dosage: "0.4 mcg/kg/min", frequency: "Continuous" },
-              { drugName: "Normal Saline", dosage: "125 mL/hr", frequency: "Continuous" },
-              { drugName: "Aspirin", dosage: "325 mg", frequency: "Daily" },
-              { drugName: "Metoprolol", dosage: "25 mg", frequency: "BID" },
-              { drugName: "Atorvastatin", dosage: "80 mg", frequency: "QHS" },
-              { drugName: "Lisinopril", dosage: "5 mg", frequency: "Daily" },
-              { drugName: "Morphine", dosage: "2 mg", frequency: "PRN q4h" }
-            ];
-
-            for (const med of medicationsToPrescribe) {
-              const createdMed = await tx.medication.create({
-                data: {
-                  admissionId: admission.id,
-                  prescribedById: specialistUser.id,
-                  drugName: med.drugName,
-                  dosage: med.dosage,
-                  frequency: med.frequency,
-                  isActive: true
-                }
-              });
-
-              // Seed historical administrations for this medication
-              const now = new Date();
-              if (med.drugName === "Aspirin") {
-                await tx.medicationAdministration.create({
-                  data: {
-                    medicationId: createdMed.id,
-                    administeredById: nurseUser.id,
-                    status: "ADMINISTERED",
-                    administeredDose: "325 mg",
-                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    notes: "Administered at bedside"
-                  }
-                });
-              } else if (med.drugName === "Atorvastatin") {
-                await tx.medicationAdministration.create({
-                  data: {
-                    medicationId: createdMed.id,
-                    administeredById: nurseUser.id,
-                    status: "ADMINISTERED",
-                    administeredDose: "80 mg",
-                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    notes: "Administered at bedside"
-                  }
-                });
-              } else if (med.drugName === "Normal Saline") {
-                await tx.medicationAdministration.create({
-                  data: {
-                    medicationId: createdMed.id,
-                    administeredById: nurseUser.id,
-                    status: "REFUSED",
-                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    notes: "Patient refused IV fluids"
-                  }
-                });
-              } else if (med.drugName === "Metoprolol") {
-                await tx.medicationAdministration.create({
-                  data: {
-                    medicationId: createdMed.id,
-                    administeredById: nurseUser.id,
-                    status: "HELD",
-                    scheduledTime: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    administeredAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
-                    notes: "Held: SBP < 100"
-                  }
-                });
-              }
-            }
-
-            // Seed Medical History, Allergies, Diagnoses, and Labs for testing patients
-            const existingHistory = await tx.medicalHistory.findUnique({ where: { patientId: patient.id } });
-            if (!existingHistory) {
-              await tx.medicalHistory.create({
-                data: {
-                  patientId: patient.id,
-                  diabetesDm: true,
-                  hypertensionHtn: true,
-                  pastDiseases: p.mrn === "MRN-JAMES-002" ? ["T1DM"] : ["Asthma"],
-                  previousOperations: true,
-                  operationsDetails: "Cesarean section (2020)",
-                  hasAllergies: true,
-                }
-              });
-
-              await tx.allergy.create({
-                data: {
-                  patientId: patient.id,
-                  allergen: "Latex",
-                  severity: "Mild"
-                }
-              });
-              console.log(`Seeded medical history and allergies for ${p.name}`);
-            }
-
-            const diagCount = await tx.diagnosis.count({ where: { admissionId: admission.id } });
-            if (diagCount === 0) {
-              await tx.diagnosis.create({
-                data: {
-                  admissionId: admission.id,
-                  conditionName: "Acute Respiratory Failure",
-                  status: "ACTIVE",
-                  diagnosedById: specialistUser.id
-                }
-              });
-
-              await tx.diagnosis.create({
-                data: {
-                  admissionId: admission.id,
-                  conditionName: "Sepsis, unspecified organism",
-                  status: "ACTIVE",
-                  diagnosedById: specialistUser.id
-                }
-              });
-              console.log(`Seeded diagnoses for ${p.name}`);
-            }
-
-            const labCount = await tx.labResult.count({ where: { admissionId: admission.id } });
-            if (labCount === 0) {
-              await tx.labResult.create({
-                data: {
-                  admissionId: admission.id,
-                  recordedById: specialistUser.id,
-                  testName: "Serum Potassium",
-                  resultValue: "5.8 mEq/L",
-                  abnormal: true,
-                  recordedAt: new Date()
-                }
-              });
-
-              await tx.labResult.create({
-                data: {
-                  admissionId: admission.id,
-                  recordedById: specialistUser.id,
-                  testName: "White Blood Cells (WBC)",
-                  resultValue: "14.2 x10^3/uL",
-                  abnormal: true,
-                  recordedAt: new Date()
-                }
-              });
-              console.log(`Seeded lab results for ${p.name}`);
-            }
-            
-            console.log(`Seeded medication orders & history for patient ${p.name}`);
-          }
-        }, { maxWait: 10000, timeout: 30000 });
+      if (!admission) {
+        admission = await tx.admission.create({
+          data: {
+            patientId: patient.id, bedId: bed.id, doctorId: specialist.id,
+            status: "ACTIVE", chiefComplaint: p.chiefComplaint,
+          },
+        });
+      } else {
+        admission = await tx.admission.update({
+          where: { id: admission.id },
+          data: { bedId: bed.id, doctorId: specialist.id, chiefComplaint: p.chiefComplaint },
+        });
       }
-    }
+
+      console.log(`✓ ${p.name} in ${p.bedNumber} (Admission: ${admission.id.slice(0, 8)}…)`);
+
+      // ── Reference document (available to all patients) ──────────────────────
+      if (referenceDocExists && referenceDocStats) {
+        const refDocCount = await tx.medicalDocument.count({
+          where: { admissionId: admission.id, originalFilename: "history-taking-chest-diseases.pdf" },
+        });
+        if (refDocCount === 0) {
+          await tx.medicalDocument.create({
+            data: {
+              admissionId: admission.id,
+              uploadedBy: specialist.id,
+              documentType: "clinical",
+              originalFilename: "history-taking-chest-diseases.pdf",
+              filePath: referenceDocPath,
+              mimeType: "application/pdf",
+              fileSize: referenceDocStats.size,
+              embeddingStatus: "PENDING",
+            },
+          });
+        }
+      }
+
+      // ── Vitals history ─────────────────────────────────────────────────────
+      const vitalsCount = await tx.vitalSign.count({ where: { admissionId: admission.id } });
+      if (vitalsCount === 0) {
+        const now = new Date();
+        const vitalsTemplate = {
+          "MRN-EMMA-001": [
+            { h: 24, t: 37.2, p: 88, sbp: 135, dbp: 85, rr: 18, spo2: 97 },
+            { h: 18, t: 37.4, p: 92, sbp: 132, dbp: 83, rr: 19, spo2: 96 },
+            { h: 12, t: 37.6, p: 96, sbp: 128, dbp: 80, rr: 20, spo2: 95 },
+            { h: 6, t: 37.8, p: 100, sbp: 125, dbp: 78, rr: 21, spo2: 94 },
+            { h: 0, t: 37.9, p: 102, sbp: 122, dbp: 76, rr: 22, spo2: 93 },
+          ],
+          "MRN-JAMES-002": [
+            { h: 24, t: 37.5, p: 80, sbp: 120, dbp: 80, rr: 18, spo2: 98 },
+            { h: 20, t: 38.1, p: 90, sbp: 115, dbp: 75, rr: 20, spo2: 96 },
+            { h: 16, t: 38.8, p: 100, sbp: 105, dbp: 65, rr: 24, spo2: 94 },
+            { h: 12, t: 39.3, p: 110, sbp: 95, dbp: 58, rr: 26, spo2: 92 },
+            { h: 8, t: 39.6, p: 115, sbp: 90, dbp: 54, rr: 28, spo2: 91 },
+            { h: 4, t: 39.8, p: 118, sbp: 88, dbp: 52, rr: 28, spo2: 91 },
+            { h: 0, t: 39.8, p: 118, sbp: 88, dbp: 52, rr: 28, spo2: 91 },
+          ],
+          "MRN-LIU-003": [
+            { h: 24, t: 38.9, p: 110, sbp: 110, dbp: 70, rr: 22, spo2: 92 },
+            { h: 18, t: 39.2, p: 115, sbp: 105, dbp: 65, rr: 24, spo2: 91 },
+            { h: 12, t: 39.5, p: 120, sbp: 100, dbp: 60, rr: 26, spo2: 90 },
+            { h: 6, t: 39.7, p: 122, sbp: 98, dbp: 58, rr: 27, spo2: 89 },
+            { h: 0, t: 39.9, p: 124, sbp: 96, dbp: 56, rr: 28, spo2: 88 },
+          ],
+          "MRN-SOFIA-004": [
+            { h: 24, t: 37.1, p: 92, sbp: 118, dbp: 76, rr: 20, spo2: 94 },
+            { h: 18, t: 37.3, p: 95, sbp: 116, dbp: 74, rr: 21, spo2: 93 },
+            { h: 12, t: 37.5, p: 98, sbp: 114, dbp: 72, rr: 22, spo2: 92 },
+            { h: 6, t: 37.7, p: 102, sbp: 112, dbp: 70, rr: 23, spo2: 91 },
+            { h: 0, t: 37.8, p: 105, sbp: 110, dbp: 68, rr: 24, spo2: 90 },
+          ],
+          "MRN-DEREK-005": [
+            { h: 24, t: 38.2, p: 105, sbp: 100, dbp: 62, rr: 21, spo2: 96 },
+            { h: 18, t: 38.4, p: 108, sbp: 98, dbp: 60, rr: 22, spo2: 95 },
+            { h: 12, t: 38.6, p: 112, sbp: 96, dbp: 58, rr: 23, spo2: 94 },
+            { h: 6, t: 38.8, p: 115, sbp: 94, dbp: 56, rr: 24, spo2: 93 },
+            { h: 0, t: 38.9, p: 118, sbp: 92, dbp: 54, rr: 25, spo2: 92 },
+          ],
+          "MRN-FATIMA-006": [
+            { h: 24, t: 37.9, p: 115, sbp: 105, dbp: 65, rr: 24, spo2: 91 },
+            { h: 18, t: 37.8, p: 118, sbp: 103, dbp: 63, rr: 25, spo2: 90 },
+            { h: 12, t: 37.7, p: 120, sbp: 101, dbp: 61, rr: 26, spo2: 89 },
+            { h: 6, t: 37.6, p: 122, sbp: 99, dbp: 59, rr: 27, spo2: 88 },
+            { h: 0, t: 37.5, p: 124, sbp: 97, dbp: 57, rr: 28, spo2: 87 },
+          ],
+        };
+
+        const vitals = vitalsTemplate[p.mrn] || [];
+        for (const v of vitals) {
+          await tx.vitalSign.create({
+            data: {
+              admissionId: admission.id, recordedById: resident.id,
+              temperature: v.t, pulse: v.p, systolicBp: v.sbp, diastolicBp: v.dbp,
+              respiratoryRate: v.rr, spo2: v.spo2,
+              recordedAt: new Date(now.getTime() - v.h * 60 * 60 * 1000),
+            },
+          });
+        }
+      }
+
+      // ── Lab results ───────────────────────────────────────────────────────
+      const labCount = await tx.labResult.count({ where: { admissionId: admission.id } });
+      if (labCount === 0) {
+        const labsTemplate = {
+          "MRN-EMMA-001": [
+            { test: "Troponin I", result: "0.45 ng/mL", abnormal: true },
+            { test: "BNP", result: "385 pg/mL", abnormal: true },
+            { test: "Hemoglobin", result: "11.2 g/dL", abnormal: true },
+            { test: "Creatinine", result: "1.1 mg/dL", abnormal: false },
+          ],
+          "MRN-JAMES-002": [
+            { test: "Troponin I", result: "12.4 ng/mL", abnormal: true },
+            { test: "CK-MB", result: "95 U/L", abnormal: true },
+            { test: "Lactate", result: "4.2 mmol/L", abnormal: true },
+            { test: "Ejection Fraction", result: "38%", abnormal: true },
+          ],
+          "MRN-LIU-003": [
+            { test: "Procalcitonin", result: "2.8 ng/mL", abnormal: true },
+            { test: "WBC", result: "18.5 x10^3/uL", abnormal: true },
+            { test: "Lactate", result: "5.1 mmol/L", abnormal: true },
+            { test: "Creatinine", result: "2.3 mg/dL", abnormal: true },
+          ],
+          "MRN-SOFIA-004": [
+            { test: "pH", result: "7.28", abnormal: true },
+            { test: "PaO2", result: "68 mmHg", abnormal: true },
+            { test: "PaCO2", result: "52 mmHg", abnormal: true },
+            { test: "HCO3", result: "18 mEq/L", abnormal: true },
+          ],
+          "MRN-DEREK-005": [
+            { test: "Bilirubin Total", result: "8.2 mg/dL", abnormal: true },
+            { test: "AST", result: "542 U/L", abnormal: true },
+            { test: "ALT", result: "638 U/L", abnormal: true },
+            { test: "INR", result: "3.2", abnormal: true },
+          ],
+          "MRN-FATIMA-006": [
+            { test: "Glucose", result: "486 mg/dL", abnormal: true },
+            { test: "Arterial pH", result: "7.18", abnormal: true },
+            { test: "HCO3", result: "8 mEq/L", abnormal: true },
+            { test: "Anion Gap", result: "18", abnormal: true },
+          ],
+        };
+
+        const labs = labsTemplate[p.mrn] || [];
+        for (const lab of labs) {
+          await tx.labResult.create({
+            data: {
+              admissionId: admission.id, recordedById: specialist.id,
+              testName: lab.test, resultValue: lab.result, abnormal: lab.abnormal,
+              recordedAt: new Date(),
+            },
+          });
+        }
+      }
+
+      // ── Diagnoses ──────────────────────────────────────────────────────────
+      const diagCount = await tx.diagnosis.count({ where: { admissionId: admission.id } });
+      if (diagCount === 0) {
+        const diagsTemplate = {
+          "MRN-EMMA-001": ["Acute Coronary Syndrome", "Hypertensive crisis"],
+          "MRN-JAMES-002": ["ST-elevation MI, anterior wall", "Cardiogenic shock", "Left ventricular dysfunction"],
+          "MRN-LIU-003": ["Sepsis, pneumonia", "Acute kidney injury", "SIRS"],
+          "MRN-SOFIA-004": ["Acute respiratory failure", "ARDS", "Post-operative complication"],
+          "MRN-DEREK-005": ["Acute liver failure", "Coagulopathy", "Hepatic encephalopathy"],
+          "MRN-FATIMA-006": ["Diabetic ketoacidosis", "Type 1 diabetes", "Dehydration"],
+        };
+
+        const diags = diagsTemplate[p.mrn] || [];
+        for (const diag of diags) {
+          await tx.diagnosis.create({
+            data: {
+              admissionId: admission.id, conditionName: diag, status: "ACTIVE",
+              diagnosedById: specialist.id,
+            },
+          });
+        }
+      }
+
+      // ── Clinical notes for RAG ────────────────────────────────────────────
+      const noteCount = await tx.clinicalNote.count({ where: { admissionId: admission.id } });
+      if (noteCount === 0) {
+        const notesTemplate = {
+          "MRN-EMMA-001": [
+            "Patient presented with acute chest pain and shortness of breath. Initial 12-lead ECG shows ST segment depression in leads II, III, and aVF. Troponin I elevated at 0.45 ng/mL. Cardiology consultation recommended. Started on dual antiplatelet therapy and anticoagulation. Awaiting catheterization.",
+            "Cardiology catheterization performed today. Significant stenosis found in right coronary artery. PTCA with stent placement completed successfully. No acute complications noted. Patient hemodynamically stable post-procedure. Continue current medications.",
+          ],
+          "MRN-JAMES-002": [
+            "54-year-old male admitted with acute anterior MI. Presented with crushing substernal chest pain radiating to left arm. ST elevation noted in V1-V4. Troponin peaked at 12.4 ng/mL. EF measured at 38% by echo with anterior wall hypokinesis. Creatinine initially 0.9, now 1.4 suggesting early contrast-associated renal impairment. Started on heparin, nitroglycerin, aspirin, metoprolol.",
+            "Day 2: Patient remains in critical condition. BP marginally improved with inotropic support. Renal function deteriorating. ICU course complicated by arrhythmias requiring antiarrhythmic therapy. Team discussing advanced support options including possible mechanical support. Family meeting scheduled.",
+          ],
+          "MRN-LIU-003": [
+            "68-year-old with pneumonia complicated by sepsis. Fever, productive cough, hypoxia. Procalcitonin 2.8 ng/mL, WBC 18.5. Lactate 5.1 indicating tissue hypoperfusion. Started on broad-spectrum antibiotics (piperacillin-tazobactam, vancomycin). Fluid resuscitation ongoing. Vasopressor support initiated for BP support.",
+            "Cultures from blood and sputum sent. Source control infection likely lung. Patient intubated overnight due to progressive hypoxemia. Mechanical ventilation on FiO2 60% achieving SpO2 92%. CXR shows bilateral infiltrates consistent with ARDS. PEEP 12 cm H2O. Prone positioning considered for tomorrow.",
+          ],
+          "MRN-SOFIA-004": [
+            "Post-operative day 3 from major abdominal surgery. Patient developed acute respiratory failure overnight. Rapid deterioration with increasing dyspnea and hypoxemia. PaO2 68 mmHg, PaCO2 52 mmHg on NRB mask. pH 7.28 indicating respiratory acidosis. Emergent intubation performed. CXR consistent with ARDS pattern.",
+            "ARDSNet protocol implemented. Lung protective ventilation with low tidal volumes. Sedation with propofol and fentanyl. Paralytic agent onboard. Repeat labs show worsening gas exchange. Discussed possible role for ECMO. Infectious workup initiated to rule out post-op pneumonia.",
+          ],
+          "MRN-DEREK-005": [
+            "43-year-old admitted with acute liver failure. Jaundiced, encephalopathic, coagulopathic. Bilirubin 8.2, AST 542, ALT 638, INR 3.2. No prior history of liver disease. Viral hepatitis and acetaminophen overdose ruled out. Imaging suggests possible autoimmune hepatitis. Transferred to ICU for close monitoring.",
+            "Hepatology consult obtained. Recommended high-dose corticosteroids pending further workup. Patient became progressively more encephalopathic requiring intubation for airway protection. Listed for urgent liver transplant evaluation. Lactulose and rifaxomicin started. FFP transfused for coagulopathy.",
+          ],
+          "MRN-FATIMA-006": [
+            "23-year-old type 1 diabetic presenting with severe DKA. Glucose 486 mg/dL, arterial pH 7.18, HCO3 8 mEq/L, anion gap 18. Serum osmolality elevated. Patient confused and dehydrated. Insulin pump malfunction precipitated this episode. Immediate IV fluid resuscitation and insulin therapy initiated.",
+            "After 12 hours of treatment, pH improved to 7.28 and HCO3 to 12 mEq/L. Glucose responsive to insulin infusion. Patient regaining mental clarity. Continue aggressive IV fluids, insulin, and electrolyte monitoring. Endocrinology consulted regarding insulin pump replacement and diabetes management.",
+          ],
+        };
+
+        const notes = notesTemplate[p.mrn] || [];
+        for (const noteText of notes) {
+          await tx.clinicalNote.create({
+            data: {
+              admissionId: admission.id,
+              authorId: specialist.id,
+              content: noteText,
+            },
+          });
+        }
+      }
+
+      // ── Medications ───────────────────────────────────────────────────────
+      const medCount = await tx.medication.count({ where: { admissionId: admission.id } });
+      if (medCount === 0) {
+        const medsTemplate = {
+          "MRN-EMMA-001": [
+            { name: "Aspirin", dose: "325 mg", freq: "Daily" },
+            { name: "Ticagrelor", dose: "180 mg loading", freq: "Daily" },
+            { name: "Heparin", dose: "80 u/kg bolus", freq: "Continuous" },
+            { name: "Nitroglycerin", dose: "0.4 mcg/kg/min", freq: "Continuous" },
+            { name: "Metoprolol", dose: "25 mg", freq: "BID" },
+          ],
+          "MRN-JAMES-002": [
+            { name: "Heparin", dose: "25,000 u/250mL", freq: "Continuous" },
+            { name: "Nitroglycerin", dose: "0.4 mcg/kg/min", freq: "Continuous" },
+            { name: "Aspirin", dose: "325 mg", freq: "Daily" },
+            { name: "Atorvastatin", dose: "80 mg", freq: "QHS" },
+            { name: "Dobutamine", dose: "5 mcg/kg/min", freq: "Continuous" },
+          ],
+          "MRN-LIU-003": [
+            { name: "Piperacillin-tazobactam", dose: "4.5 g", freq: "Q6H" },
+            { name: "Vancomycin", dose: "15-20 mg/kg", freq: "Q12H" },
+            { name: "Norepinephrine", dose: "5 mcg/min", freq: "Continuous" },
+            { name: "Lactated Ringer's", dose: "250 mL/hr", freq: "Continuous" },
+          ],
+          "MRN-SOFIA-004": [
+            { name: "Propofol", dose: "10-15 mg/kg/hr", freq: "Continuous" },
+            { name: "Fentanyl", dose: "50 mcg/hr", freq: "Continuous" },
+            { name: "Vecuronium", dose: "0.1 mg/kg", freq: "Q30min PRN" },
+            { name: "Lung-protective ventilation", dose: "6 mL/kg", freq: "Settings" },
+          ],
+          "MRN-DEREK-005": [
+            { name: "Methylprednisolone", dose: "500 mg", freq: "IV Q6H x 3 days" },
+            { name: "Lactulose", dose: "30 mL", freq: "TID" },
+            { name: "Rifaxomicin", dose: "550 mg", freq: "BID" },
+            { name: "Fresh Frozen Plasma", dose: "2 units", freq: "PRN" },
+          ],
+          "MRN-FATIMA-006": [
+            { name: "Regular Insulin", dose: "0.1 u/kg/hr", freq: "Continuous infusion" },
+            { name: "Normal Saline", dose: "500 mL/hr", freq: "Continuous" },
+            { name: "Potassium", dose: "20-40 mEq", freq: "PRN when K <5" },
+            { name: "Phosphate", dose: "20-40 mmol", freq: "PRN" },
+          ],
+        };
+
+        const meds = medsTemplate[p.mrn] || [];
+        for (const med of meds) {
+          await tx.medication.create({
+            data: {
+              admissionId: admission.id, prescribedById: specialist.id,
+              drugName: med.name, dosage: med.dose, frequency: med.freq, isActive: true,
+            },
+          });
+        }
+      }
+
+      // ── Allergies ──────────────────────────────────────────────────────────
+      const allergyCount = await tx.allergy.count({ where: { patientId: patient.id } });
+      if (allergyCount === 0) {
+        const allergyTemplate = {
+          "MRN-EMMA-001": [{ allergen: "Penicillin", severity: "Moderate" }],
+          "MRN-JAMES-002": [{ allergen: "Aspirin", severity: "Severe" }],
+          "MRN-LIU-003": [{ allergen: "Sulfa drugs", severity: "Moderate" }],
+          "MRN-SOFIA-004": [{ allergen: "Latex", severity: "Severe" }],
+          "MRN-DEREK-005": [{ allergen: "Erythromycin", severity: "Mild" }],
+          "MRN-FATIMA-006": [{ allergen: "NKDA", severity: "None" }],
+        };
+
+        const allergies = allergyTemplate[p.mrn] || [];
+        for (const allergy of allergies) {
+          if (allergy.allergen !== "NKDA") {
+            await tx.allergy.create({
+              data: { patientId: patient.id, allergen: allergy.allergen, severity: allergy.severity },
+            });
+          }
+        }
+      }
+
+      // ── Medical history ───────────────────────────────────────────────────
+      const histCount = await tx.medicalHistory.count({ where: { patientId: patient.id } });
+      if (histCount === 0) {
+        await tx.medicalHistory.create({
+          data: {
+            patientId: patient.id,
+            hypertensionHtn: true,
+            diabetesDm: ["MRN-FATIMA-006"].includes(p.mrn),
+            pastDiseases: p.mrn === "MRN-JAMES-002" ? ["CAD", "Hypertension"] : ["Asthma"],
+            previousOperations: ["MRN-SOFIA-004"].includes(p.mrn),
+            operationsDetails: p.mrn === "MRN-SOFIA-004" ? "Recent abdominal surgery" : null,
+            hasAllergies: true,
+          },
+        });
+      }
+    }, { maxWait: 15000, timeout: 45000 });
   }
 
-  console.log("Database seeding completed.");
+  console.log("\n✓ Database seeding completed successfully!");
+  console.log("\nLogin credentials:");
+  console.log(`  Resident: ${residentEmail} / SuperSecurePassword2026!`);
+  console.log(`  Specialist: ${specialistEmail} / SuperSecurePassword2026!`);
+  console.log(`  Nurse: ${nurseEmail} / SuperSecurePassword2026!`);
 }
 
 main()

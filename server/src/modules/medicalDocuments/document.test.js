@@ -4,9 +4,21 @@ const app = require("../../../app");
 const prisma = require("../../../src/utils/prismaClient");
 const config = require("../../../src/config/env");
 const fs = require("fs");
-const path = require("path");
 
 const COOKIE_NAME = config.cookieName || "token";
+
+/** Poll a document until indexing settles, so tests don't race the async job. */
+const waitForIndexing = async (documentId, timeoutMs = 15000) => {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const doc = await prisma.medicalDocument.findUnique({ where: { id: documentId } });
+    if (doc && !["PENDING", "PROCESSING"].includes(doc.embeddingStatus)) return doc;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  return prisma.medicalDocument.findUnique({ where: { id: documentId } });
+};
 
 describe("Medical Documents API", () => {
   let doctorToken, nurseToken, testAdmission, testDoctor, testPatient, testBed;
@@ -60,17 +72,18 @@ describe("Medical Documents API", () => {
   });
 
   afterAll(async () => {
-    // Cleanup files in uploads/documents
-    const uploadDir = path.join(__dirname, "../../../uploads/documents");
-    if (fs.existsSync(uploadDir)) {
-      const files = fs.readdirSync(uploadDir);
-      for (const file of files) {
-        fs.unlinkSync(path.join(uploadDir, file));
-      }
+    // Remove only the files this suite uploaded — the folder is shared with
+    // real uploads on a development database.
+    const documents = await prisma.medicalDocument.findMany({
+      where: { admissionId: testAdmission.id },
+      select: { filePath: true },
+    });
+    for (const { filePath } of documents) {
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
 
-    await prisma.documentEmbedding.deleteMany();
-    await prisma.medicalDocument.deleteMany();
+    await prisma.documentEmbedding.deleteMany({ where: { admissionId: testAdmission.id } });
+    await prisma.medicalDocument.deleteMany({ where: { admissionId: testAdmission.id } });
     await prisma.admission.deleteMany({ where: { id: testAdmission.id } });
     await prisma.bed.deleteMany({ where: { bedNumber: "BED-DOC-1" } });
     await prisma.patient.deleteMany({ where: { mrn: "MRN-DOC-123" } });
@@ -82,27 +95,72 @@ describe("Medical Documents API", () => {
   });
 
   describe("POST /api/admissions/:id/documents (Upload)", () => {
-    it("should allow a nurse to upload a valid pdf document", async () => {
+    it("should allow a nurse to upload a text document and index it for RAG", async () => {
       const res = await request(app)
         .post(`/api/admissions/${testAdmission.id}/documents`)
         .set("Cookie", `${COOKIE_NAME}=${nurseToken}`)
-        .attach("file", Buffer.from("dummy pdf content"), "report.pdf")
+        .attach(
+          "file",
+          Buffer.from(
+            "ICU consult note. Serum creatinine 1.4 mg/dL, up from a baseline of 0.9 mg/dL. " +
+              "Echocardiography reports an ejection fraction of 38 percent with anterior wall hypokinesis."
+          ),
+          "consult.txt"
+        )
         .field("document_type", "Lab");
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty("data");
-      expect(res.body.data.originalFilename).toBe("report.pdf");
+      expect(res.body.data.originalFilename).toBe("consult.txt");
       expect(res.body.data.embeddingStatus).toBe("PENDING");
+      expect(res.body.data.mimeType).toBe("text/plain");
+      expect(res.body.data.fileSize).toBeGreaterThan(0);
 
-      // Verify that after a brief timeout, status changes to COMPLETED
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Indexing runs out of band — poll until it settles.
+      const indexed = await waitForIndexing(res.body.data.id);
+      expect(indexed.embeddingStatus).toBe("COMPLETED");
+      expect(indexed.chunkCount).toBeGreaterThan(0);
+      expect(indexed.embeddedAt).not.toBeNull();
 
-      const getRes = await request(app)
-        .get(`/api/admissions/${testAdmission.id}/documents`)
-        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`);
+      const chunks = await prisma.documentEmbedding.count({
+        where: { documentId: res.body.data.id },
+      });
+      expect(chunks).toBe(indexed.chunkCount);
+    });
 
-      expect(getRes.statusCode).toBe(200);
-      expect(getRes.body.data[0].embeddingStatus).toBe("COMPLETED");
+    it("should mark an unparseable PDF as FAILED with a reason instead of silently succeeding", async () => {
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmission.id}/documents`)
+        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`)
+        .attach("file", Buffer.from("not really a pdf"), "broken.pdf")
+        .field("document_type", "Clinical");
+
+      expect(res.statusCode).toBe(201);
+
+      const indexed = await waitForIndexing(res.body.data.id);
+      expect(indexed.embeddingStatus).toBe("FAILED");
+      expect(indexed.embeddingError).toEqual(expect.stringContaining("PDF"));
+      expect(indexed.chunkCount).toBe(0);
+    });
+
+    it("should mark an image document as SKIPPED because it carries no extractable text", async () => {
+      // Minimal 1x1 PNG.
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "base64"
+      );
+
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmission.id}/documents`)
+        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`)
+        .attach("file", png, "scan.png")
+        .field("document_type", "Imaging");
+
+      expect(res.statusCode).toBe(201);
+
+      const indexed = await waitForIndexing(res.body.data.id);
+      expect(indexed.embeddingStatus).toBe("SKIPPED");
+      expect(indexed.embeddingError).toEqual(expect.stringContaining("OCR"));
     });
 
     it("should return 415 for unsupported file types", async () => {

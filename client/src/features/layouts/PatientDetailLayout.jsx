@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Bell,
   Bot,
+  MessageSquareText,
   LayoutDashboard,
   RefreshCcw,
 } from 'lucide-react';
@@ -18,8 +19,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { patientsService } from '../services/patientsService';
+import { useAuthStore } from '../store/authStore';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
+// `roles` restricts a tab to specific roles; omit it for tabs everyone sees.
+const CLINICIAN_ROLES = ['MEDICAL_RESIDENT', 'ICU_SPECIALIST'];
+
 const TABS = [
   { label: 'Overview',     path: '',             icon: LayoutDashboard },
   { label: 'Vitals',       path: 'vitals',       icon: Activity },
@@ -31,6 +36,7 @@ const TABS = [
   { label: 'Approvals',    path: 'treatment-approvals', icon: ShieldCheck },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
   { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
+  { label: 'AI Chat',      path: 'ai-chat',      icon: MessageSquareText, roles: CLINICIAN_ROLES },
 ];
 
 // ─── Acuity ───────────────────────────────────────────────────────────────────
@@ -80,6 +86,7 @@ function VitalCol({ label, value, color = 'text-foreground', unit }) {
 export default function PatientDetailLayout() {
   const { admissionId } = useParams();
   const navigate = useNavigate();
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const [admission, setAdmission] = useState(null);
   const [vitals, setVitals]       = useState(null);
@@ -264,7 +271,7 @@ export default function PatientDetailLayout() {
           className="flex items-center overflow-x-auto scrollbar-none px-3 sm:px-5 border-t border-border/50"
           aria-label="Patient detail tabs"
         >
-          {TABS.map(({ label, path, icon: Icon }) => {
+          {TABS.filter(({ roles }) => !roles || roles.includes(userRole)).map(({ label, path, icon: Icon }) => {
             const to = path ? `${basePath}/${path}` : basePath;
             return (
               <NavLink
