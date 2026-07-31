@@ -572,11 +572,13 @@ export default function PatientDocumentsPage() {
       flashNotice(`"${target.originalFilename}" was deleted.`);
     } catch (err) {
       console.error('Failed to delete document:', err);
-      setActionError(
-        err?.response?.status === 404
-          ? 'That document no longer exists.'
-          : err?.response?.data?.message || 'Failed to delete the document. Please try again.'
-      );
+      if (err?.response?.status === 404) {
+        setDocuments(prev => prev.filter(d => d.id !== target.id));
+        setDocToDelete(null);
+        flashNotice(`"${target.originalFilename}" was already deleted.`);
+      } else {
+        setActionError(err?.response?.data?.message || 'Failed to delete the document. Please try again.');
+      }
     } finally {
       setDeletingId(null);
     }

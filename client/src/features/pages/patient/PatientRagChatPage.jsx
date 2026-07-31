@@ -40,14 +40,6 @@ const PATIENT_QUESTIONS = [
   'What does the uploaded clinical documentation indicate about the diagnosis?',
 ];
 
-const KNOWLEDGE_QUESTIONS = [
-  'What information should be gathered in a patient\'s past medical history?',
-  'What are the cardinal signs and symptoms of respiratory disease?',
-  'What is the pathophysiology of acute respiratory distress syndrome (ARDS)?',
-  'How do you manage acute hyponatremia in ICU patients?',
-  'What are the complications of prolonged mechanical ventilation?',
-];
-
 function formatTime(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -184,7 +176,6 @@ export default function PatientRagChatPage() {
   const [question, setQuestion] = useState('');
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [mode, setMode] = useState('patient');
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -203,7 +194,7 @@ export default function PatientRagChatPage() {
     if (!value || isAsking) return;
 
     setQuestion('');
-    await ask(value, { mode });
+    await ask(value, { mode: 'patient' });
     inputRef.current?.focus();
   };
 
@@ -245,41 +236,9 @@ export default function PatientRagChatPage() {
                   AI Chat Assistant
                 </h1>
                 <p className="font-sans text-[11px] text-muted-foreground truncate">
-                  {mode === 'patient' ? (
-                    <>Grounded in {patientName ? `${patientName}'s` : 'this'} recorded data and uploaded documents — answers cite their source.</>
-                  ) : (
-                    <>Medical knowledge questions — not patient-specific</>
-                  )}
+                  Grounded in {patientName ? `${patientName}'s` : 'this'} recorded data and uploaded documents — answers cite their source.
                 </p>
               </div>
-            </div>
-
-            {/* Mode selector */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setMode('patient')}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  mode === 'patient'
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-                title="Ask questions about this patient's records"
-              >
-                Patient
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('knowledge')}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  mode === 'knowledge'
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-muted-foreground hover:bg-muted'
-                }`}
-                title="Ask general medical knowledge questions"
-              >
-                Medical Knowledge
-              </button>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
@@ -330,21 +289,16 @@ export default function PatientRagChatPage() {
                   <Sparkles size={22} />
                 </div>
                 <h2 className="font-display text-base font-bold text-foreground">
-                  {mode === 'patient' ? 'Ask about this admission' : 'Ask medical knowledge questions'}
+                  Ask about this admission
                 </h2>
                 <p className="mt-1 max-w-sm font-sans text-xs leading-relaxed text-muted-foreground">
-                  {mode === 'patient' ? (
-                    <>Questions are answered only from this patient's vitals, labs, notes, examinations,
-                    and indexed documents. If the record does not contain the answer, the assistant
-                    says so rather than guessing.</>
-                  ) : (
-                    <>Ask about medical concepts, guidelines, and best practices. Answers are grounded
-                    in the medical knowledge base and cite their source.</>
-                  )}
+                  Questions are answered only from this patient's vitals, labs, notes, examinations,
+                  and indexed documents. If the record does not contain the answer, the assistant
+                  says so rather than guessing.
                 </p>
 
                 <div className="mt-5 flex w-full max-w-md flex-col gap-2">
-                  {(mode === 'patient' ? PATIENT_QUESTIONS : KNOWLEDGE_QUESTIONS).map((suggestion) => (
+                  {PATIENT_QUESTIONS.map((suggestion) => (
                     <button
                       key={suggestion}
                       type="button"
@@ -410,7 +364,7 @@ export default function PatientRagChatPage() {
                 rows={1}
                 maxLength={2000}
                 disabled={isAsking}
-                placeholder={mode === 'patient' ? 'Ask about vitals, labs, medications, notes, or an uploaded document…' : 'Ask about medical concepts, guidelines, symptoms, or clinical frameworks…'}
+                placeholder="Ask about vitals, labs, medications, notes, or an uploaded document…"
                 aria-label="Ask the AI assistant a question"
                 className="min-h-[42px] max-h-32 resize-y font-sans text-sm"
               />

@@ -28,11 +28,11 @@ const CLINICIAN_ROLES = ['MEDICAL_RESIDENT', 'ICU_SPECIALIST'];
 const TABS = [
   { label: 'Overview',     path: '',             icon: LayoutDashboard },
   { label: 'Vitals',       path: 'vitals',       icon: Activity },
-  { label: 'Medications',  path: 'medications',  icon: Pill },
   { label: 'Diagnoses',    path: 'diagnoses',    icon: Stethoscope },
-  { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Documents',    path: 'documents',    icon: FileText },
+  { label: 'Medications',  path: 'medications',  icon: Pill },
   { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
+  { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Approvals',    path: 'treatment-approvals', icon: ShieldCheck },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
   { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },

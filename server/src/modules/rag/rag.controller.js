@@ -70,10 +70,8 @@ const reindexDocument = catchAsync(async (req, res) => {
 });
 
 const getDocumentChunks = catchAsync(async (req, res) => {
-  const result = await indexingService.getDocumentChunks(
-    req.params.documentId,
-    req.query.limit
-  );
+  const limit = req.query.limit ? parseInt(req.query.limit, 10) : undefined;
+  const result = await indexingService.getDocumentChunks(req.params.documentId, limit);
 
   res.status(200).json({
     status: "success",

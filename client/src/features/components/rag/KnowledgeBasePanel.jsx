@@ -151,9 +151,9 @@ export function KnowledgeBasePanel({ admissionId, canReindex = false, className 
           <p className="font-sans text-[11px] text-muted-foreground mt-1 leading-relaxed">
             Upload consult notes, reports, or discharge letters to let it search their contents too.
           </p>
-          <Button asChild size="sm" variant="outline" className="mt-3 h-7 gap-1.5 text-[11px]">
-            <Link to={documentsPath}>
-              <Upload size={12} /> Upload a document
+          <Button asChild size="sm" variant="outline" className="mt-3 h-8 gap-1.5 text-[11px] font-sans">
+            <Link to={documentsPath} className="flex items-center justify-center gap-1.5">
+              <Upload size={13} /> Upload a document
             </Link>
           </Button>
         </div>
