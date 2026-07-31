@@ -15,6 +15,7 @@ import {
   History,
   Settings,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -47,21 +48,23 @@ const SIDEBAR_NAV = {
     { to: '/help',                      label: 'Help & Docs',      icon: HelpCircle },
   ],
   MEDICAL_RESIDENT: [
-    { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
-    { to: '/patients',       label: 'Patient List',   icon: Users },
-    { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
-    { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
-    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
+    { to: '/',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/patients',       label: 'Patient List',        icon: Users },
+    { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
+    { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },
+    { to: '/medical-assistant', label: 'Medical Assistant', icon: Sparkles },
+    { to: '/nursing-notes',  label: 'Nursing Notes',       icon: FileText },
+    { to: '/help',           label: 'Help & Docs',         icon: HelpCircle },
   ],
   ICU_SPECIALIST: [
-    { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
-    { to: '/patients',       label: 'Patient List',   icon: Users },
-    { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
-    { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
-    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
-    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
+    { to: '/',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/patients',       label: 'Patient List',        icon: Users },
+    { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
+    { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },
+    { to: '/medical-assistant', label: 'Medical Assistant', icon: Sparkles },
+    { to: '/discharge',      label: 'Discharge',           icon: ClipboardList },
+    { to: '/nursing-notes',  label: 'Nursing Notes',       icon: FileText },
+    { to: '/help',           label: 'Help & Docs',         icon: HelpCircle },
   ],
 };
 

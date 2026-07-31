@@ -447,20 +447,37 @@ Daily SOAP-style progress documentation.
 | document_type | VARCHAR(100) | NOT NULL | Category |
 | original_filename | VARCHAR(255) | NOT NULL | Original name |
 | file_path | TEXT | NOT NULL | Storage path |
-| embedding_status | embedding_status | DEFAULT 'PENDING' | AI pipeline state |
+| mime_type | VARCHAR(150) | NULL | Mime type captured at upload; selects the text extractor |
+| file_size | INTEGER | NULL | Size in bytes |
+| embedding_status | embedding_status | DEFAULT 'PENDING' | RAG pipeline state — see below |
+| embedding_error | TEXT | NULL | Human-readable reason for `FAILED` / `SKIPPED` |
+| embedding_model | VARCHAR(150) | NULL | Provider + model that produced the chunks |
+| chunk_count | INTEGER | DEFAULT 0 | Number of indexed chunks |
+| embedded_at | TIMESTAMPTZ | NULL | When indexing last completed |
 | uploaded_at | TIMESTAMPTZ | DEFAULT NOW() | Upload time |
 | is_archived | BOOLEAN | DEFAULT FALSE | Soft delete |
 | archived_at | TIMESTAMPTZ | NULL | Archive time |
 
+`embedding_status` lifecycle: `PENDING` → `PROCESSING` → `COMPLETED` \| `SKIPPED` \| `FAILED`.
+`SKIPPED` means the file carries no extractable text (e.g. a scanned image with no OCR) — retrying will not help. `FAILED` is technical and retryable via `POST /rag/documents/:id/reindex`.
+
 ## 6.6 document_embeddings
+
+Written and read exclusively by the RAG pipeline (`src/modules/rag`) using raw SQL — Prisma cannot map the pgvector type.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PK | Chunk id |
 | document_id | UUID | FK → medical_documents, NOT NULL | Source doc |
-| admission_id | UUID | FK → admissions, NOT NULL | Scope for RAG |
+| admission_id | UUID | FK → admissions, NOT NULL | Scope for RAG — every query filters on this |
+| chunk_index | INTEGER | DEFAULT 0, UNIQUE with document_id | Position within the document |
 | chunk_text | TEXT | NOT NULL | Extracted chunk |
-| embedding | VECTOR(768) | NOT NULL | Embedding vector |
+| char_count | INTEGER | DEFAULT 0 | Chunk length |
+| embedding_model | VARCHAR(150) | NULL | Provider + model that produced the vector |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Index time |
+| embedding | VECTOR(1024) | NOT NULL | Embedding vector |
+
+The vector width must match `EMBEDDING_DIMENSIONS`. 1024 is the native output of both the Bedrock-reachable embedding models (Titan Text Embeddings V2, Cohere Embed v4) and the built-in local provider.
 
 ---
 
@@ -617,9 +634,10 @@ CREATE INDEX idx_alerts_open ON alerts(admission_id) WHERE status = 'OPEN';
 CREATE INDEX idx_notifications_unread ON notifications(user_id) WHERE status = 'UNREAD';
 CREATE INDEX idx_audit_created ON audit_logs(created_at DESC);
 
--- Vectors
-CREATE INDEX idx_document_embeddings_vector
-  ON document_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- Vectors (HNSW — better recall than ivfflat at ICU-scale corpora, and needs no
+-- training pass, so it works from the first inserted row)
+CREATE INDEX document_embeddings_embedding_hnsw_idx
+  ON document_embeddings USING hnsw (embedding vector_cosine_ops);
 ```
 
 ## 9.4 Soft-delete tables

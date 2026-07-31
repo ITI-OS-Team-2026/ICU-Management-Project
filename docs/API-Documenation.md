@@ -24,6 +24,7 @@
 12. Follow-ups (SOAP)
 13. Medical Documents
 14. AI Services (Summaries & RAG Query)
+14b. RAG Assistant (`/rag`)
 15. Alerts & Alert Reviews
 16. Notifications
 17. Treatment Approvals
@@ -410,21 +411,23 @@
 
 ## `POST /admissions/:id/documents`
 - **Auth:** Nurse, Resident, Specialist
-- **Description:** Multipart upload; triggers async embedding job.
-- **Request Body (multipart):** `file`, `document_type`
-- **Responses:** `201 Created` (`embedding_status: pending`) · `413` · `415`
+- **Description:** Multipart upload. On success the document is queued for RAG indexing out of band — the response returns immediately with `embedding_status: "PENDING"`; poll `GET /rag/documents/:id/status` for progress.
+- **Request Body (multipart):** `file` (PDF, JPEG, PNG, TXT — max 10 MB), `document_type`
+- **Responses:** `201 Created` — includes `mimeType`, `fileSize`, `embeddingStatus` · `404` unknown admission · `409` admission not `ACTIVE` · `413` too large · `415` unsupported type
 
 ## `GET /admissions/:id/documents`
 - **Auth:** Nurse, Resident, Specialist
+- **Description:** Active (non-archived) documents, newest first, each with its indexing state (`embeddingStatus`, `chunkCount`, `embeddingError`).
 
 ## `GET /documents/:id/download`
 - **Auth:** Nurse, Resident, Specialist
 
 ## `DELETE /documents/:id`
 - **Auth:** Resident, Specialist
+- **Description:** Soft archive. Chunks are retained but excluded from retrieval immediately.
 - **Responses:** `204 No Content`
 
-*`document_embeddings` has no client API — written only by the embedding job.*
+*`document_embeddings` has no direct client API — it is written only by the RAG indexing pipeline and read through §14b.*
 
 ---
 
@@ -439,15 +442,117 @@
 ## `GET /admissions/:id/summaries`
 - **Auth:** Nurse, Resident, Specialist
 
+## `POST /ai/admissions/:admissionId/patient-summary`
+- **Auth:** Resident, Specialist
+- **Description:** Generates a full ICU handoff summary through Bedrock. Independent of the RAG assistant.
+- **Responses:** `201 Created` · `503`
+
+## `GET /ai/admissions/:admissionId/patient-context`
+- **Auth:** Resident, Specialist
+- **Description:** The aggregated data the summary would be built from, without invoking the LLM.
+
+## `DELETE /ai/summaries/:summaryId` · `PATCH /ai/summaries/:summaryId/restore`
+- **Auth:** Resident, Specialist
+- **Responses:** `200 OK` · `404` · `409` already in that state
+
 ## `POST /ai/query`
 - **Auth:** Resident, Specialist
+- **Description:** Legacy alias for `POST /rag/query` — same implementation, same response shape.
 - **Request Body:** `{ admission_id, question, include_history?: boolean }`
-- **Responses:** `200 OK` — `{ id, ai_response, cited_sources }` · `503`
+- **Responses:** `200 OK` · `404` · `503`
 - **Related:** SRS FR-3.1
 
 ## `GET /admissions/:id/ai-query-logs`
 - **Auth:** Resident, Specialist
 - **Query:** `limit`
+
+---
+
+# 14b. RAG Assistant (`/rag`)
+
+Retrieval-augmented question answering over a **single admission**. Every query embeds the question, runs a pgvector similarity search across that admission's indexed document chunks, joins the admission's structured clinical records, and asks the LLM to answer using only that context with inline citations. There is no code path that widens the scope beyond one admission (SRS FR-3.1).
+
+## `POST /rag/query`
+- **Auth:** Resident, Specialist
+- **Request Body:** `{ admission_id, question, include_history?: boolean, top_k?: 1..25 }`
+- **Responses:** `200 OK` · `400` invalid question · `404` unknown admission · `503` AI service unavailable
+- **Response shape:**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "uuid",
+    "admission_id": "uuid",
+    "question": "What did the echocardiogram show?",
+    "ai_response": "The echocardiogram reported an ejection fraction of 38 percent [Document: consult.pdf, part 1].",
+    "cited_sources": [
+      {
+        "type": "document_chunk",
+        "id": "uuid",
+        "document_id": "uuid",
+        "chunk_index": 0,
+        "label": "Document: consult.pdf, part 1",
+        "excerpt": "Echocardiography reports an ejection fraction of 38 percent…",
+        "score": 0.4812,
+        "cited": true
+      },
+      {
+        "type": "vital_signs",
+        "id": "uuid",
+        "label": "Vitals log, 30 Jul, 23:47",
+        "timestamp": "2026-07-30T23:47:00.000Z",
+        "excerpt": "temp 37.4°C, pulse 112 bpm, BP 96/58 mmHg, RR 22/min, SpO2 91%",
+        "cited": false
+      }
+    ],
+    "created_at": "2026-07-30T23:47:12.000Z",
+    "retrieval": {
+      "mode": "llm",
+      "embedding_model": "local:hashed-lexical-v1",
+      "document_chunks_retrieved": 1,
+      "clinical_records_retrieved": 2,
+      "clinical_records_available": 2,
+      "top_score": 0.4812,
+      "duration_ms": 8420
+    }
+  }
+}
+```
+- **`retrieval.mode`:** `llm` (generated) · `retrieval_only` (no LLM configured — the top retrieved records are returned verbatim) · `no_context` (nothing recorded for this admission; `ai_response` is the explicit "Not enough recorded data…" state and no LLM call is made).
+- **`cited_sources[].cited`:** `true` when the answer text references that source label, so the UI can separate referenced sources from the wider retrieval set.
+
+## `GET /rag/admissions/:admissionId/history`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–100, default 30)
+- **Description:** Conversation transcript, **oldest first** for direct chat rendering.
+
+## `DELETE /rag/admissions/:admissionId/history`
+- **Auth:** Resident, Specialist
+- **Description:** Clears `ai_query_logs` for the admission. The audit trail is unaffected.
+- **Responses:** `200 OK` — `{ status, message, deleted }`
+
+## `GET /rag/admissions/:admissionId/index`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Knowledge-base status for the admission: `counts` by embedding state, `indexed_chunks`, `is_searchable`, `is_busy`, `embedding_provider`, plus per-document detail.
+
+## `POST /rag/admissions/:admissionId/reindex`
+- **Auth:** Resident, Specialist
+- **Description:** Re-queues every `PENDING` / `FAILED` document for the admission.
+- **Responses:** `202 Accepted` — `{ queued }`
+
+## `GET /rag/documents/:documentId/status`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Poll one document's indexing progress. `is_retryable` is `true` when a re-index would help.
+
+## `POST /rag/documents/:documentId/reindex`
+- **Auth:** Resident, Specialist
+- **Description:** Synchronous re-extract → re-chunk → re-embed of one document.
+- **Responses:** `200 OK` · `404` · `409` already indexing
+
+## `GET /rag/documents/:documentId/chunks`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–200, default 50)
+- **Description:** The exact chunks stored for a document — lets a clinician audit what the assistant can see.
 
 ---
 
@@ -571,6 +676,7 @@
 | Follow-ups | POST/GET/DELETE | `/follow-ups` … | Clinical |
 | Documents | POST/GET/DELETE + download | `/documents` … | Clinical |
 | AI | POST/GET | `/ai/summary`, `/ai/query`, logs | Resident/Specialist (+ GET summaries Nurse) |
+| RAG | POST/GET/DELETE | `/rag/query`, history, index status, re-index, chunks | Resident/Specialist (+ GET index/status Nurse) |
 | Alerts | GET + reviews | `/alerts` … | Clinical |
 | Notifications | GET/PATCH | `/notifications` … | Own user |
 | Treatment | POST/GET/PATCH/DELETE | `/treatment-approvals` … | Role-split |

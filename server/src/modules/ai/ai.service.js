@@ -3,6 +3,7 @@ const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
 const { callN8nWebhook } = require("../../utils/n8nClient");
 const config = require("../../config/env");
+const ragService = require("../rag/rag.service");
 
 const SUMMARY_TYPE_TO_PRISMA = {
   "24_HOUR": "TWENTY_FOUR_HOUR",
@@ -185,20 +186,6 @@ const buildAdmissionContext = async (admissionId, { since = null, includeHistory
   };
 };
 
-const hasAnyClinicalData = (context) => {
-  return (
-    context.vitals.length > 0 ||
-    context.labs.length > 0 ||
-    context.clinical_notes.length > 0 ||
-    context.nursing_notes.length > 0 ||
-    context.examinations.length > 0 ||
-    context.follow_ups.length > 0 ||
-    context.diagnoses.length > 0 ||
-    context.medications.length > 0 ||
-    context.document_chunks.length > 0
-  );
-};
-
 const categoryLine = (label, items, formatter) => {
   if (!items.length) {
     return `${label}: no data recorded in this period.`;
@@ -253,98 +240,6 @@ const stubSummaryFromContext = (context, summaryType) => {
   ].join("\n");
 };
 
-const buildCitedSourcesFromContext = (context) => {
-  const sources = [];
-
-  for (const v of context.vitals.slice(0, 5)) {
-    sources.push({
-      type: "vital_signs",
-      id: v.id,
-      timestamp: v.recordedAt,
-      label: `Vitals log, ${v.recordedAt.toISOString()}`,
-    });
-  }
-  for (const l of context.labs.slice(0, 5)) {
-    sources.push({
-      type: "lab_results",
-      id: l.id,
-      timestamp: l.recordedAt,
-      label: `Lab: ${l.testName}, ${l.recordedAt.toISOString()}`,
-    });
-  }
-  for (const n of context.clinical_notes.slice(0, 3)) {
-    sources.push({
-      type: "clinical_notes",
-      id: n.id,
-      timestamp: n.createdAt,
-      label: `Clinical note, ${n.createdAt.toISOString()}`,
-    });
-  }
-  for (const n of context.nursing_notes.slice(0, 3)) {
-    sources.push({
-      type: "nursing_notes",
-      id: n.id,
-      timestamp: n.createdAt,
-      label: `Nursing note, ${n.createdAt.toISOString()}`,
-    });
-  }
-  for (const c of context.document_chunks.slice(0, 5)) {
-    sources.push({
-      type: "document_embeddings",
-      id: c.id,
-      document_id: c.documentId,
-      label: `Document chunk ${c.id}`,
-    });
-  }
-
-  return sources;
-};
-
-const stubQueryFromContext = (context, question) => {
-  if (!hasAnyClinicalData(context)) {
-    return {
-      ai_response: "Not enough recorded data to answer this for the current admission.",
-      cited_sources: [],
-    };
-  }
-
-  const sources = buildCitedSourcesFromContext(context);
-  const previewParts = [];
-
-  if (context.vitals[0]) {
-    const v = context.vitals[0];
-    previewParts.push(
-      `Latest vitals (${v.recordedAt.toISOString()}): BP ${v.systolicBp ?? "—"}/${v.diastolicBp ?? "—"}, pulse ${v.pulse ?? "—"}, SpO2 ${v.spo2 ?? "—"}%.`
-    );
-  }
-  if (context.labs[0]) {
-    const l = context.labs[0];
-    previewParts.push(`Latest lab: ${l.testName} = ${l.resultValue}.`);
-  }
-  if (context.diagnoses[0]) {
-    previewParts.push(`Active diagnosis: ${context.diagnoses[0].conditionName}.`);
-  }
-  if (context.medications[0]) {
-    previewParts.push(
-      `Active medication: ${context.medications[0].drugName} ${context.medications[0].dosage}.`
-    );
-  }
-  if (context.document_chunks[0]) {
-    previewParts.push(`Document excerpt: ${context.document_chunks[0].chunkText.slice(0, 160)}`);
-  }
-
-  return {
-    ai_response: [
-      `Based on recorded data for this admission only (question: "${question}"):`,
-      previewParts.join(" "),
-      sources.length
-        ? "See cited_sources for exact record references."
-        : "No specific source records matched.",
-    ].join(" "),
-    cited_sources: sources,
-  };
-};
-
 const requestSummaryFromOrchestrator = async (context, summaryType) => {
   if (!config.n8nSummaryWebhookUrl) {
     return { overall_summary: stubSummaryFromContext(context, summaryType) };
@@ -362,27 +257,6 @@ const requestSummaryFromOrchestrator = async (context, summaryType) => {
 
   return {
     overall_summary: result.overall_summary || result.summary,
-  };
-};
-
-const requestQueryFromOrchestrator = async (context, question) => {
-  if (!config.n8nQueryWebhookUrl) {
-    return stubQueryFromContext(context, question);
-  }
-
-  const result = await callN8nWebhook(config.n8nQueryWebhookUrl, {
-    admission_id: context.admission_id,
-    question,
-    context,
-  });
-
-  if (!result?.ai_response && !result?.answer) {
-    throw new APIError("AI assistant temporarily unavailable — try again shortly", 503);
-  }
-
-  return {
-    ai_response: result.ai_response || result.answer,
-    cited_sources: result.cited_sources || result.citations || [],
   };
 };
 
@@ -465,50 +339,13 @@ const getSummaries = async (admissionId, query = {}) => {
   return rows.map(formatSummary);
 };
 
+/**
+ * Legacy `POST /ai/query` entry point, kept for API compatibility.
+ * The actual retrieval-augmented generation lives in modules/rag — this is a
+ * thin adapter so both routes share one implementation and one audit trail.
+ */
 const createQuery = async (askedById, data, req) => {
-  const admissionId = data.admission_id;
-  await assertAdmissionExists(admissionId);
-
-  const context = await buildAdmissionContext(admissionId, {
-    includeHistory: Boolean(data.include_history),
-  });
-
-  const orchestrated = await requestQueryFromOrchestrator(context, data.question);
-
-  let validAskedById = askedById;
-  if (askedById) {
-    const existingUser = await prisma.user.findUnique({ where: { id: askedById } });
-    if (!existingUser) {
-      const fallbackUser = await prisma.user.findFirst({ where: { status: "ACTIVE" } });
-      if (fallbackUser) validAskedById = fallbackUser.id;
-    }
-  }
-
-  return await auditedTransaction(
-    req,
-    { action: "QUERY_RAG", targetTable: "AiQueryLog" },
-    async (tx) => {
-      const log = await tx.aiQueryLog.create({
-        data: {
-          admissionId,
-          askedById: validAskedById,
-          question: data.question,
-          aiResponse: orchestrated.ai_response,
-          citedSources: orchestrated.cited_sources || null,
-        },
-      });
-
-      return {
-        targetId: log.id,
-        newValues: log,
-        result: {
-          id: log.id,
-          ai_response: log.aiResponse,
-          cited_sources: log.citedSources,
-        },
-      };
-    }
-  );
+  return await ragService.answerQuestion(askedById, data, req);
 };
 
 const getQueryLogs = async (admissionId, limit = 20) => {

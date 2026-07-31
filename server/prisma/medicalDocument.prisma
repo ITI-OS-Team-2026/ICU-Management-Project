@@ -1,22 +1,38 @@
 enum EmbeddingStatus {
   PENDING
+  PROCESSING
   COMPLETED
   FAILED
+  SKIPPED
 }
 
-// ponytail: Minimal medical_documents model to support upload metadata and RAG embeddings.
+// ponytail: medical_documents holds upload metadata plus the RAG indexing lifecycle
+// (see src/modules/rag/indexing.service.js). Chunks live in document_embeddings.
 model MedicalDocument {
   id               String          @id @default(uuid())
   admissionId      String          @map("admission_id")
   uploadedBy       String          @map("uploaded_by")
   documentType     String          @map("document_type") @db.VarChar(100)
   originalFilename String          @map("original_filename") @db.VarChar(255)
-  filePath         String          @map("file_path") @db.Text
+  filePath         String?         @map("file_path") @db.Text
+  mimeType         String?         @map("mime_type") @db.VarChar(150)
+  fileSize         Int?            @map("file_size")
   embeddingStatus  EmbeddingStatus @default(PENDING) @map("embedding_status")
+  embeddingError   String?         @map("embedding_error") @db.Text
+  embeddingModel   String?         @map("embedding_model") @db.VarChar(150)
+  chunkCount       Int             @default(0) @map("chunk_count")
+  embeddedAt       DateTime?       @map("embedded_at")
   isArchived       Boolean         @default(false) @map("is_archived")
   archivedAt       DateTime?       @map("archived_at")
   createdAt        DateTime        @default(now()) @map("uploaded_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  // Hybrid storage: Knowledge base docs go to Cloudinary, patient docs to BLOB
+  isKnowledgeBase  Boolean         @default(false) @map("is_knowledge_base")
+  storageType      String          @default("local") @map("storage_type") @db.VarChar(50)
+  cloudinaryUrl    String?         @map("cloudinary_url") @db.Text
+  cloudinaryPublicId String?       @map("cloudinary_public_id") @db.VarChar(255)
+  fileContent      Bytes?          @map("file_content")
 
   admission  Admission           @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   uploader   User                @relation(fields: [uploadedBy], references: [id])
@@ -24,19 +40,27 @@ model MedicalDocument {
 
   @@index([admissionId])
   @@index([uploadedBy])
+  @@index([embeddingStatus])
   @@map("medical_documents")
 }
 
 model DocumentEmbedding {
-  id          String                     @id @default(uuid())
-  documentId  String                     @map("document_id")
-  admissionId String                     @map("admission_id")
-  chunkText   String                     @map("chunk_text") @db.Text
-  embedding   Unsupported("vector(768)")
+  id             String                      @id @default(uuid())
+  documentId     String                      @map("document_id")
+  admissionId    String                      @map("admission_id")
+  chunkIndex     Int                         @default(0) @map("chunk_index")
+  chunkText      String                      @map("chunk_text") @db.Text
+  charCount      Int                         @default(0) @map("char_count")
+  embeddingModel String?                     @map("embedding_model") @db.VarChar(150)
+  createdAt      DateTime                    @default(now()) @map("created_at")
+  // Written/read exclusively through raw SQL — Prisma cannot map the pgvector type.
+  // Dimension is mirrored by config.embeddingDimensions; changing one requires a migration.
+  embedding      Unsupported("vector(1024)")
 
   document  MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   admission Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
 
+  @@unique([documentId, chunkIndex])
   @@index([documentId])
   @@index([admissionId])
   @@map("document_embeddings")

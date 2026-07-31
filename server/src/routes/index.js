@@ -13,6 +13,7 @@ const { admissionNotesRouter, baseNotesRouter } = require("../modules/notes/note
 const { admissionFollowUpRouter, followUpRouter } = require("../modules/followUps/followUp.routes");
 const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/medicalDocuments/document.routes");
 const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
+const { ragRouter } = require("../modules/rag/rag.routes");
 const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRouter } = require("../modules/passwordResetRequests/passwordReset.routes");
 const notificationRoutes = require("../modules/notifications/notification.routes");
 const { admissionTreatmentApprovalRouter, treatmentApprovalRouter } = require("../modules/treatmentApprovals/treatmentApproval.routes");
@@ -45,6 +46,7 @@ router.use("/admissions", admissionDocumentsRouter);
 router.use("/documents", baseDocumentsRouter);
 router.use("/ai", aiRouter);
 router.use("/admissions", admissionAiRouter);
+router.use("/rag", ragRouter);
 router.use("/admissions", admissionTreatmentApprovalRouter);
 router.use("/treatment-approvals", treatmentApprovalRouter);
 router.use("/notifications", notificationRoutes);

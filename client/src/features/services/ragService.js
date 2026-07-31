@@ -1,0 +1,157 @@
+import api from '@/lib/api';
+
+/**
+ * RAG assistant API (backend: server/src/modules/rag).
+ *
+ * Deliberately separate from `aiService`, which owns the AI Summary feature —
+ * the two features share no endpoints and no state.
+ */
+export const ragService = {
+  /**
+   * Ask a natural-language question (patient-scoped or knowledge-base only).
+   * @param {string} [admissionId] — Required for "patient" mode, omit for "knowledge"
+   * @param {string} question
+   * @param {Object} [options]
+   * @param {string} [options.mode] — "patient" (default, requires admissionId) or "knowledge" (medical knowledge only)
+   * @param {boolean} [options.includeHistory] — let the model resolve pronouns (patient mode only)
+   * @param {number} [options.topK] — number of document chunks to retrieve
+   * @param {AbortSignal} [options.signal]
+   * @returns {Promise<Object>} `{ id, ai_response, cited_sources, retrieval, created_at }`
+   */
+  async ask(admissionId, question, options = {}) {
+    const mode = options.mode || 'patient';
+
+    const payload = {
+      question,
+      mode,
+      ...(mode === 'patient' ? { admission_id: admissionId } : {}),
+      ...(mode === 'patient' ? { include_history: options.includeHistory ?? true } : {}),
+      ...(options.topK ? { top_k: options.topK } : {}),
+    };
+
+    const { data } = await api.post(
+      '/rag/query',
+      payload,
+      { signal: options.signal }
+    );
+    return data?.data ?? data;
+  },
+
+  /** Conversation transcript for an admission, oldest first. */
+  async getHistory(admissionId, limit = 30) {
+    const { data } = await api.get(`/rag/admissions/${admissionId}/history`, {
+      params: { limit },
+    });
+    return data?.data ?? [];
+  },
+
+  /** Permanently clear the conversation (the audit trail is untouched). */
+  async clearHistory(admissionId) {
+    const { data } = await api.delete(`/rag/admissions/${admissionId}/history`);
+    return data;
+  },
+
+  /** Knowledge-base status: how many documents are indexed and searchable. */
+  async getIndexStatus(admissionId) {
+    const { data } = await api.get(`/rag/admissions/${admissionId}/index`);
+    return data?.data ?? null;
+  },
+
+  /** Re-queue every pending/failed document for this admission. */
+  async reindexAdmission(admissionId) {
+    const { data } = await api.post(`/rag/admissions/${admissionId}/reindex`);
+    return data;
+  },
+
+  /** Poll a single document's indexing progress. */
+  async getDocumentStatus(documentId) {
+    const { data } = await api.get(`/rag/documents/${documentId}/status`);
+    return data?.data ?? null;
+  },
+
+  /** Force a fresh extract → chunk → embed cycle for one document. */
+  async reindexDocument(documentId) {
+    const { data } = await api.post(`/rag/documents/${documentId}/reindex`);
+    return data?.data ?? data;
+  },
+
+  /** The exact chunks stored for a document — what the assistant can see. */
+  async getDocumentChunks(documentId, limit = 50) {
+    const { data } = await api.get(`/rag/documents/${documentId}/chunks`, {
+      params: { limit },
+    });
+    return data?.data ?? null;
+  },
+};
+
+/** Human-readable copy for each embedding lifecycle state. */
+export const EMBEDDING_STATUS_META = {
+  PENDING: {
+    label: 'Queued',
+    tone: 'muted',
+    description: 'Waiting to be processed for AI search.',
+  },
+  PROCESSING: {
+    label: 'Indexing',
+    tone: 'info',
+    description: 'Extracting text and generating embeddings.',
+  },
+  COMPLETED: {
+    label: 'Searchable',
+    tone: 'success',
+    description: 'Indexed — the AI assistant can cite this document.',
+  },
+  SKIPPED: {
+    label: 'No text',
+    tone: 'warning',
+    description: 'No machine-readable text (scanned images need OCR).',
+  },
+  FAILED: {
+    label: 'Failed',
+    tone: 'danger',
+    description: 'Indexing failed. Retry to try again.',
+  },
+};
+
+export function getEmbeddingStatusMeta(status) {
+  return (
+    EMBEDDING_STATUS_META[status] || {
+      label: status || 'Unknown',
+      tone: 'muted',
+      description: '',
+    }
+  );
+}
+
+/**
+ * Map an axios error from any RAG endpoint onto clinician-facing copy.
+ * FR-3.1/FR-7.3: the assistant degrades gracefully and never blocks the rest
+ * of the dashboard.
+ */
+export function describeRagError(err) {
+  if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return null;
+
+  const status = err?.response?.status;
+  const serverMessage = err?.response?.data?.message;
+
+  if (status === 503 || status === 504) {
+    return 'AI assistant temporarily unavailable — try again shortly.';
+  }
+  if (status === 429) {
+    return 'The AI service is rate limited right now. Please wait a moment and retry.';
+  }
+  if (status === 403) {
+    return 'Your role does not have access to the AI assistant.';
+  }
+  if (status === 404) {
+    return 'This admission could not be found.';
+  }
+  if (status === 400) {
+    return serverMessage || 'That question could not be processed. Try rephrasing it.';
+  }
+  if (!err?.response) {
+    return 'Could not reach the server. Check your connection and try again.';
+  }
+
+  return serverMessage || 'Something went wrong while contacting the AI assistant.';
+}

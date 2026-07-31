@@ -34,6 +34,8 @@ import PatientFollowUpsPage   from '../pages/patient/PatientFollowUpsPage';
 import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
 import PatientTreatmentApprovalsPage from '../pages/patient/PatientTreatmentApprovalsPage';
 import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
+import PatientRagChatPage     from '../pages/patient/PatientRagChatPage';
+import MedicalAssistantPage   from '../pages/MedicalAssistantPage';
 
 function RouteError() {
   const error = useRouteError();
@@ -78,10 +80,15 @@ export const router = createBrowserRouter([
         index: true, 
         element: <DashboardPage /> 
       },
-      { 
-        path: 'patients', 
+      {
+        path: 'patients',
         element: <PatientListPage />,
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+      },
+      {
+        path: 'medical-assistant',
+        element: <MedicalAssistantPage />,
+        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
 
       // ── Patient detail nested layout ──────────────────────────────────────
@@ -102,6 +109,13 @@ export const router = createBrowserRouter([
           { path: 'treatment-approvals', element: <PatientTreatmentApprovalsPage /> },
           { path: 'alerts',       element: <PatientAlertsPage /> },
           { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
+          // RAG assistant — Residents and Specialists only; the endpoints
+          // enforce the same restriction server-side.
+          {
+            path: 'ai-chat',
+            element: <PatientRagChatPage />,
+            loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
+          },
         ],
       },
       { 
