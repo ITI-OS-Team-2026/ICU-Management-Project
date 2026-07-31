@@ -1,7 +1,5 @@
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 const documentController = require("./document.controller");
 const validate = require("../../middlewares/validate");
 const verifyToken = require("../../middlewares/verifyToken");
@@ -12,21 +10,8 @@ const APIError = require("../../utils/APIError");
 const admissionDocumentsRouter = express.Router();
 const baseDocumentsRouter = express.Router();
 
-// ponytail: Ensure the upload folder exists.
-const uploadDir = path.join(__dirname, "../../../uploads/documents");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
+// Files are kept in memory and streamed straight to Cloudinary — no local disk writes.
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [

@@ -2,6 +2,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const config = require("../../config/env");
 const logger = require("../../utils/logger");
+const { createWorker } = require("tesseract.js");
 
 // Require the library entry point directly: pdf-parse's index.js runs a demo file
 // read when it believes it is the main module, which breaks under Jest.
@@ -91,6 +92,20 @@ const extractPlainText = async (buffer) => {
   return { text: buffer.toString("utf8"), pageCount: null };
 };
 
+const extractImageText = async (buffer) => {
+  let worker;
+  try {
+    worker = await createWorker("eng");
+    const { data } = await worker.recognize(buffer);
+    return { text: data.text || "", pageCount: 1 };
+  } catch (err) {
+    logger.warn("OCR failed: %s", err.message);
+    throw new ExtractionError("OCR could not extract text from this image. The image may be too low-resolution or corrupt.");
+  } finally {
+    if (worker) await worker.terminate();
+  }
+};
+
 const extractPdfText = async (buffer) => {
   let parsed;
   try {
@@ -138,9 +153,8 @@ const extractText = async (options) => {
     result = await extractPlainText(buffer);
     extractor = "utf8";
   } else if (normalizedMime.startsWith("image/") || IMAGE_EXTENSIONS.has(extension)) {
-    throw new UnsupportedDocumentError(
-      "Image documents carry no machine-readable text. Enable OCR or upload a PDF/text version to include this document in AI answers."
-    );
+    result = await extractImageText(buffer);
+    extractor = "tesseract-ocr";
   } else {
     throw new UnsupportedDocumentError(
       `No text extractor is available for "${mimeType || extension || "this file type"}".`
@@ -151,7 +165,7 @@ const extractText = async (options) => {
 
   if (!normalized) {
     throw new UnsupportedDocumentError(
-      "No readable text was found in this document. Scanned pages require OCR, which is not enabled."
+      "No readable text was found in this document. The image may be blank or too low-resolution for OCR."
     );
   }
 
