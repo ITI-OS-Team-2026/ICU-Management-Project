@@ -6,6 +6,7 @@ const { auditedTransaction } = require("../../middlewares/auditLog");
 const { callBedrock } = require("../../utils/bedrockClient");
 const { embedText, getEmbeddingModelName } = require("../../utils/embeddingClient");
 const { retrieveContext, formatClockTime } = require("./retrieval.service");
+const chatService = require("./chat.service");
 
 /**
  * Generation half of the RAG assistant (FR-3.1).
@@ -508,6 +509,8 @@ const retrieveKnowledgeContext = async (question, questionVector, topK = 6) => {
  * @param {boolean} [payload.include_history]
  * @param {number} [payload.top_k]
  * @param {string} [payload.mode] — "patient" (default) or "knowledge"
+ * @param {string} [payload.chat_id] — Knowledge mode: resume an existing chat.
+ *   Omitted, a new chat is started and its id is returned.
  * @param {Object} req — Express request, for audit metadata
  */
 const answerQuestion = async (askedById, payload, req) => {
@@ -524,14 +527,31 @@ const answerQuestion = async (askedById, payload, req) => {
     await assertAdmissionExists(admissionId);
   }
 
-  const history = payload.include_history && mode_type === "patient"
-    ? await prisma.aiQueryLog.findMany({
-        where: { admissionId },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        select: { question: true, aiResponse: true },
-      })
-    : [];
+  // Resolved up front: knowledge-mode chats are owned by a user row, so the
+  // stale-JWT fallback has to happen before a session is created, not just
+  // before the query log is written.
+  const validAskedById = await resolveUserId(askedById);
+
+  // Knowledge mode threads its turns through a named chat so the clinician can
+  // leave and come back to it. Patient mode keeps using ai_query_logs, which is
+  // the admission's clinical record rather than personal chat history.
+  const session =
+    mode_type === "knowledge"
+      ? await chatService.resolveSessionForQuestion(validAskedById, payload.chat_id, question)
+      : null;
+
+  let history = [];
+  if (mode_type === "patient" && payload.include_history) {
+    history = await prisma.aiQueryLog.findMany({
+      where: { admissionId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { question: true, aiResponse: true },
+    });
+  } else if (session) {
+    // Earlier turns of this chat let follow-ups ("and in children?") resolve.
+    history = await chatService.getRecentTurns(session.id, 5);
+  }
 
   const questionVector = await embedText(question);
   const context = mode_type === "knowledge"
@@ -559,7 +579,6 @@ const answerQuestion = async (askedById, payload, req) => {
   }
 
   const citedSources = llm_mode === "no_context" ? [] : buildCitedSources(context, answer);
-  const validAskedById = await resolveUserId(askedById);
   const durationMs = Date.now() - startedAt;
 
   // Only log to DB if patient mode
@@ -584,6 +603,27 @@ const answerQuestion = async (askedById, payload, req) => {
     );
   }
 
+  const retrieval = {
+    mode: llm_mode,
+    embedding_model: getEmbeddingModelName(),
+    document_chunks_retrieved: context.chunks.length,
+    clinical_records_retrieved: context.records.length,
+    clinical_records_available: context.totalRecordCount,
+    top_score: context.chunks[0] ? Number(context.chunks[0].score.toFixed(4)) : null,
+    duration_ms: durationMs,
+  };
+
+  // Knowledge mode: store the exchange on the chat so it can be resumed later.
+  let chatMessage = null;
+  if (session) {
+    chatMessage = await chatService.appendTurn(session, {
+      question,
+      answer,
+      citedSources,
+      retrieval,
+    });
+  }
+
   if (mode_type === "patient") {
     logger.info(
       "RAG query answered for admission %s in %dms (mode=%s, chunks=%d, records=%d)",
@@ -595,30 +635,24 @@ const answerQuestion = async (askedById, payload, req) => {
     );
   } else {
     logger.info(
-      "Knowledge query answered in %dms (mode=%s, chunks=%d)",
+      "Knowledge query answered in %dms (mode=%s, chunks=%d, chat=%s)",
       durationMs,
       llm_mode,
-      context.chunks.length
+      context.chunks.length,
+      session?.id || "none"
     );
   }
 
   return {
-    id: log?.id || null,
+    id: log?.id || chatMessage?.id || null,
     admission_id: admissionId || null,
+    chat_id: session?.id || null,
     query_mode: mode_type,
     question,
     ai_response: answer,
     cited_sources: citedSources,
-    created_at: log?.createdAt || new Date().toISOString(),
-    retrieval: {
-      mode: llm_mode,
-      embedding_model: getEmbeddingModelName(),
-      document_chunks_retrieved: context.chunks.length,
-      clinical_records_retrieved: context.records.length,
-      clinical_records_available: context.totalRecordCount,
-      top_score: context.chunks[0] ? Number(context.chunks[0].score.toFixed(4)) : null,
-      duration_ms: durationMs,
-    },
+    created_at: log?.createdAt || chatMessage?.createdAt || new Date().toISOString(),
+    retrieval,
   };
 };
 

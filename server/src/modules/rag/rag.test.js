@@ -404,4 +404,157 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(after.body.results).toBe(0);
     });
   });
+
+  // ── Saved assistant chats ──────────────────────────────────────────────────
+
+  describe("Saved assistant chats (knowledge mode)", () => {
+    const askKnowledge = (token, body) =>
+      request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${token}`)
+        .send({ mode: "knowledge", ...body });
+
+    let chatId;
+
+    it("starts a chat on the first question and returns its id", async () => {
+      const res = await askKnowledge(residentToken, {
+        question: "What is the pathophysiology of acute kidney injury?",
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.chat_id).toEqual(expect.any(String));
+      expect(res.body.data.query_mode).toBe("knowledge");
+
+      chatId = res.body.data.chat_id;
+    }, 30000);
+
+    it("GET /api/rag/chats lists it with a title derived from the question", async () => {
+      const res = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+
+      const chat = res.body.data.find((entry) => entry.id === chatId);
+      expect(chat).toBeDefined();
+      expect(chat.title).toBe("What is the pathophysiology of acute kidney injury?");
+      expect(chat.message_count).toBe(2);
+      expect(chat.last_message_at).toEqual(expect.any(String));
+    });
+
+    it("GET /api/rag/chats/:chatId returns the transcript oldest first", async () => {
+      const res = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.messages).toHaveLength(2);
+      expect(res.body.data.messages[0].role).toBe("user");
+      expect(res.body.data.messages[1].role).toBe("assistant");
+      expect(res.body.data.messages[1].content).toEqual(expect.any(String));
+    });
+
+    it("appends a follow-up to the same chat instead of starting a new one", async () => {
+      const res = await askKnowledge(residentToken, {
+        question: "And what are the main risk factors?",
+        chat_id: chatId,
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.chat_id).toBe(chatId);
+
+      const transcript = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(transcript.body.data.messages).toHaveLength(4);
+    }, 30000);
+
+    it("PATCH /api/rag/chats/:chatId renames the chat", async () => {
+      const res = await request(app)
+        .patch(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({ title: "AKI reading notes" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.title).toBe("AKI reading notes");
+    });
+
+    it("hides one clinician's chats from another", async () => {
+      const list = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(list.body.data.some((entry) => entry.id === chatId)).toBe(false);
+
+      const read = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(read.statusCode).toBe(404);
+
+      const remove = await request(app)
+        .delete(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(remove.statusCode).toBe(404);
+    });
+
+    it("rejects a nurse listing chats", async () => {
+      const res = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("rejects chat_id on a patient-mode query", async () => {
+      const res = await request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({
+          mode: "patient",
+          admission_id: admission.id,
+          question: "What are the latest vitals?",
+          chat_id: chatId,
+        });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("DELETE /api/rag/chats/:chatId removes the chat and its messages", async () => {
+      const res = await request(app)
+        .delete(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.messages_deleted).toBe(4);
+
+      const after = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(after.statusCode).toBe(404);
+
+      const orphans = await prisma.aiChatMessage.count({ where: { sessionId: chatId } });
+      expect(orphans).toBe(0);
+    });
+
+    it("DELETE /api/rag/chats removes every chat the clinician owns", async () => {
+      await askKnowledge(residentToken, { question: "What defines refractory hypoxaemia?" });
+
+      const res = await request(app)
+        .delete("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.deleted).toBeGreaterThan(0);
+
+      const after = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(after.body.results).toBe(0);
+    }, 30000);
+  });
 });

@@ -474,8 +474,10 @@ Retrieval-augmented question answering over a **single admission**. Every query 
 
 ## `POST /rag/query`
 - **Auth:** Resident, Specialist
-- **Request Body:** `{ admission_id, question, include_history?: boolean, top_k?: 1..25 }`
-- **Responses:** `200 OK` · `400` invalid question · `404` unknown admission · `503` AI service unavailable
+- **Request Body:** `{ question, mode?: "patient" | "knowledge", admission_id, include_history?: boolean, chat_id?: uuid, top_k?: 1..25 }`
+  - `mode: "patient"` (default) — requires `admission_id`, rejects `chat_id`. Answers only from that admission's record and logs to `ai_query_logs`.
+  - `mode: "knowledge"` — rejects `admission_id`. General medical questions against the indexed knowledge base. Pass `chat_id` to continue a saved chat; omit it and a new chat is started, whose id comes back as `data.chat_id`.
+- **Responses:** `200 OK` · `400` invalid question · `404` unknown admission or chat · `503` AI service unavailable
 - **Response shape:**
 ```json
 {
@@ -529,6 +531,39 @@ Retrieval-augmented question answering over a **single admission**. Every query 
 ## `DELETE /rag/admissions/:admissionId/history`
 - **Auth:** Resident, Specialist
 - **Description:** Clears `ai_query_logs` for the admission. The audit trail is unaffected.
+- **Responses:** `200 OK` — `{ status, message, deleted }`
+
+## Saved assistant chats (`/rag/chats`)
+
+Named, resumable conversations with the **Medical Knowledge Assistant** (`mode: "knowledge"`), stored in `ai_chat_sessions` / `ai_chat_messages`. Every route is scoped to the authenticated clinician — another clinician's chat returns `404`, never `403`, so ids cannot be probed. Patient-mode transcripts are **not** stored here; they stay in `ai_query_logs` as part of the admission record.
+
+### `GET /rag/chats`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–200, default 100)
+- **Description:** The caller's chats, most recently active first: `{ id, title, mode, created_at, updated_at, last_message_at, message_count }`.
+
+### `POST /rag/chats`
+- **Auth:** Resident, Specialist
+- **Request Body:** `{ title? }` — defaults to `"New chat"`, replaced by the first question asked in it.
+- **Responses:** `201 Created`. Optional: asking with no `chat_id` also creates one.
+
+### `GET /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** The chat plus `messages[]`, oldest first: `{ id, role: "user" | "assistant", content, cited_sources, retrieval, created_at }`.
+- **Responses:** `200 OK` · `404` unknown or not owned
+
+### `PATCH /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Request Body:** `{ title }` (1–120 chars)
+
+### `DELETE /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Permanently deletes the chat and its messages. Audited as `ARCHIVE` on `AiChatSession`.
+- **Responses:** `200 OK` — `{ status, message, deleted, messages_deleted }`
+
+### `DELETE /rag/chats`
+- **Auth:** Resident, Specialist
+- **Description:** Deletes every chat the caller owns.
 - **Responses:** `200 OK` — `{ status, message, deleted }`
 
 ## `GET /rag/admissions/:admissionId/index`
@@ -676,7 +711,7 @@ Retrieval-augmented question answering over a **single admission**. Every query 
 | Follow-ups | POST/GET/DELETE | `/follow-ups` … | Clinical |
 | Documents | POST/GET/DELETE + download | `/documents` … | Clinical |
 | AI | POST/GET | `/ai/summary`, `/ai/query`, logs | Resident/Specialist (+ GET summaries Nurse) |
-| RAG | POST/GET/DELETE | `/rag/query`, history, index status, re-index, chunks | Resident/Specialist (+ GET index/status Nurse) |
+| RAG | POST/GET/PATCH/DELETE | `/rag/query`, `/rag/chats`, history, index status, re-index, chunks | Resident/Specialist (+ GET index/status Nurse) |
 | Alerts | GET + reviews | `/alerts` … | Clinical |
 | Notifications | GET/PATCH | `/notifications` … | Own user |
 | Treatment | POST/GET/PATCH/DELETE | `/treatment-approvals` … | Role-split |

@@ -9,6 +9,10 @@ const {
   documentParamsSchema,
   historyQuerySchema,
   chunksQuerySchema,
+  chatParamsSchema,
+  chatListQuerySchema,
+  chatBodySchema,
+  chatTitleBodySchema,
 } = require("./rag.schema");
 
 const ragRouter = express.Router();
@@ -44,6 +48,64 @@ ragRouter.delete(
   restrictTo(CLINICIAN_ROLES),
   validate({ params: admissionParamsSchema }),
   ragController.clearHistory
+);
+
+// ─── Assistant chats ─────────────────────────────────────────────────────────
+// Every route below is scoped to the authenticated clinician: the service only
+// ever matches sessions owned by req.user.id, so one clinician cannot read,
+// rename or delete another's chat even with a valid id.
+
+// GET /rag/chats — the caller's chats, most recently active first
+ragRouter.get(
+  "/chats",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ query: chatListQuerySchema }),
+  ragController.listChats
+);
+
+// POST /rag/chats — start an empty chat
+ragRouter.post(
+  "/chats",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ body: chatBodySchema }),
+  ragController.createChat
+);
+
+// DELETE /rag/chats — delete every chat the caller owns
+ragRouter.delete(
+  "/chats",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  ragController.deleteAllChats
+);
+
+// GET /rag/chats/:chatId — one chat with its full transcript
+ragRouter.get(
+  "/chats/:chatId",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatParamsSchema }),
+  ragController.getChat
+);
+
+// PATCH /rag/chats/:chatId — rename a chat
+ragRouter.patch(
+  "/chats/:chatId",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatParamsSchema, body: chatTitleBodySchema }),
+  ragController.renameChat
+);
+
+// DELETE /rag/chats/:chatId — delete one chat and its messages
+ragRouter.delete(
+  "/chats/:chatId",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatParamsSchema }),
+  ragController.deleteChat
 );
 
 // GET /rag/admissions/:admissionId/index — knowledge-base status for the admission

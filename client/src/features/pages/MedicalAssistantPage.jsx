@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  MessageSquareText,
   Send,
   Loader2,
   AlertCircle,
   Sparkles,
-  RefreshCcw,
   StopCircle,
   Info,
+  PanelLeft,
+  Plus,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 
-import { FormattedMarkdown } from '@/components/ui/formatted-markdown';
-import { ragService, describeRagError } from '../../features/services/ragService';
-import CitationList from '../../features/components/rag/CitationList';
+import { useKnowledgeChats } from '../hooks/useKnowledgeChats';
+import CitationList from '../components/rag/CitationList';
+import ChatHistorySidebar from '../components/rag/ChatHistorySidebar';
 
 const KNOWLEDGE_PROMPTS = [
   'What are the key elements to cover in a patient\'s present history of illness?',
@@ -55,7 +55,7 @@ function ChatBubble({ message }) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[85%] sm:max-w-[70%] ${isUser ? '' : ''}`}>
+      <div className="max-w-[85%] sm:max-w-[75%]">
         <div className="mb-1 flex items-center gap-1.5">
           <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             {isUser ? 'You' : 'Medical Assistant'}
@@ -85,9 +85,7 @@ function ChatBubble({ message }) {
           }`}
         >
           <p className="whitespace-pre-wrap break-words">{message.text}</p>
-          {!isUser && !message.isError && (
-            <CitationList citations={message.citations} />
-          )}
+          {!isUser && !message.isError && <CitationList citations={message.citations} />}
         </div>
         {message.createdAt && (
           <p className={`mt-1 font-tnum text-[10px] text-muted-foreground ${isUser ? 'text-right' : ''}`}>
@@ -100,105 +98,46 @@ function ChatBubble({ message }) {
 }
 
 export default function MedicalAssistantPage() {
-  const [messages, setMessages] = useState([]);
+  const {
+    chats,
+    isLoadingChats,
+    activeChatId,
+    messages,
+    isLoadingMessages,
+    isAsking,
+    elapsedSeconds,
+    error,
+    ask,
+    cancel,
+    openChat,
+    startNewChat,
+    renameChat,
+    deleteChat,
+    deleteAllChats,
+    dismissError,
+  } = useKnowledgeChats();
+
   const [question, setQuestion] = useState('');
-  const [isAsking, setIsAsking] = useState(false);
-  const [error, setError] = useState(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // The rail is permanent from `lg` up; below that it is a togglable panel.
+  const [showHistory, setShowHistory] = useState(false);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
-  const abortRef = useRef(null);
+
+  const activeChat = chats.find((chat) => chat.id === activeChatId) || null;
 
   useEffect(() => {
     const node = scrollRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages, isAsking]);
 
-  useEffect(() => {
-    if (!isAsking) {
-      setElapsedSeconds(0);
-      return undefined;
-    }
-
-    const startedAt = Date.now();
-    const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isAsking]);
-
   const submitQuestion = async (text) => {
     const value = String(text ?? question).trim();
     if (!value || isAsking) return;
 
     setQuestion('');
-    setError(null);
-    setElapsedSeconds(0);
-    setIsAsking(true);
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          role: 'user',
-          text: value,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-
-      const result = await ragService.ask(null, value, {
-        mode: 'knowledge',
-        signal: controller.signal,
-      });
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: result.id || `local-${Date.now()}`,
-          role: 'assistant',
-          text: result.ai_response,
-          citations: Array.isArray(result.cited_sources) ? result.cited_sources : [],
-          retrieval: result.retrieval,
-          createdAt: result.created_at || new Date().toISOString(),
-        },
-      ]);
-    } catch (err) {
-      const message = describeRagError(err);
-
-      if (message === null) {
-        setMessages((prev) => prev.slice(0, -1));
-        return;
-      }
-
-      console.error('Medical knowledge query failed:', err);
-      setError(message);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          role: 'assistant',
-          text: message,
-          citations: [],
-          createdAt: new Date().toISOString(),
-          isError: true,
-        },
-      ]);
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setIsAsking(false);
-    }
-  };
-
-  const cancel = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
+    await ask(value);
+    inputRef.current?.focus();
   };
 
   const handleSubmit = (event) => {
@@ -213,33 +152,94 @@ export default function MedicalAssistantPage() {
     }
   };
 
-  const isEmpty = messages.length === 0;
+  const handleSelectChat = (chatId) => {
+    openChat(chatId);
+    setShowHistory(false);
+  };
+
+  const handleNewChat = () => {
+    startNewChat();
+    setShowHistory(false);
+    inputRef.current?.focus();
+  };
+
+  const isEmpty = messages.length === 0 && !isLoadingMessages;
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-[110rem] mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* ── Saved chats ────────────────────────────────────────────────── */}
+        <div
+          className={`${
+            showHistory ? 'block' : 'hidden'
+          } lg:block lg:col-span-3 h-[calc(100vh-11rem)] min-h-[520px]`}
+        >
+          <ChatHistorySidebar
+            chats={chats}
+            activeChatId={activeChatId}
+            isLoading={isLoadingChats}
+            onSelect={handleSelectChat}
+            onNewChat={handleNewChat}
+            onRename={renameChat}
+            onDelete={deleteChat}
+            onDeleteAll={deleteAllChats}
+          />
+        </div>
+
         {/* ── Conversation ───────────────────────────────────────────────── */}
-        <div className="lg:col-span-8 flex flex-col rounded-xl border border-border bg-card shadow-sm h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden">
+        <div className="lg:col-span-9 xl:col-span-6 flex flex-col rounded-xl border border-border bg-card shadow-sm h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowHistory((open) => !open)}
+                title="Saved chats"
+                aria-label="Toggle saved chats"
+                aria-expanded={showHistory}
+                className="h-8 w-8 shrink-0 lg:hidden"
+              >
+                <PanelLeft size={15} />
+              </Button>
+
+              <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles size={17} />
               </div>
               <div className="min-w-0">
-                <h1 className="font-display text-base font-bold text-foreground leading-tight">
-                  Medical Knowledge Assistant
+                <h1 className="font-display text-base font-bold text-foreground leading-tight truncate">
+                  {activeChat ? activeChat.title : 'Medical Knowledge Assistant'}
                 </h1>
                 <p className="font-sans text-[11px] text-muted-foreground truncate">
-                  Ask about medical knowledge from clinical guidelines — references the indexed knowledge base
+                  {activeChat
+                    ? 'Saved chat — continue where you left off'
+                    : 'Ask about medical knowledge from clinical guidelines — references the indexed knowledge base'}
                 </p>
               </div>
             </div>
+
+            {(messages.length > 0 || activeChatId) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNewChat}
+                className="h-8 shrink-0 gap-1.5"
+              >
+                <Plus size={13} />
+                <span className="hidden sm:inline">New chat</span>
+              </Button>
+            )}
           </div>
 
           {/* Transcript */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-            {isEmpty ? (
+            {isLoadingMessages ? (
+              <div className="space-y-4">
+                <Skeleton className="h-12 w-2/3 ml-auto rounded-2xl" />
+                <Skeleton className="h-24 w-4/5 rounded-2xl" />
+                <Skeleton className="h-12 w-1/2 ml-auto rounded-2xl" />
+              </div>
+            ) : isEmpty ? (
               <div className="flex h-full flex-col items-center justify-center text-center px-4">
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                   <Sparkles size={22} />
@@ -248,7 +248,9 @@ export default function MedicalAssistantPage() {
                   Ask medical knowledge questions
                 </h2>
                 <p className="mt-1 max-w-sm font-sans text-xs leading-relaxed text-muted-foreground">
-                  Questions about medical concepts, guidelines, symptom interpretation, occupational exposures, risk factors, and clinical frameworks from the ICU medicine knowledge base.
+                  Questions about medical concepts, guidelines, symptom interpretation, occupational
+                  exposures, risk factors, and clinical frameworks from the ICU medicine knowledge
+                  base. Every conversation is saved so you can return to it later.
                 </p>
 
                 <div className="mt-5 flex w-full max-w-md flex-col gap-2">
@@ -300,7 +302,7 @@ export default function MedicalAssistantPage() {
                   <span>{error}</span>
                   <button
                     type="button"
-                    onClick={() => setError(null)}
+                    onClick={dismissError}
                     className="shrink-0 underline underline-offset-2"
                   >
                     Dismiss
@@ -335,13 +337,14 @@ export default function MedicalAssistantPage() {
 
             <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
               <Info size={10} className="shrink-0" />
-              Enter to send · Shift+Enter for a new line. Prefers the knowledge base; falls back to general medical knowledge when nothing matches.
+              Enter to send · Shift+Enter for a new line. Prefers the knowledge base; falls back to
+              general medical knowledge when nothing matches.
             </p>
           </div>
         </div>
 
         {/* ── Info Panel ─────────────────────────────────────────────────── */}
-        <div className="lg:col-span-4 space-y-4">
+        <div className="hidden xl:block xl:col-span-3 space-y-4">
           <div className="rounded-xl border border-border bg-muted/20 p-4">
             <h3 className="font-display text-xs font-bold text-foreground">About This Assistant</h3>
             <ul className="mt-2 space-y-1.5 font-sans text-[11px] leading-relaxed text-muted-foreground list-disc list-inside">
@@ -350,6 +353,15 @@ export default function MedicalAssistantPage() {
               <li>NOT patient-specific — no access to individual patient records</li>
               <li>Great for: understanding concepts, checking guidelines, learning best practices</li>
             </ul>
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <h3 className="font-display text-xs font-bold text-foreground">Your Chats</h3>
+            <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
+              Conversations are saved automatically and are private to your account. Reopen one from
+              the list on the left to keep going — follow-up questions use that chat's earlier turns
+              for context. Rename or delete a chat with the icons on its row.
+            </p>
           </div>
 
           <div className="rounded-xl border border-border bg-muted/20 p-4">
@@ -366,7 +378,8 @@ export default function MedicalAssistantPage() {
           <div className="rounded-xl border border-border bg-muted/20 p-4">
             <h3 className="font-display text-xs font-bold text-foreground">Tip</h3>
             <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-              Use this for medical concepts and guidelines. For patient-specific questions, go to a patient's record and use the <strong>AI Chat</strong> tab to ask about their records.
+              Use this for medical concepts and guidelines. For patient-specific questions, go to a
+              patient's record and use the <strong>AI Chat</strong> tab to ask about their records.
             </p>
           </div>
         </div>

@@ -15,8 +15,10 @@ export const ragService = {
    * @param {string} [options.mode] — "patient" (default, requires admissionId) or "knowledge" (medical knowledge only)
    * @param {boolean} [options.includeHistory] — let the model resolve pronouns (patient mode only)
    * @param {number} [options.topK] — number of document chunks to retrieve
+   * @param {string} [options.chatId] — knowledge mode: continue this saved chat.
+   *   Omit it to start a new one; the response carries the new `chat_id`.
    * @param {AbortSignal} [options.signal]
-   * @returns {Promise<Object>} `{ id, ai_response, cited_sources, retrieval, created_at }`
+   * @returns {Promise<Object>} `{ id, chat_id, ai_response, cited_sources, retrieval, created_at }`
    */
   async ask(admissionId, question, options = {}) {
     const mode = options.mode || 'patient';
@@ -26,6 +28,7 @@ export const ragService = {
       mode,
       ...(mode === 'patient' ? { admission_id: admissionId } : {}),
       ...(mode === 'patient' ? { include_history: options.includeHistory ?? true } : {}),
+      ...(mode === 'knowledge' && options.chatId ? { chat_id: options.chatId } : {}),
       ...(options.topK ? { top_k: options.topK } : {}),
     };
 
@@ -48,6 +51,45 @@ export const ragService = {
   /** Permanently clear the conversation (the audit trail is untouched). */
   async clearHistory(admissionId) {
     const { data } = await api.delete(`/rag/admissions/${admissionId}/history`);
+    return data;
+  },
+
+  // ── Saved assistant chats (knowledge mode) ────────────────────────────────
+  // Personal to the signed-in clinician: the API only ever returns their own.
+
+  /** All of the clinician's chats, most recently active first. */
+  async listChats(limit = 100) {
+    const { data } = await api.get('/rag/chats', { params: { limit } });
+    return data?.data ?? [];
+  },
+
+  /** One chat with its full transcript. */
+  async getChat(chatId) {
+    const { data } = await api.get(`/rag/chats/${chatId}`);
+    return data?.data ?? null;
+  },
+
+  /** Start an empty chat up front (asking without a chat_id also creates one). */
+  async createChat(title) {
+    const { data } = await api.post('/rag/chats', title ? { title } : {});
+    return data?.data ?? null;
+  },
+
+  /** Rename a chat. */
+  async renameChat(chatId, title) {
+    const { data } = await api.patch(`/rag/chats/${chatId}`, { title });
+    return data?.data ?? null;
+  },
+
+  /** Permanently delete one chat and its messages. */
+  async deleteChat(chatId) {
+    const { data } = await api.delete(`/rag/chats/${chatId}`);
+    return data;
+  },
+
+  /** Permanently delete every chat this clinician owns. */
+  async deleteAllChats() {
+    const { data } = await api.delete('/rag/chats');
     return data;
   },
 
