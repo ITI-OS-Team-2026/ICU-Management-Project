@@ -148,6 +148,15 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
   }, 60000);
 
   afterAll(async () => {
+    // Chat resources live in cloud storage, which no cascade can reach — purge
+    // them before the users (and with them the chats) are deleted.
+    const { purgeResourcesForSessions } = require("./chatResources.service");
+    const testSessions = await prisma.aiChatSession.findMany({
+      where: { user: { email: { endsWith: ".rag@example.com" } } },
+      select: { id: true },
+    });
+    await purgeResourcesForSessions(testSessions.map((s) => s.id));
+
     const admissionIds = [admission.id, otherAdmission.id, emptyAdmission.id];
 
     await prisma.aiQueryLog.deleteMany({ where: { admissionId: { in: admissionIds } } });
@@ -403,5 +412,390 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
 
       expect(after.body.results).toBe(0);
     });
+  });
+
+  // ── Saved assistant chats ──────────────────────────────────────────────────
+
+  describe("Saved assistant chats (knowledge mode)", () => {
+    const askKnowledge = (token, body) =>
+      request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${token}`)
+        .send({ mode: "knowledge", ...body });
+
+    let chatId;
+
+    it("starts a chat on the first question and returns its id", async () => {
+      const res = await askKnowledge(residentToken, {
+        question: "What is the pathophysiology of acute kidney injury?",
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.chat_id).toEqual(expect.any(String));
+      expect(res.body.data.query_mode).toBe("knowledge");
+
+      chatId = res.body.data.chat_id;
+    }, 30000);
+
+    it("GET /api/rag/chats lists it with a title derived from the question", async () => {
+      const res = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+
+      const chat = res.body.data.find((entry) => entry.id === chatId);
+      expect(chat).toBeDefined();
+      expect(chat.title).toBe("What is the pathophysiology of acute kidney injury?");
+      expect(chat.message_count).toBe(2);
+      expect(chat.last_message_at).toEqual(expect.any(String));
+    });
+
+    it("GET /api/rag/chats/:chatId returns the transcript oldest first", async () => {
+      const res = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.messages).toHaveLength(2);
+      expect(res.body.data.messages[0].role).toBe("user");
+      expect(res.body.data.messages[1].role).toBe("assistant");
+      expect(res.body.data.messages[1].content).toEqual(expect.any(String));
+    });
+
+    it("appends a follow-up to the same chat instead of starting a new one", async () => {
+      const res = await askKnowledge(residentToken, {
+        question: "And what are the main risk factors?",
+        chat_id: chatId,
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.chat_id).toBe(chatId);
+
+      const transcript = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(transcript.body.data.messages).toHaveLength(4);
+    }, 30000);
+
+    it("PATCH /api/rag/chats/:chatId renames the chat", async () => {
+      const res = await request(app)
+        .patch(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({ title: "AKI reading notes" });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.data.title).toBe("AKI reading notes");
+    });
+
+    it("hides one clinician's chats from another", async () => {
+      const list = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(list.body.data.some((entry) => entry.id === chatId)).toBe(false);
+
+      const read = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(read.statusCode).toBe(404);
+
+      const remove = await request(app)
+        .delete(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(remove.statusCode).toBe(404);
+    });
+
+    it("rejects a nurse listing chats", async () => {
+      const res = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${nurseToken}`);
+
+      expect(res.statusCode).toBe(403);
+    });
+
+    it("rejects chat_id on a patient-mode query", async () => {
+      const res = await request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({
+          mode: "patient",
+          admission_id: admission.id,
+          question: "What are the latest vitals?",
+          chat_id: chatId,
+        });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it("DELETE /api/rag/chats/:chatId removes the chat and its messages", async () => {
+      const res = await request(app)
+        .delete(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.messages_deleted).toBe(4);
+
+      const after = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(after.statusCode).toBe(404);
+
+      const orphans = await prisma.aiChatMessage.count({ where: { sessionId: chatId } });
+      expect(orphans).toBe(0);
+    });
+
+    it("DELETE /api/rag/chats removes every chat the clinician owns", async () => {
+      await askKnowledge(residentToken, { question: "What defines refractory hypoxaemia?" });
+
+      const res = await request(app)
+        .delete("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.deleted).toBeGreaterThan(0);
+
+      const after = await request(app)
+        .get("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(after.body.results).toBe(0);
+    }, 30000);
+  });
+
+  // ── Chat resources ─────────────────────────────────────────────────────────
+
+  describe("Chat resources (files attached to a chat)", () => {
+    // Deliberately invented content: if an answer repeats these rules, it can
+    // only have come from this attachment, never from the model's own training.
+    const KESTREL_PROTOCOL = `KESTREL WARD LOCAL PROTOCOL — SEDATION LADDER
+
+The Kestrel sedation ladder has exactly four rungs, named Amber, Cobalt, Marlow
+and Quill. Escalation proceeds Amber to Cobalt to Marlow to Quill, never skipping
+a rung. The Quill rung is prohibited between 02:00 and 05:00 unless a second
+consultant countersigns in the Kestrel register.`;
+
+    const createChat = async (token, title) => {
+      const res = await request(app)
+        .post("/api/rag/chats")
+        .set("Cookie", `${COOKIE_NAME}=${token}`)
+        .send({ title });
+
+      expect(res.statusCode).toBe(201);
+      return res.body.data.id;
+    };
+
+    const attach = (token, chatId, filename, contents, contentType) =>
+      request(app)
+        .post(`/api/rag/chats/${chatId}/resources`)
+        .set("Cookie", `${COOKIE_NAME}=${token}`)
+        .attach("file", Buffer.from(contents), { filename, contentType });
+
+    /** Indexing runs out of band — wait for it the way the UI polls. */
+    const waitForIndexing = async (token, chatId, resourceId) => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        // eslint-disable-next-line no-await-in-loop -- polling by design
+        const res = await request(app)
+          .get(`/api/rag/chats/${chatId}/resources`)
+          .set("Cookie", `${COOKIE_NAME}=${token}`);
+
+        const resource = res.body.data.find((entry) => entry.id === resourceId);
+        if (resource && !["PENDING", "PROCESSING"].includes(resource.embedding_status)) {
+          return resource;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      throw new Error("Resource never finished indexing");
+    };
+
+    let chatId;
+    let otherChatId;
+    let resourceId;
+    let askResult;
+
+    beforeAll(async () => {
+      chatId = await createChat(residentToken, "Protocol review");
+      otherChatId = await createChat(residentToken, "Unrelated chat");
+    });
+
+    it("attaches a file to the chat and indexes it", async () => {
+      const res = await attach(
+        residentToken,
+        chatId,
+        "kestrel-protocol.txt",
+        KESTREL_PROTOCOL,
+        "text/plain"
+      );
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body.data.original_filename).toBe("kestrel-protocol.txt");
+      expect(res.body.data.chat_id).toBe(chatId);
+
+      resourceId = res.body.data.id;
+
+      const indexed = await waitForIndexing(residentToken, chatId, resourceId);
+      expect(indexed.embedding_status).toBe("COMPLETED");
+      expect(indexed.is_searchable).toBe(true);
+      expect(indexed.chunk_count).toBeGreaterThan(0);
+    }, 40000);
+
+    it("stores the resource against the chat, not an admission", async () => {
+      const row = await prisma.medicalDocument.findUnique({ where: { id: resourceId } });
+
+      expect(row.chatSessionId).toBe(chatId);
+      expect(row.admissionId).toBeNull();
+    });
+
+    it("rejects an unsupported file type", async () => {
+      const res = await attach(
+        residentToken,
+        chatId,
+        "notes.exe",
+        "MZ binary",
+        "application/octet-stream"
+      );
+
+      expect(res.statusCode).toBe(415);
+    });
+
+    it("retrieves the attachment for questions asked inside its own chat", async () => {
+      const res = await request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({
+          mode: "knowledge",
+          chat_id: chatId,
+          question: "What are the four rungs of the Kestrel sedation ladder?",
+        });
+
+      expect(res.statusCode).toBe(200);
+      askResult = res.body.data;
+
+      const labels = res.body.data.cited_sources.map((source) => source.label);
+      expect(labels).toEqual(
+        expect.arrayContaining([expect.stringContaining("Attached: kestrel-protocol.txt")])
+      );
+    }, 30000);
+
+    it("never retrieves it for a different chat", async () => {
+      const res = await request(app)
+        .post("/api/rag/query")
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
+        .send({
+          mode: "knowledge",
+          chat_id: otherChatId,
+          question: "What are the four rungs of the Kestrel sedation ladder?",
+        });
+
+      expect(res.statusCode).toBe(200);
+
+      const labels = res.body.data.cited_sources.map((source) => source.label);
+      expect(labels.some((label) => label.includes("kestrel-protocol.txt"))).toBe(false);
+    }, 30000);
+
+    it("binds staged files to the message that sent them and returns them on the transcript", async () => {
+      const transcript = await request(app)
+        .get(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      const userMessage = transcript.body.data.messages.find((m) => m.role === "user");
+
+      // The client swaps its optimistic bubble's id for this one, so the two
+      // must agree or a sent file would render against the wrong message.
+      expect(askResult.user_message_id).toBe(userMessage.id);
+
+      expect(userMessage.attachments).toHaveLength(1);
+      expect(userMessage.attachments[0].id).toBe(resourceId);
+      expect(userMessage.attachments[0].original_filename).toBe("kestrel-protocol.txt");
+      expect(userMessage.attachments[0].is_image).toBe(false);
+
+      // The composer only shows unbound files, so this must now be set.
+      const list = await request(app)
+        .get(`/api/rag/chats/${chatId}/resources`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(list.body.data.find((r) => r.id === resourceId).message_id).toBe(userMessage.id);
+    });
+
+    it("serves the file inline for previews, to its owner only", async () => {
+      const res = await request(app)
+        .get(`/api/rag/chats/${chatId}/resources/${resourceId}/file`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers["content-type"]).toContain("text/plain");
+      expect(res.headers["content-disposition"]).toContain("inline");
+      expect(res.text).toContain("Kestrel sedation ladder");
+
+      const intruder = await request(app)
+        .get(`/api/rag/chats/${chatId}/resources/${resourceId}/file`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(intruder.statusCode).toBe(404);
+    });
+
+    it("hides one clinician's resources from another", async () => {
+      const list = await request(app)
+        .get(`/api/rag/chats/${chatId}/resources`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(list.statusCode).toBe(404);
+
+      const remove = await request(app)
+        .delete(`/api/rag/chats/${chatId}/resources/${resourceId}`)
+        .set("Cookie", `${COOKIE_NAME}=${specialistToken}`);
+
+      expect(remove.statusCode).toBe(404);
+
+      const upload = await attach(
+        specialistToken,
+        chatId,
+        "intruder.txt",
+        "should never land",
+        "text/plain"
+      );
+
+      expect(upload.statusCode).toBe(404);
+    });
+
+    it("DELETE removes the resource row and its chunks", async () => {
+      const res = await request(app)
+        .delete(`/api/rag/chats/${chatId}/resources/${resourceId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.deleted).toBe(1);
+
+      expect(await prisma.medicalDocument.count({ where: { id: resourceId } })).toBe(0);
+      expect(await prisma.documentEmbedding.count({ where: { documentId: resourceId } })).toBe(0);
+    });
+
+    it("deleting the chat deletes the resources it still holds", async () => {
+      const attached = await attach(
+        residentToken,
+        chatId,
+        "kestrel-protocol-v2.txt",
+        KESTREL_PROTOCOL,
+        "text/plain"
+      );
+      const secondId = attached.body.data.id;
+      await waitForIndexing(residentToken, chatId, secondId);
+
+      const res = await request(app)
+        .delete(`/api/rag/chats/${chatId}`)
+        .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.resources_deleted).toBe(1);
+
+      expect(await prisma.medicalDocument.count({ where: { id: secondId } })).toBe(0);
+      expect(await prisma.documentEmbedding.count({ where: { documentId: secondId } })).toBe(0);
+      expect(await prisma.aiChatSession.count({ where: { id: chatId } })).toBe(0);
+    }, 40000);
   });
 });

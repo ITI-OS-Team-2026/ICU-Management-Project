@@ -10,7 +10,14 @@ enum EmbeddingStatus {
 // (see src/modules/rag/indexing.service.js). Chunks live in document_embeddings.
 model MedicalDocument {
   id               String          @id @default(uuid())
-  admissionId      String          @map("admission_id")
+  // Null for assistant chat resources: a clinician can attach a reference file
+  // to a Medical Knowledge Assistant chat, which belongs to no admission.
+  // Exactly one of admissionId / chatSessionId is set.
+  admissionId      String?         @map("admission_id")
+  chatSessionId    String?         @map("chat_session_id")
+  // The chat message this file was sent with. Null while it is still sitting in
+  // the composer — the transcript renders bound files, the composer unbound ones.
+  messageId        String?         @map("message_id")
   uploadedBy       String          @map("uploaded_by")
   documentType     String          @map("document_type") @db.VarChar(100)
   originalFilename String          @map("original_filename") @db.VarChar(255)
@@ -34,11 +41,17 @@ model MedicalDocument {
   cloudinaryPublicId String?       @map("cloudinary_public_id") @db.VarChar(255)
   fileContent      Bytes?          @map("file_content")
 
-  admission  Admission           @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  uploader   User                @relation(fields: [uploadedBy], references: [id])
-  embeddings DocumentEmbedding[]
+  admission   Admission?          @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  chatSession AiChatSession?      @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: the chat cascade already removes the file, and a
+  // message delete on its own should never silently destroy an upload.
+  message     AiChatMessage?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  uploader    User                @relation(fields: [uploadedBy], references: [id])
+  embeddings  DocumentEmbedding[]
 
   @@index([admissionId])
+  @@index([chatSessionId])
+  @@index([messageId])
   @@index([uploadedBy])
   @@index([embeddingStatus])
   @@map("medical_documents")
@@ -47,7 +60,9 @@ model MedicalDocument {
 model DocumentEmbedding {
   id             String                      @id @default(uuid())
   documentId     String                      @map("document_id")
-  admissionId    String                      @map("admission_id")
+  // Mirrors medical_documents.admission_id — null for chat resources, which are
+  // scoped by joining medical_documents.chat_session_id instead.
+  admissionId    String?                     @map("admission_id")
   chunkIndex     Int                         @default(0) @map("chunk_index")
   chunkText      String                      @map("chunk_text") @db.Text
   charCount      Int                         @default(0) @map("char_count")
@@ -58,7 +73,7 @@ model DocumentEmbedding {
   embedding      Unsupported("vector(1024)")
 
   document  MedicalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  admission Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  admission Admission?      @relation(fields: [admissionId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, chunkIndex])
   @@index([documentId])
