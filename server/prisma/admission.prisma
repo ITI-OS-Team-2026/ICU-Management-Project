@@ -45,6 +45,7 @@ model Admission {
   aiSummaries          AiSummary[]
   aiQueryLogs          AiQueryLog[]
   treatmentApprovals   TreatmentApproval[]
+  alerts               Alert[]
 
   @@index([patientId])
   @@index([status])

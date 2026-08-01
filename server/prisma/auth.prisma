@@ -61,6 +61,7 @@ model User {
   treatmentApprovalsMade  TreatmentApproval[]        @relation("TreatmentApprovalApprover")
   treatmentsStarted       TreatmentApproval[]        @relation("TreatmentApprovalStarter")
   treatmentsCompleted     TreatmentApproval[]        @relation("TreatmentApprovalCompleter")
+  alertReviews            AlertReview[]              @relation("AlertReviewer")
 
   @@index([role])
   @@index([status])

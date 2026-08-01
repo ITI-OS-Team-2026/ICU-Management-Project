@@ -18,6 +18,8 @@ const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRout
 const notificationRoutes = require("../modules/notifications/notification.routes");
 const { admissionTreatmentApprovalRouter, treatmentApprovalRouter } = require("../modules/treatmentApprovals/treatmentApproval.routes");
 
+const { alertRouter, admissionAlertsRouter } = require("../modules/alerts/alert.routes");
+
 const router = express.Router();
 
 router.use("/auth", authRoutes);
@@ -33,6 +35,8 @@ router.use("/admissions", admissionInvestigationRouter);
 router.use("/admissions", admissionLabsRouter);
 router.use("/admissions", admissionExaminationsRouter);
 router.use("/admissions", admissionNotesRouter);
+router.use("/admissions", admissionAlertsRouter);
+router.use("/alerts", alertRouter);
 router.use("/diagnoses", diagnosisRouter);
 router.use("/vitals", vitalsRouter);
 router.use("/medications", medicationsRouter);
