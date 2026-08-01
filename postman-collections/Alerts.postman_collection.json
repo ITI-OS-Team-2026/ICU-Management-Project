@@ -1,0 +1,386 @@
+{
+  "info": {
+    "name": "SmartCare ICU - Alerts System",
+    "description": "Alerts endpoints. Run Setup first to get patient/bed/admission fixtures.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api" },
+    { "key": "nurse_email", "value": "nurse@smartcare.icu" },
+    { "key": "resident_email", "value": "resident@smartcare.icu" },
+    { "key": "specialist_email", "value": "specialist@smartcare.icu" },
+    { "key": "shared_password", "value": "SuperSecurePassword2026!" },
+    { "key": "patient_id", "value": "" },
+    { "key": "bed_id", "value": "" },
+    { "key": "doctor_id", "value": "" },
+    { "key": "admission_id", "value": "" },
+    { "key": "alert_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('doctor_id', pm.response.json().user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Patient",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/patients",
+              "host": ["{{base_url}}"],
+              "path": ["patients"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mrn\": \"PM-ALERT-{{$timestamp}}\",\n  \"name\": \"Alerts Patient\",\n  \"age\": 45\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('patient_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Admin (for bed)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@smartcare.icu\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Bed",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admin/beds",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "beds"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bed_number\": \"ALRT-{{$timestamp}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('bed_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Resident (for admission)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{resident_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Dummy Admission",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admissions",
+              "host": ["{{base_url}}"],
+              "path": ["admissions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\": \"{{patient_id}}\",\n  \"bed_id\": \"{{bed_id}}\",\n  \"doctor_id\": \"{{doctor_id}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('admission_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Alerts Module",
+      "item": [
+        {
+          "name": "Insert High Risk Vitals (P0 Critical)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/vitals",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "vitals"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pulse\": 145,\n  \"respiratory_rate\": 28,\n  \"spo2\": 88,\n  \"systolic_bp\": 85,\n  \"temperature\": 39.5,\n  \"is_override\": true,\n  \"override_reason\": \"Testing P0 Alerts with dangerous vitals\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Insert Warning Vitals (P1 Warning)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/vitals",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "vitals"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pulse\": 105,\n  \"respiratory_rate\": 15,\n  \"spo2\": 94,\n  \"systolic_bp\": 115,\n  \"temperature\": 38.5,\n  \"is_override\": true,\n  \"override_reason\": \"Testing P1 Alerts with minor abnormal vitals\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wait for Cron Job / Run Test Script Manually",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "node src/modules/alerts/alert.test.js (Run this in the terminal, not postman)",
+              "host": ["node src", "modules", "alerts", "alert", "test", "js"]
+            },
+            "description": "Alerts are automatically generated by a Cron Job every 2 minutes for any new vitals you insert. You can force an alert to be created immediately by running `node -e \"require('./src/modules/alerts/monitoring.job.js').runMonitoringCycle().then(() => process.exit(0))\"` in your terminal."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Admission Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "alerts"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns an array', () => pm.expect(res.data).to.be.an('array'));",
+                  "if (res.data.length > 0) pm.collectionVariables.set('alert_id', res.data[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Alert Review (Doctors Only)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/alerts/{{alert_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["alerts", "{{alert_id}}", "reviews"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_notes\": \"Patient stabilized after oxygen therapy. Continuing to monitor.\",\n  \"accepted\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Specific Alert Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts/{{alert_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["alerts", "{{alert_id}}", "reviews"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Auth Edge Cases",
+      "item": [
+        {
+          "name": "Login Nurse",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{nurse_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Attempt Submit Alert Review as Nurse (403 Forbidden)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/alerts/{{alert_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["alerts", "{{alert_id}}", "reviews"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_notes\": \"I am a nurse trying to submit a doctor review\",\n  \"accepted\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
