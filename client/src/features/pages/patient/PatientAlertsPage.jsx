@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Loader2, AlertTriangle, CheckCircle2, ShieldAlert, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 export default function PatientAlertsPage() {
@@ -164,6 +164,18 @@ export default function PatientAlertsPage() {
                     </div>
                   </div>
 
+                  {(alert.clinicalReasoning || alert.clinical_reasoning) && (
+                    <div className="mt-4 bg-primary/5 border border-primary/20 rounded-lg p-3.5 text-sm">
+                      <div className="flex items-center gap-1.5 font-semibold text-primary text-xs uppercase tracking-wider mb-1.5">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span>AI Clinical Reasoning</span>
+                      </div>
+                      <p className="text-foreground/90 text-sm leading-relaxed">
+                        {alert.clinicalReasoning || alert.clinical_reasoning}
+                      </p>
+                    </div>
+                  )}
+
                   {alert.reviews && alert.reviews.length > 0 && (
                     <div className="mt-5 space-y-3">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clinical Reviews</h4>
@@ -213,7 +225,19 @@ export default function PatientAlertsPage() {
                                 Acknowledge this alert and add clinical notes. This action will mark the alert as REVIEWED.
                               </DialogDescription>
                             </DialogHeader>
-                            
+
+                            {(selectedAlert.clinicalReasoning || selectedAlert.clinical_reasoning) && (
+                              <div className="mt-3 bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+                                <div className="flex items-center gap-1.5 font-semibold text-primary text-xs uppercase tracking-wider mb-1">
+                                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                                  <span>AI Clinical Reasoning</span>
+                                </div>
+                                <p className="text-foreground/90 text-xs leading-relaxed">
+                                  {selectedAlert.clinicalReasoning || selectedAlert.clinical_reasoning}
+                                </p>
+                              </div>
+                            )}
+
                             <form onSubmit={handleReviewSubmit} className="space-y-4 mt-4">
                               <div className="space-y-2">
                                 <label className="text-sm font-medium text-foreground">Clinical Notes / Intervention</label>
