@@ -5,6 +5,8 @@ const alertService = require('./alert.service');
 const { getIo } = require('../../utils/socket');
 const logger = require('../../utils/logger');
 
+const { generateAlertReasoning } = require('./alertAi.service');
+
 const runMonitoringCycle = async () => {
   logger.info('Running Alerts Monitoring Cycle...');
   try {
@@ -41,7 +43,8 @@ const runMonitoringCycle = async () => {
           continue;
         }
 
-        // We skip AI Bedrock as requested
+        // 4. Generate AI Clinical Reasoning via Bedrock (Graceful degradation on failure)
+        const clinicalReasoning = await generateAlertReasoning(scoreResult);
 
         // 5. Create Alert
         logger.info(`Creating ${scoreResult.severity} alert for admission ${admission.id}`);
@@ -53,7 +56,7 @@ const runMonitoringCycle = async () => {
             news2_total: scoreResult.total,
             ...scoreResult.breakdown
           },
-          clinicalReasoning: null // AI skipped
+          clinicalReasoning
         });
 
         // 6. Emit real-time notification

@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "SmartCare ICU - Alerts System",
+    "name": "ICU Management - AI Alerts & Clinical Reasoning",
     "description": "Dynamic, fully reusable Postman collection for the Automated ICU Patient Alerts and Bedrock AI Clinical Reasoning System. All resource IDs are automatically extracted and stored from API responses — no manual editing required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
