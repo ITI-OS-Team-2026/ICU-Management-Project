@@ -3,7 +3,7 @@ import { authService } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
 
 /** Fetch current user; syncs zustand. Returns null when unauthenticated. */
-async function resolveSession() {
+export async function resolveSession() {
   const authState = useAuthStore.getState();
   if (authState.user) {
     return authState.user;
@@ -29,7 +29,19 @@ async function resolveSession() {
 export async function loginLoader() {
   const user = await resolveSession();
   if (user) {
-    throw redirect('/');
+    throw redirect('/dashboard');
+  }
+  return null;
+}
+
+/**
+ * Public landing page at "/". Anyone with a session is sent straight to their
+ * dashboard — the marketing page is only ever the first thing a guest sees.
+ */
+export async function landingLoader() {
+  const user = await resolveSession();
+  if (user) {
+    throw redirect('/dashboard');
   }
   return null;
 }
@@ -55,7 +67,7 @@ export function roleGuardLoader(allowedRoles) {
       throw redirect('/login');
     }
     if (!allowedRoles.includes(user.role)) {
-      throw redirect('/');
+      throw redirect('/dashboard');
     }
     return { user };
   };
