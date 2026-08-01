@@ -93,6 +93,63 @@ export const ragService = {
     return data;
   },
 
+  // ── Chat resources ────────────────────────────────────────────────────────
+  // Files attached to one chat. Only that chat can retrieve them, and deleting
+  // the chat removes them from Cloudinary and the database.
+
+  /** Files attached to a chat, with their indexing status. */
+  async listChatResources(chatId) {
+    const { data } = await api.get(`/rag/chats/${chatId}/resources`);
+    return data?.data ?? [];
+  },
+
+  /**
+   * Attach a file to a chat.
+   * @param {string} chatId
+   * @param {File} file — PDF, JPEG, PNG or TXT, max 10MB
+   * @param {Object} [options]
+   * @param {(percent: number) => void} [options.onProgress]
+   * @param {AbortSignal} [options.signal]
+   */
+  async addChatResource(chatId, file, options = {}) {
+    const form = new FormData();
+    form.append('file', file);
+
+    const { data } = await api.post(`/rag/chats/${chatId}/resources`, form, {
+      // Let the browser set the multipart boundary.
+      headers: { 'Content-Type': undefined },
+      signal: options.signal,
+      onUploadProgress: (event) => {
+        if (!options.onProgress || !event.total) return;
+        options.onProgress(Math.round((event.loaded / event.total) * 100));
+      },
+    });
+
+    return data?.data ?? null;
+  },
+
+  /**
+   * The raw bytes of a resource, as an object URL for <img>, a lightbox or a
+   * new tab. Fetched through axios so the session cookie and interceptors
+   * apply — a bare <img src> would be a cross-site request without them.
+   *
+   * The caller owns the returned URL and must revokeObjectURL it.
+   */
+  async getChatResourceObjectUrl(chatId, documentId, options = {}) {
+    const response = await api.get(`/rag/chats/${chatId}/resources/${documentId}/file`, {
+      responseType: 'blob',
+      signal: options.signal,
+    });
+
+    return URL.createObjectURL(response.data);
+  },
+
+  /** Detach one file and destroy the stored original. */
+  async removeChatResource(chatId, documentId) {
+    const { data } = await api.delete(`/rag/chats/${chatId}/resources/${documentId}`);
+    return data;
+  },
+
   /** Knowledge-base status: how many documents are indexed and searchable. */
   async getIndexStatus(admissionId) {
     const { data } = await api.get(`/rag/admissions/${admissionId}/index`);
@@ -184,6 +241,12 @@ export function describeRagError(err) {
   }
   if (status === 403) {
     return 'Your role does not have access to the AI assistant.';
+  }
+  if (status === 413) {
+    return 'That file is larger than the 10MB limit.';
+  }
+  if (status === 415) {
+    return serverMessage || 'Unsupported file type. Attach a PDF, JPEG, PNG or TXT file.';
   }
   if (status === 404) {
     return 'This admission could not be found.';

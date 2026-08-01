@@ -476,7 +476,7 @@ Retrieval-augmented question answering over a **single admission**. Every query 
 - **Auth:** Resident, Specialist
 - **Request Body:** `{ question, mode?: "patient" | "knowledge", admission_id, include_history?: boolean, chat_id?: uuid, top_k?: 1..25 }`
   - `mode: "patient"` (default) — requires `admission_id`, rejects `chat_id`. Answers only from that admission's record and logs to `ai_query_logs`.
-  - `mode: "knowledge"` — rejects `admission_id`. General medical questions against the indexed knowledge base. Pass `chat_id` to continue a saved chat; omit it and a new chat is started, whose id comes back as `data.chat_id`.
+  - `mode: "knowledge"` — rejects `admission_id`. General medical questions against the indexed knowledge base **plus any files attached to that chat**. Pass `chat_id` to continue a saved chat; omit it and a new chat is started, whose id comes back as `data.chat_id`.
 - **Responses:** `200 OK` · `400` invalid question · `404` unknown admission or chat · `503` AI service unavailable
 - **Response shape:**
 ```json
@@ -521,6 +521,7 @@ Retrieval-augmented question answering over a **single admission**. Every query 
 }
 ```
 - **`retrieval.mode`:** `llm` (generated) · `retrieval_only` (no LLM configured — the top retrieved records are returned verbatim) · `no_context` (nothing recorded for this admission; `ai_response` is the explicit "Not enough recorded data…" state and no LLM call is made).
+- **`user_message_id`** (knowledge mode): the id of the stored *question* message. Any files staged in that chat are bound to it, so a client rendering an optimistic bubble can adopt this id and resolve the message's attachments against the resource list.
 - **`cited_sources[].cited`:** `true` when the answer text references that source label, so the UI can separate referenced sources from the wider retrieval set.
 
 ## `GET /rag/admissions/:admissionId/history`
@@ -549,7 +550,7 @@ Named, resumable conversations with the **Medical Knowledge Assistant** (`mode: 
 
 ### `GET /rag/chats/:chatId`
 - **Auth:** Resident, Specialist (owner only)
-- **Description:** The chat plus `messages[]`, oldest first: `{ id, role: "user" | "assistant", content, cited_sources, retrieval, created_at }`.
+- **Description:** The chat plus `messages[]`, oldest first: `{ id, role: "user" | "assistant", content, cited_sources, retrieval, attachments, created_at }`. `attachments[]` holds the files sent with that message (same shape as a resource), which is what the transcript renders inline.
 - **Responses:** `200 OK` · `404` unknown or not owned
 
 ### `PATCH /rag/chats/:chatId`
@@ -563,8 +564,36 @@ Named, resumable conversations with the **Medical Knowledge Assistant** (`mode: 
 
 ### `DELETE /rag/chats`
 - **Auth:** Resident, Specialist
-- **Description:** Deletes every chat the caller owns.
-- **Responses:** `200 OK` — `{ status, message, deleted }`
+- **Description:** Deletes every chat the caller owns, and their resources.
+- **Responses:** `200 OK` — `{ status, message, deleted, resources_deleted }`
+
+## Chat resources (`/rag/chats/:chatId/resources`)
+
+Reference files a clinician attaches to one chat with the **+** button. A resource is a `medical_documents` row with `chat_session_id` set and `admission_id` null, so it reuses the same extract → chunk → embed pipeline (PDF parsing, OCR for images). Retrieval only ever surfaces a resource **inside the chat it was uploaded to** — the scope filter is in the SQL, so no other chat and no other clinician can reach it.
+
+Deleting a resource — or the chat holding it — destroys the Cloudinary original *and* the database rows (chunks cascade). Nothing is left in either store.
+
+### `GET /rag/chats/:chatId/resources`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Attached files with indexing state: `{ id, chat_id, message_id, original_filename, mime_type, file_size, storage_type, is_image, embedding_status, embedding_error, chunk_count, is_searchable, created_at }`. Poll this while `embedding_status` is `PENDING`/`PROCESSING`.
+- **`message_id`:** null while the file is still staged in the composer; set to the message it was sent with once a question goes out. The composer shows unbound files, the transcript shows bound ones.
+
+### `POST /rag/chats/:chatId/resources`
+- **Auth:** Resident, Specialist (owner only)
+- **Request:** `multipart/form-data`, field `file` — PDF, JPEG, PNG or TXT, max 10MB (same filter as patient documents).
+- **Description:** Stores the file (Cloudinary when configured, DB blob otherwise) and queues indexing out of band; the response returns immediately with `embedding_status: "PENDING"`.
+- **Responses:** `201 Created` · `404` unknown or not owned · `413` too large · `415` unsupported type
+
+### `GET /rag/chats/:chatId/resources/:documentId/file`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** The stored bytes, served `Content-Disposition: inline` with the original mime type — used for thumbnails, the full-screen image lightbox, and opening a PDF in a new tab. Proxied through the API rather than exposing the Cloudinary URL, so ownership is re-checked on every read.
+- **Responses:** `200 OK` · `401` no session · `404` unknown or not owned · `502` cloud storage unreachable
+
+### `DELETE /rag/chats/:chatId/resources/:documentId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Detaches and permanently deletes one resource, Cloudinary original included.
+- **Responses:** `200 OK` — `{ status, message, deleted, file_removed }` · `404`
+- **`file_removed`:** `false` means the database row is gone but cloud storage refused the delete — the failure is logged rather than blocking the clinician.
 
 ## `GET /rag/admissions/:admissionId/index`
 - **Auth:** Nurse, Resident, Specialist

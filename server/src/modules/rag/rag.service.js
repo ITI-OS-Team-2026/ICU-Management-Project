@@ -52,12 +52,12 @@ const RAG_SYSTEM_PROMPT = `You are the SmartCare ICU clinical retrieval assistan
 const KNOWLEDGE_SYSTEM_PROMPT = `You are the SmartCare ICU Medical Knowledge Assistant. You answer general medical-education questions for ICU clinicians. You are NOT discussing any specific patient.
 
 You have two sources of information:
-1. **Retrieved knowledge base excerpts** — passages retrieved from this institution's indexed clinical reference documents (given below, if any).
+1. **Retrieved knowledge base excerpts** — passages retrieved from this institution's indexed clinical reference documents, and from any files the clinician attached to this conversation (given below, if any).
 2. **Your own general medical knowledge** — standard, well-established clinical knowledge.
 
 ## RULES
 
-1. **Prefer retrieved excerpts.** If the excerpts answer the question, ground your answer in them and mention the document name naturally once (e.g., "The History Taking Protocol outlines..." or "ICU Fundamentals states...").
+1. **Prefer retrieved excerpts.** If the excerpts answer the question, ground your answer in them and mention the document name naturally once (e.g., "The History Taking Protocol outlines..." or "ICU Fundamentals states..."). When the clinician has attached a file and the question is about it, answer from that file's excerpts before anything else.
 2. **Fill gaps with general knowledge.** If the excerpts are missing, empty, or only partially answer the question, use your own general medical knowledge to complete the answer without mentioning that it's general knowledge.
 3. **Natural source attribution.** When using retrieved documents, mention the source document name naturally once in your answer. When using general knowledge, do NOT mention it—just answer confidently. The system will detect which sources you reference.
 4. **Stay general.** This is not about a specific patient. If asked about an individual patient's data, decline and say the physician should use that patient's own AI chat, which has access to their record.
@@ -73,6 +73,16 @@ You have two sources of information:
 - End with nothing extra: no disclaimers, no sign-off.`;
 
 // ─── Prompt construction ─────────────────────────────────────────────────────
+
+/**
+ * How a retrieved chunk is named in the prompt and in the citation list. Files
+ * the clinician attached to the chat read as "Attached" so an answer visibly
+ * distinguishes their own upload from the shared reference library.
+ */
+const chunkLabel = (chunk) =>
+  `${chunk.is_chat_resource ? "Attached" : "Document"}: ${chunk.original_filename}, part ${
+    chunk.chunk_index + 1
+  }`;
 
 const describeAdmission = (admission) => {
   if (!admission) return "";
@@ -122,9 +132,10 @@ const buildContextBlock = (context) => {
 
   const documentLines = context.chunks.map(
     (chunk) =>
-      `- [Document: ${chunk.original_filename}, part ${chunk.chunk_index + 1}] (relevance ${chunk.score.toFixed(
-        2
-      )})\n  ${chunk.chunk_text.replace(/\n/g, "\n  ")}`
+      `- [${chunkLabel(chunk)}] (relevance ${chunk.score.toFixed(2)})\n  ${chunk.chunk_text.replace(
+        /\n/g,
+        "\n  "
+      )}`
   );
   appendSection("Retrieved document excerpts", documentLines);
 
@@ -187,9 +198,10 @@ const buildUserMessage = (question, context, history) => {
 const buildKnowledgeUserMessage = (question, context, history) => {
   const documentLines = context.chunks.map(
     (chunk) =>
-      `- [Document: ${chunk.original_filename}, part ${chunk.chunk_index + 1}] (relevance ${chunk.score.toFixed(
-        2
-      )})\n  ${chunk.chunk_text.replace(/\n/g, "\n  ")}`
+      `- [${chunkLabel(chunk)}] (relevance ${chunk.score.toFixed(2)})\n  ${chunk.chunk_text.replace(
+        /\n/g,
+        "\n  "
+      )}`
   );
 
   const parts = [
@@ -270,8 +282,14 @@ const buildCitedSources = (context, answerText) => {
   const citedSources = [];
 
   for (const chunk of context.chunks) {
-    const label = `Document: ${chunk.original_filename}, part ${chunk.chunk_index + 1}`;
-    const cited = isCitedInAnswer(label, answer, "document_chunk", chunk.original_filename);
+    const label = chunkLabel(chunk);
+    // A file the clinician attached to this chat is the reason they are asking:
+    // anything retrieved from it already cleared the relevance filter, so credit
+    // it rather than relying on the model happening to name the file. Shared
+    // library documents keep the stricter "was it referenced in the answer" rule.
+    const cited =
+      Boolean(chunk.is_chat_resource) ||
+      isCitedInAnswer(label, answer, "document_chunk", chunk.original_filename);
 
     if (cited) {
       citedSources.push({
@@ -349,9 +367,7 @@ const buildExtractiveAnswer = (context, question) => {
   ];
 
   for (const chunk of context.chunks.slice(0, 3)) {
-    lines.push(
-      `- [Document: ${chunk.original_filename}, part ${chunk.chunk_index + 1}] ${chunk.chunk_text.slice(0, 240)}`
-    );
+    lines.push(`- [${chunkLabel(chunk)}] ${chunk.chunk_text.slice(0, 240)}`);
   }
 
   for (const record of context.records.slice(0, 8)) {
@@ -429,9 +445,13 @@ const formatQueryLog = (row) => ({
 
 /**
  * Retrieve context for knowledge mode (medical knowledge questions without patient data).
- * Searches only indexed documents (the medical PDF) across all admissions.
+ *
+ * Searches the shared knowledge base plus the resources attached to *this* chat
+ * — never another chat's uploads, even for the same clinician. `chatSessionId`
+ * is the only thing standing between two chats' private files, so the scope
+ * filter lives in the SQL rather than in a post-filter.
  */
-const retrieveKnowledgeContext = async (question, questionVector, topK = 6) => {
+const retrieveKnowledgeContext = async (question, questionVector, topK = 6, chatId = null) => {
   const { toVectorLiteral } = require("../../utils/embeddingClient");
   const config = require("../../config/env");
 
@@ -448,21 +468,25 @@ const retrieveKnowledgeContext = async (question, questionVector, topK = 6) => {
   const minScore = config.ragMinScore;
   const relevanceRatio = config.ragRelevanceRatio;
 
-  // Search across all indexed documents (no admission scope)
+  // Shared knowledge base (chat_session_id IS NULL) + this chat's own uploads.
+  // With chatId null the second clause is NULL, so only shared documents match.
   const rows = await prisma.$queryRawUnsafe(
     `SELECT de.id,
             de.document_id,
             de.chunk_index,
             de.chunk_text,
             md.original_filename,
+            md.chat_session_id,
             1 - (de.embedding <=> $1::vector) AS score
        FROM document_embeddings de
        JOIN medical_documents md ON md.id = de.document_id
       WHERE md.is_archived = false
+        AND (md.chat_session_id IS NULL OR md.chat_session_id = $3::text)
       ORDER BY de.embedding <=> $1::vector
       LIMIT $2`,
     toVectorLiteral(questionVector),
-    limit
+    limit,
+    chatId
   );
 
   const scored = rows
@@ -472,6 +496,8 @@ const retrieveKnowledgeContext = async (question, questionVector, topK = 6) => {
       chunk_index: row.chunk_index,
       chunk_text: row.chunk_text,
       original_filename: row.original_filename,
+      // Lets the UI tell "you uploaded this" apart from the shared library.
+      is_chat_resource: Boolean(row.chat_session_id),
       score: Number(row.score),
     }))
     .filter((row) => Number.isFinite(row.score) && row.score > minScore);
@@ -555,7 +581,7 @@ const answerQuestion = async (askedById, payload, req) => {
 
   const questionVector = await embedText(question);
   const context = mode_type === "knowledge"
-    ? await retrieveKnowledgeContext(question, questionVector, payload.top_k)
+    ? await retrieveKnowledgeContext(question, questionVector, payload.top_k, session?.id || null)
     : await retrieveContext(admissionId, question, questionVector, { topK: payload.top_k });
 
   let answer;
@@ -615,13 +641,14 @@ const answerQuestion = async (askedById, payload, req) => {
 
   // Knowledge mode: store the exchange on the chat so it can be resumed later.
   let chatMessage = null;
+  let userMessage = null;
   if (session) {
-    chatMessage = await chatService.appendTurn(session, {
+    ({ userMessage, assistantMessage: chatMessage } = await chatService.appendTurn(session, {
       question,
       answer,
       citedSources,
       retrieval,
-    });
+    }));
   }
 
   if (mode_type === "patient") {
@@ -647,6 +674,9 @@ const answerQuestion = async (askedById, payload, req) => {
     id: log?.id || chatMessage?.id || null,
     admission_id: admissionId || null,
     chat_id: session?.id || null,
+    // Lets the client swap its optimistic bubble's local id for the real one,
+    // so files bound to this message resolve against the live resource list.
+    user_message_id: userMessage?.id || null,
     query_mode: mode_type,
     question,
     ai_response: answer,

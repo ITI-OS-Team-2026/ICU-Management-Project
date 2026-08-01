@@ -1,6 +1,7 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
+const { purgeResourcesForSessions, formatResource } = require("./chatResources.service");
 
 /**
  * Named, resumable conversations with the Medical Knowledge Assistant
@@ -42,6 +43,7 @@ const formatMessage = (row) => ({
   cited_sources: row.citedSources || [],
   retrieval: row.retrieval || null,
   created_at: row.createdAt,
+  ...(row.attachments ? { attachments: row.attachments.map(formatResource) } : {}),
 });
 
 const formatSession = (row) => ({
@@ -93,7 +95,7 @@ const getSession = async (userId, sessionId) => {
   const session = await prisma.aiChatSession.findUnique({
     where: { id: sessionId },
     include: {
-      messages: { orderBy: { createdAt: "asc" } },
+      messages: { orderBy: { createdAt: "asc" }, include: { attachments: true } },
       _count: { select: { messages: true } },
     },
   });
@@ -132,11 +134,16 @@ const renameSession = async (userId, sessionId, title) => {
 };
 
 /**
- * Permanently delete one chat and its messages (FK cascade). Audited, because
- * this is the one operation here that destroys stored content.
+ * Permanently delete one chat, its messages and its attached resources (FK
+ * cascade). Audited, because this is the one operation here that destroys
+ * stored content.
+ *
+ * Cloudinary originals are destroyed first: the DB rows go either way, so
+ * doing it before the cascade is the only chance to reach them.
  */
 const deleteSession = async (userId, sessionId, req) => {
   const session = await assertOwnedSession(userId, sessionId);
+  const purged = await purgeResourcesForSessions([sessionId]);
 
   return await auditedTransaction(
     req,
@@ -147,28 +154,36 @@ const deleteSession = async (userId, sessionId, req) => {
 
       return {
         targetId: sessionId,
-        oldValues: { id: sessionId, title: session.title, messages_deleted: count },
+        oldValues: {
+          id: sessionId,
+          title: session.title,
+          messages_deleted: count,
+          resources_deleted: purged.resources,
+        },
         result: {
           status: "success",
           message: "Chat deleted.",
           deleted: 1,
           messages_deleted: count,
+          resources_deleted: purged.resources,
         },
       };
     }
   );
 };
 
-/** Delete every chat the caller owns ("clear all chats"). */
+/** Delete every chat the caller owns ("clear all chats"), resources included. */
 const deleteAllSessions = async (userId, req) => {
+  const ids = (
+    await prisma.aiChatSession.findMany({ where: { userId }, select: { id: true } })
+  ).map((row) => row.id);
+
+  const purged = await purgeResourcesForSessions(ids);
+
   return await auditedTransaction(
     req,
     { action: "ARCHIVE", targetTable: "AiChatSession" },
     async (tx) => {
-      const ids = (
-        await tx.aiChatSession.findMany({ where: { userId }, select: { id: true } })
-      ).map((row) => row.id);
-
       if (ids.length > 0) {
         await tx.aiChatMessage.deleteMany({ where: { sessionId: { in: ids } } });
         await tx.aiChatSession.deleteMany({ where: { id: { in: ids } } });
@@ -176,11 +191,16 @@ const deleteAllSessions = async (userId, req) => {
 
       return {
         targetId: userId,
-        oldValues: { user_id: userId, deleted_sessions: ids.length },
+        oldValues: {
+          user_id: userId,
+          deleted_sessions: ids.length,
+          deleted_resources: purged.resources,
+        },
         result: {
           status: "success",
           message: `Deleted ${ids.length} chat${ids.length === 1 ? "" : "s"}.`,
           deleted: ids.length,
+          resources_deleted: purged.resources,
         },
       };
     }
@@ -239,11 +259,19 @@ const getRecentTurns = async (sessionId, limit = 5) => {
 const appendTurn = async (session, { question, answer, citedSources, retrieval }) => {
   const now = new Date();
 
-  const [, assistantMessage] = await prisma.$transaction([
-    prisma.aiChatMessage.create({
+  return await prisma.$transaction(async (tx) => {
+    const userMessage = await tx.aiChatMessage.create({
       data: { sessionId: session.id, role: "USER", content: question, createdAt: now },
-    }),
-    prisma.aiChatMessage.create({
+    });
+
+    // Files staged in the composer belong to the message that finally sent
+    // them, which is what lets the transcript render each upload in place.
+    await tx.medicalDocument.updateMany({
+      where: { chatSessionId: session.id, messageId: null, isArchived: false },
+      data: { messageId: userMessage.id },
+    });
+
+    const assistantMessage = await tx.aiChatMessage.create({
       data: {
         sessionId: session.id,
         role: "ASSISTANT",
@@ -253,17 +281,18 @@ const appendTurn = async (session, { question, answer, citedSources, retrieval }
         // 1ms apart so ordering by created_at is stable for the pair.
         createdAt: new Date(now.getTime() + 1),
       },
-    }),
-    prisma.aiChatSession.update({
+    });
+
+    await tx.aiChatSession.update({
       where: { id: session.id },
       data: {
         lastMessageAt: now,
         ...(session.title === DEFAULT_TITLE ? { title: deriveTitle(question) } : {}),
       },
-    }),
-  ]);
+    });
 
-  return assistantMessage;
+    return { userMessage, assistantMessage };
+  });
 };
 
 module.exports = {

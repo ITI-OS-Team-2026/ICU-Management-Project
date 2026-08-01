@@ -5,9 +5,9 @@ import {
   AlertCircle,
   Sparkles,
   StopCircle,
-  Info,
   PanelLeft,
   Plus,
+  Paperclip,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,12 @@ import { Badge } from '@/components/ui/badge';
 import { useKnowledgeChats } from '../hooks/useKnowledgeChats';
 import CitationList from '../components/rag/CitationList';
 import ChatHistorySidebar from '../components/rag/ChatHistorySidebar';
+import ChatResourceBar from '../components/rag/ChatResourceBar';
+import MessageAttachments from '../components/rag/MessageAttachments';
+import ImageLightbox from '../components/rag/ImageLightbox';
+
+// Mirrors the server's upload filter (middlewares/uploadSingleFile.js).
+const ACCEPTED_FILE_TYPES = '.pdf,.txt,.png,.jpg,.jpeg';
 
 const KNOWLEDGE_PROMPTS = [
   'What are the key elements to cover in a patient\'s present history of illness?',
@@ -41,7 +47,7 @@ function formatTime(value) {
   });
 }
 
-function ChatBubble({ message }) {
+function ChatBubble({ message, chatId, attachments, onOpenImage }) {
   const isUser = message.role === 'user';
   // document_chunks_retrieved counts what retrieval found, not what the model
   // actually used — a weak match can be retrieved and still go uncited if the
@@ -85,6 +91,13 @@ function ChatBubble({ message }) {
           }`}
         >
           <p className="whitespace-pre-wrap break-words">{message.text}</p>
+
+          <MessageAttachments
+            chatId={chatId}
+            attachments={attachments}
+            onOpenImage={onOpenImage}
+          />
+
           {!isUser && !message.isError && <CitationList citations={message.citations} />}
         </div>
         {message.createdAt && (
@@ -107,6 +120,11 @@ export default function MedicalAssistantPage() {
     isAsking,
     elapsedSeconds,
     error,
+    stagedResources,
+    resourcesByMessage,
+    uploadingFile,
+    isPreparingFiles,
+    preparingFileNames,
     ask,
     cancel,
     openChat,
@@ -114,15 +132,19 @@ export default function MedicalAssistantPage() {
     renameChat,
     deleteChat,
     deleteAllChats,
+    attachResource,
+    removeResource,
     dismissError,
   } = useKnowledgeChats();
 
   const [question, setQuestion] = useState('');
   // The rail is permanent from `lg` up; below that it is a togglable panel.
   const [showHistory, setShowHistory] = useState(false);
+  const [lightboxResource, setLightboxResource] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const activeChat = chats.find((chat) => chat.id === activeChatId) || null;
 
@@ -133,7 +155,9 @@ export default function MedicalAssistantPage() {
 
   const submitQuestion = async (text) => {
     const value = String(text ?? question).trim();
-    if (!value || isAsking) return;
+    // Hold the question until every attached file is uploaded AND indexed:
+    // asking sooner means the assistant cannot read the file it was given.
+    if (!value || isAsking || isPreparingFiles) return;
 
     setQuestion('');
     await ask(value);
@@ -161,6 +185,13 @@ export default function MedicalAssistantPage() {
     startNewChat();
     setShowHistory(false);
     inputRef.current?.focus();
+  };
+
+  const handleFilePicked = async (event) => {
+    const file = event.target.files?.[0];
+    // Reset first so picking the same file twice still fires a change event.
+    event.target.value = '';
+    if (file) await attachResource(file);
   };
 
   const isEmpty = messages.length === 0 && !isLoadingMessages;
@@ -259,7 +290,8 @@ export default function MedicalAssistantPage() {
                       key={prompt}
                       type="button"
                       onClick={() => submitQuestion(prompt)}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-left font-sans text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      disabled={isAsking || isPreparingFiles}
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-left font-sans text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {prompt}
                     </button>
@@ -267,7 +299,17 @@ export default function MedicalAssistantPage() {
                 </div>
               </div>
             ) : (
-              messages.map((message) => <ChatBubble key={message.id} message={message} />)
+              messages.map((message) => (
+                <ChatBubble
+                  key={message.id}
+                  message={message}
+                  chatId={activeChatId}
+                  // Live list wins; the message's own snapshot covers the brief
+                  // window before the server confirms the send.
+                  attachments={resourcesByMessage[message.id] ?? message.attachments}
+                  onOpenImage={setLightboxResource}
+                />
+              ))
             )}
 
             {isAsking && (
@@ -311,7 +353,39 @@ export default function MedicalAssistantPage() {
               </Alert>
             )}
 
+            <ChatResourceBar
+              chatId={activeChatId}
+              resources={stagedResources}
+              uploadingFile={uploadingFile}
+              onRemove={removeResource}
+            />
+
             <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_FILE_TYPES}
+                onChange={handleFilePicked}
+                className="hidden"
+                tabIndex={-1}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={Boolean(uploadingFile)}
+                title="Attach a file to this chat"
+                aria-label="Attach a file to this chat"
+                className="h-[42px] w-[42px] shrink-0"
+              >
+                {uploadingFile ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Plus size={18} />
+                )}
+              </Button>
+
               <Textarea
                 ref={inputRef}
                 value={question}
@@ -327,7 +401,8 @@ export default function MedicalAssistantPage() {
               <Button
                 type="submit"
                 size="icon"
-                disabled={isAsking || !question.trim()}
+                disabled={isAsking || isPreparingFiles || !question.trim()}
+                title={isPreparingFiles ? 'Waiting for the attached file to finish preparing…' : undefined}
                 aria-label="Send question"
                 className="h-[42px] w-[42px] shrink-0"
               >
@@ -335,11 +410,26 @@ export default function MedicalAssistantPage() {
               </Button>
             </form>
 
-            <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
-              <Info size={10} className="shrink-0" />
-              Enter to send · Shift+Enter for a new line. Prefers the knowledge base; falls back to
-              general medical knowledge when nothing matches.
-            </p>
+            {isPreparingFiles ? (
+              // Explain the disabled send button rather than leaving it inert.
+              <p className="mt-1.5 flex items-center gap-1.5 font-sans text-[10px] text-primary">
+                <Loader2 size={10} className="shrink-0 animate-spin" />
+                <span>
+                  Preparing {preparingFileNames.length > 0
+                    ? preparingFileNames.join(', ')
+                    : 'your file'}
+                  {' '}— you can send as soon as it is ready to be searched.
+                </span>
+              </p>
+            ) : (
+              <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
+                <Paperclip size={10} className="shrink-0" />
+                <span>
+                  <strong>+</strong> attaches a PDF, image or text file to this chat (max 10MB) — the
+                  assistant reads it once indexing finishes. Enter to send · Shift+Enter for a new line.
+                </span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -365,6 +455,16 @@ export default function MedicalAssistantPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-muted/20 p-4">
+            <h3 className="font-display text-xs font-bold text-foreground">Attaching Files</h3>
+            <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
+              Use <strong>+</strong> to attach a paper, protocol or scan to the chat you are in. It
+              is indexed and then searchable <em>only inside that chat</em> — no other chat and no
+              other clinician can retrieve it. Deleting the file, or the whole chat, removes it from
+              cloud storage and the database.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/20 p-4">
             <h3 className="font-display text-xs font-bold text-foreground">Knowledge Base Includes</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-[10px]">History-Taking Guides</Badge>
@@ -384,6 +484,14 @@ export default function MedicalAssistantPage() {
           </div>
         </div>
       </div>
+
+      {lightboxResource && (
+        <ImageLightbox
+          chatId={activeChatId}
+          resource={lightboxResource}
+          onClose={() => setLightboxResource(null)}
+        />
+      )}
     </div>
   );
 }

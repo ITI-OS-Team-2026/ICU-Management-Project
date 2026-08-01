@@ -285,8 +285,9 @@ export default function ChatHistorySidebar({
               Delete chat
             </DialogTitle>
             <DialogDescription className="pt-1 font-sans text-xs leading-relaxed">
-              “{pendingDelete?.title}” and its messages will be permanently deleted. This cannot be
-              undone.
+              “{pendingDelete?.title}”, its messages and any files attached to it will be
+              permanently deleted — attachments are removed from cloud storage as well. This cannot
+              be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -322,8 +323,9 @@ export default function ChatHistorySidebar({
             </DialogTitle>
             <DialogDescription className="pt-1 font-sans text-xs leading-relaxed">
               All {chats.length} saved conversation{chats.length === 1 ? '' : 's'} with the Medical
-              Knowledge Assistant will be permanently deleted. Patient AI chats are stored
-              separately and are not affected.
+              Knowledge Assistant will be permanently deleted, along with every file attached to
+              them. Patient AI chats and patient documents are stored separately and are not
+              affected.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

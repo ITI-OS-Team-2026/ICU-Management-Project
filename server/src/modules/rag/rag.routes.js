@@ -13,7 +13,9 @@ const {
   chatListQuerySchema,
   chatBodySchema,
   chatTitleBodySchema,
+  chatResourceParamsSchema,
 } = require("./rag.schema");
+const { uploadSingleFile } = require("../../middlewares/uploadSingleFile");
 
 const ragRouter = express.Router();
 
@@ -99,13 +101,57 @@ ragRouter.patch(
   ragController.renameChat
 );
 
-// DELETE /rag/chats/:chatId — delete one chat and its messages
+// DELETE /rag/chats/:chatId — delete one chat, its messages and its resources
 ragRouter.delete(
   "/chats/:chatId",
   verifyToken,
   restrictTo(CLINICIAN_ROLES),
   validate({ params: chatParamsSchema }),
   ragController.deleteChat
+);
+
+// ─── Chat resources ──────────────────────────────────────────────────────────
+// Reference files attached to a chat. Only retrievable inside that chat, and
+// removed from Cloudinary as well as the database when either the resource or
+// the whole chat is deleted.
+
+// GET /rag/chats/:chatId/resources — attached files and their indexing state
+ragRouter.get(
+  "/chats/:chatId/resources",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatParamsSchema }),
+  ragController.listChatResources
+);
+
+// POST /rag/chats/:chatId/resources — attach a file (multipart field "file")
+ragRouter.post(
+  "/chats/:chatId/resources",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  // Multer runs before validation so req.params is still parsed for the service.
+  uploadSingleFile("file"),
+  validate({ params: chatParamsSchema }),
+  ragController.addChatResource
+);
+
+// GET /rag/chats/:chatId/resources/:documentId/file — the bytes, served inline
+// for thumbnails, the lightbox and PDF viewing
+ragRouter.get(
+  "/chats/:chatId/resources/:documentId/file",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatResourceParamsSchema }),
+  ragController.getChatResourceFile
+);
+
+// DELETE /rag/chats/:chatId/resources/:documentId — detach and destroy one file
+ragRouter.delete(
+  "/chats/:chatId/resources/:documentId",
+  verifyToken,
+  restrictTo(CLINICIAN_ROLES),
+  validate({ params: chatResourceParamsSchema }),
+  ragController.removeChatResource
 );
 
 // GET /rag/admissions/:admissionId/index — knowledge-base status for the admission

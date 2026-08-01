@@ -69,6 +69,9 @@ model AiChatSession {
 
   user     User            @relation("AiChatSessionOwner", fields: [userId], references: [id], onDelete: Cascade)
   messages AiChatMessage[]
+  // Files the clinician attached to this chat. Deleting the chat cascades the
+  // rows away; the Cloudinary originals are removed by chatResources.service.
+  resources MedicalDocument[]
 
   // The sidebar reads "my chats, newest activity first" on every page load.
   @@index([userId, lastMessageAt(sort: Desc)])
@@ -84,7 +87,9 @@ model AiChatMessage {
   retrieval    Json?
   createdAt    DateTime   @default(now()) @map("created_at")
 
-  session AiChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session     AiChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // Files sent with this message, rendered inline in the transcript.
+  attachments MedicalDocument[]
 
   @@index([sessionId, createdAt])
   @@map("ai_chat_messages")

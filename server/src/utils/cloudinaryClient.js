@@ -39,15 +39,42 @@ async function uploadToCloudinary(fileBuffer, fileName) {
   });
 }
 
+// `resource_type: 'auto'` is an UPLOAD-only convenience — the destroy endpoint
+// needs the concrete type, and silently reports "not found" when given 'auto'.
+// PDFs/TXT land under `raw`, JPEG/PNG under `image`.
+const DESTROY_RESOURCE_TYPES = ['image', 'raw', 'video'];
+
+/** Read the resource type back out of a stored delivery URL, if it has one. */
+function resourceTypeFromUrl(url) {
+  const match = /\/(image|raw|video)\/upload\//.exec(String(url || ''));
+  return match ? match[1] : null;
+}
+
 /**
  * Delete a file from Cloudinary.
  * @param {string} publicId - Cloudinary public ID
- * @returns {Promise<Object>} Deletion result
+ * @param {Object} [options]
+ * @param {string} [options.resourceType] - 'image' | 'raw' | 'video' when known
+ * @param {string} [options.url] - stored delivery URL, used to infer the type
+ * @returns {Promise<Object>} Cloudinary's result, plus the resource_type used
  */
-async function deleteFromCloudinary(publicId) {
-  return cloudinary.uploader.destroy(publicId, {
-    resource_type: 'auto',
-  });
+async function deleteFromCloudinary(publicId, options = {}) {
+  const known = options.resourceType || resourceTypeFromUrl(options.url);
+  // Without a hint, try each type: destroy on the wrong one is a no-op.
+  const candidates = known ? [known] : DESTROY_RESOURCE_TYPES;
+
+  let last = null;
+  for (const resourceType of candidates) {
+    // eslint-disable-next-line no-await-in-loop -- stop at the first type that matches
+    last = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+      invalidate: true,
+    });
+
+    if (last?.result === 'ok') return { ...last, resource_type: resourceType };
+  }
+
+  return last || { result: 'not found' };
 }
 
 /**
@@ -76,6 +103,7 @@ function isConfigured() {
 module.exports = {
   uploadToCloudinary,
   deleteFromCloudinary,
+  resourceTypeFromUrl,
   getSignedUrl,
   isConfigured,
   cloudinary, // Export raw client for advanced usage

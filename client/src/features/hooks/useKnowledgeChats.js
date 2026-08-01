@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ragService, describeRagError } from '../services/ragService';
+import { validateUploadFile } from '../services/documentsService';
 
 /**
  * Saved conversations with the Medical Knowledge Assistant.
@@ -23,6 +24,7 @@ const toMessage = (row) => ({
   text: row.content,
   citations: Array.isArray(row.cited_sources) ? row.cited_sources : [],
   retrieval: row.retrieval || null,
+  attachments: Array.isArray(row.attachments) ? row.attachments : [],
   createdAt: row.created_at,
 });
 
@@ -37,6 +39,10 @@ export function useKnowledgeChats() {
   const [isAsking, setIsAsking] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [error, setError] = useState(null);
+
+  // Files attached to the active chat, plus the one currently uploading.
+  const [resources, setResources] = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(null);
 
   const abortRef = useRef(null);
   // Answers land asynchronously; ignore one that arrives after the clinician
@@ -94,6 +100,7 @@ export function useKnowledgeChats() {
     abortRef.current = null;
     setActive(null);
     setMessages([]);
+    setResources([]);
     setError(null);
   }, [setActive]);
 
@@ -106,13 +113,18 @@ export function useKnowledgeChats() {
 
       setActive(chatId);
       setMessages([]);
+      setResources([]);
       setError(null);
       setIsLoadingMessages(true);
 
       try {
-        const chat = await ragService.getChat(chatId);
+        const [chat, files] = await Promise.all([
+          ragService.getChat(chatId),
+          ragService.listChatResources(chatId),
+        ]);
         if (activeChatRef.current !== chatId) return;
         setMessages((chat?.messages ?? []).map(toMessage));
+        setResources(files);
       } catch (err) {
         console.error('Failed to open chat:', err);
         if (activeChatRef.current !== chatId) return;
@@ -124,6 +136,98 @@ export function useKnowledgeChats() {
     [setActive]
   );
 
+  // ── Resources ─────────────────────────────────────────────────────────────
+
+  /**
+   * Attach a file to the active chat. A chat that has not been saved yet is
+   * created first — the attachment needs something to belong to, and the
+   * clinician's intent to keep this conversation is already clear.
+   */
+  const attachResource = useCallback(
+    async (file) => {
+      if (!file || uploadingFile) return null;
+
+      // Reject oversized/unsupported files here rather than spending an upload
+      // round-trip to be told the same thing.
+      const validationError = validateUploadFile(file);
+      if (validationError) {
+        setError(validationError);
+        return null;
+      }
+
+      setError(null);
+      setUploadingFile({ name: file.name, progress: 0 });
+
+      try {
+        let chatId = activeChatRef.current;
+
+        if (!chatId) {
+          const chat = await ragService.createChat();
+          chatId = chat.id;
+          setActive(chatId);
+          loadChats();
+        }
+
+        const resource = await ragService.addChatResource(chatId, file, {
+          onProgress: (progress) => setUploadingFile((prev) => (prev ? { ...prev, progress } : prev)),
+        });
+
+        if (activeChatRef.current === chatId) {
+          setResources((prev) => [...prev, resource]);
+        }
+        return resource;
+      } catch (err) {
+        console.error('Failed to attach resource:', err);
+        setError(describeRagError(err));
+        return null;
+      } finally {
+        setUploadingFile(null);
+      }
+    },
+    [uploadingFile, setActive, loadChats]
+  );
+
+  const removeResource = useCallback(async (documentId) => {
+    const chatId = activeChatRef.current;
+    if (!chatId || !documentId) return false;
+
+    const previous = resources;
+    setResources((prev) => prev.filter((r) => r.id !== documentId));
+
+    try {
+      await ragService.removeChatResource(chatId, documentId);
+      return true;
+    } catch (err) {
+      console.error('Failed to remove resource:', err);
+      setResources(previous);
+      setError(describeRagError(err));
+      return false;
+    }
+  }, [resources]);
+
+  // Indexing runs out of band, so poll while anything is still being processed.
+  // FAILED and SKIPPED are terminal — the file simply is not searchable, which
+  // is no reason to hold the clinician's question back.
+  const isPreparing = (resource) =>
+    resource.embedding_status === 'PENDING' || resource.embedding_status === 'PROCESSING';
+
+  const hasPendingResource = resources.some(isPreparing);
+
+  useEffect(() => {
+    if (!hasPendingResource || !activeChatId) return undefined;
+
+    const interval = setInterval(async () => {
+      try {
+        const files = await ragService.listChatResources(activeChatId);
+        if (activeChatRef.current === activeChatId) setResources(files);
+      } catch (err) {
+        console.error('Failed to refresh resource status:', err);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [hasPendingResource, activeChatId]);
+
   // ── Asking ────────────────────────────────────────────────────────────────
 
   const ask = useCallback(
@@ -133,13 +237,22 @@ export function useKnowledgeChats() {
 
       const chatId = activeChatRef.current;
       const pendingId = nextLocalId();
+      // Files still sitting in the composer go out with this message; the server
+      // binds them to it, and the optimistic bubble shows them straight away.
+      const staged = resources.filter((resource) => !resource.message_id);
 
       setError(null);
       setElapsedSeconds(0);
       setIsAsking(true);
       setMessages((prev) => [
         ...prev,
-        { id: pendingId, role: 'user', text: question, createdAt: new Date().toISOString() },
+        {
+          id: pendingId,
+          role: 'user',
+          text: question,
+          attachments: staged,
+          createdAt: new Date().toISOString(),
+        },
       ]);
 
       abortRef.current?.abort();
@@ -161,7 +274,13 @@ export function useKnowledgeChats() {
           if (!chatId && result.chat_id) setActive(result.chat_id);
 
           setMessages((prev) => [
-            ...prev,
+            // Adopt the server's id for the optimistic bubble so files bound to
+            // that message resolve against the live resource list below.
+            ...prev.map((message) =>
+              message.id === pendingId && result.user_message_id
+                ? { ...message, id: result.user_message_id }
+                : message
+            ),
             {
               id: result.id || nextLocalId(),
               role: 'assistant',
@@ -171,6 +290,19 @@ export function useKnowledgeChats() {
               createdAt: result.created_at || new Date().toISOString(),
             },
           ]);
+        }
+
+        // Staged files are now bound to the message that sent them, which is
+        // what moves them out of the composer and into the transcript. Refresh
+        // whenever the chat holds any file, not just what this send staged —
+        // an upload that landed mid-request is bound server-side too.
+        if (resources.length > 0 && activeChatRef.current) {
+          ragService
+            .listChatResources(activeChatRef.current)
+            .then((files) => {
+              if (activeChatRef.current === chatId || !chatId) setResources(files);
+            })
+            .catch((err) => console.error('Failed to refresh resources:', err));
         }
 
         // Refresh titles and ordering — a new chat appears, an existing one
@@ -212,7 +344,7 @@ export function useKnowledgeChats() {
         setIsAsking(false);
       }
     },
-    [isAsking, loadChats, setActive]
+    [isAsking, loadChats, setActive, resources]
   );
 
   const cancel = useCallback(() => {
@@ -288,6 +420,22 @@ export function useKnowledgeChats() {
     isAsking,
     elapsedSeconds,
     error,
+    resources,
+    // Only what is still in the composer — sent files render inside their message.
+    stagedResources: resources.filter((resource) => !resource.message_id),
+    // Sent files, grouped by the message that carries them. The transcript
+    // prefers this over each message's own snapshot so a bubble always shows
+    // the current file list and its live indexing status.
+    resourcesByMessage: resources.reduce((grouped, resource) => {
+      if (!resource.message_id) return grouped;
+      (grouped[resource.message_id] ||= []).push(resource);
+      return grouped;
+    }, {}),
+    uploadingFile,
+    // True while a file about to be sent is still uploading or indexing. The
+    // composer blocks on this: a question asked now could not cite the file.
+    isPreparingFiles: Boolean(uploadingFile) || resources.some((r) => !r.message_id && isPreparing(r)),
+    preparingFileNames: resources.filter((r) => !r.message_id && isPreparing(r)).map((r) => r.original_filename),
     ask,
     cancel,
     openChat,
@@ -295,6 +443,8 @@ export function useKnowledgeChats() {
     renameChat,
     deleteChat,
     deleteAllChats,
+    attachResource,
+    removeResource,
     reloadChats: loadChats,
     dismissError: () => setError(null),
   };

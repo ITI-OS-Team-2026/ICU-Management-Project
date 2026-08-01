@@ -41,6 +41,11 @@ const chatBodySchema = Joi.object({
   title: Joi.string().trim().min(1).max(120).optional(),
 });
 
+const chatResourceParamsSchema = Joi.object({
+  chatId: Joi.string().uuid().required(),
+  documentId: Joi.string().uuid().required(),
+});
+
 const chatTitleBodySchema = Joi.object({
   title: Joi.string().trim().min(1).max(120).required().messages({
     "string.empty": "A chat title is required.",
@@ -74,4 +79,5 @@ module.exports = {
   chatListQuerySchema,
   chatBodySchema,
   chatTitleBodySchema,
+  chatResourceParamsSchema,
 };
