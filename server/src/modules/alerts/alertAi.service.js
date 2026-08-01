@@ -37,9 +37,11 @@ Follow these rules strictly:
 2. CITE ALL specific measured vital sign values (e.g., SpO2, Respiratory Rate, Heart Rate, Systolic BP, Temperature) provided in the prompt.
 3. Use precise medical terminology for physiological abnormalities (e.g., hypoxaemia, tachypnoea, tachycardia, hypotension, pyrexia, hypothermia).
 4. Explain how these combined physiological abnormalities contribute to the NEWS2 score and indicate acute physiological instability.
-5. DO NOT diagnose a disease.
-6. DO NOT recommend specific medications or treatments.
-7. Maintain a purely objective, evidence-based physiological focus.`;
+5. DO NOT provide operational recommendations or workflow call-to-action phrases (e.g., AVOID "immediate physician review", "urgent assessment", "prompt clinical evaluation", "immediate intervention", or "requires further investigation"). The alert framework already handles urgency and review workflows.
+6. DO NOT provide a specific medical diagnosis or disease name.
+7. DO NOT recommend specific medications, procedures, dosages, or treatment instructions.
+8. DO NOT speculate beyond the provided clinical data or use vague filler phrases like "another underlying condition" or "may indicate various causes".
+9. Maintain a purely objective, evidence-based physiological focus.`;
 
 /**
  * Formats abnormal vitals and NEWS2 score into a structured prompt,
@@ -85,7 +87,7 @@ const generateAlertReasoning = async (scoreResult) => {
       `Patient vitals triggered a NEWS2 score of ${total} (${severityLabel}).`,
       `Abnormal parameters:`,
       ...abnormalLines,
-      `Write a brief clinical reasoning for this alert. Explain the physiological significance of these measured vitals, why they drive the elevated NEWS2 score, and the acute physiological risk while citing all measured values.`,
+      `Write a brief clinical reasoning for this alert. Explain the physiological significance of these measured vitals, why they drive the elevated NEWS2 score, and the acute physiological risk while citing all measured values. Do not include operational recommendations or call-to-action phrases.`,
     ].join('\n');
 
     logger.info(`Calling Bedrock for alert clinical reasoning (Severity: ${severityLabel}, Score: ${total})...`);
