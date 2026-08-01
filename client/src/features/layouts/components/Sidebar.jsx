@@ -31,14 +31,14 @@ import { passwordResetRequestService } from '../../services/passwordResetRequest
 // ---------------------------------------------------------------------------
 const SIDEBAR_NAV = {
   SYSTEM_ADMIN: [
-    { to: '/',            label: 'Dashboard',    icon: LayoutDashboard },
+    { to: '/dashboard',            label: 'Dashboard',    icon: LayoutDashboard },
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
     { to: '/help',        label: 'Help & Docs',  icon: HelpCircle },
   ],
   ICU_NURSE: [
-    { to: '/',                          label: 'Dashboard',        icon: LayoutDashboard },
+    { to: '/dashboard',                          label: 'Dashboard',        icon: LayoutDashboard },
     { to: '/patients',                  label: 'Patient List',     icon: Users },
     { to: '/beds',                      label: 'Bed Overview',     icon: BedDouble },
     { to: '/vitals/entry',              label: 'Vitals Entry',     icon: Activity },
@@ -48,7 +48,7 @@ const SIDEBAR_NAV = {
     { to: '/help',                      label: 'Help & Docs',      icon: HelpCircle },
   ],
   MEDICAL_RESIDENT: [
-    { to: '/',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/dashboard',               label: 'Dashboard',           icon: LayoutDashboard },
     { to: '/patients',       label: 'Patient List',        icon: Users },
     { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
     { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },
@@ -57,7 +57,7 @@ const SIDEBAR_NAV = {
     { to: '/help',           label: 'Help & Docs',         icon: HelpCircle },
   ],
   ICU_SPECIALIST: [
-    { to: '/',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/dashboard',               label: 'Dashboard',           icon: LayoutDashboard },
     { to: '/patients',       label: 'Patient List',        icon: Users },
     { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
     { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },

@@ -1,9 +1,10 @@
 import { createBrowserRouter, useRouteError } from 'react-router-dom';
 
-import { loginLoader, requireAuthLoader, roleGuardLoader } from './authLoaders';
+import { landingLoader, loginLoader, requireAuthLoader, roleGuardLoader } from './authLoaders';
 
 import MainLayout from '../layouts/MainLayout';
 import PatientDetailLayout from '../layouts/PatientDetailLayout';
+import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import DashboardPage from '../pages/DashboardPage';
 import PatientListPage from '../pages/PatientListPage';
@@ -60,6 +61,16 @@ function RouteError() {
 }
 
 export const router = createBrowserRouter([
+  // ── Public ────────────────────────────────────────────────────────────────
+  // The very first thing anyone hits. Guests see the marketing page; anyone
+  // with a session is bounced straight to /dashboard by the loader.
+  {
+    path: '/',
+    element: <LandingPage />,
+    loader: landingLoader,
+    errorElement: <RouteError />,
+  },
+
   // ── Guest-only ──────────────────────────────────────────────────────────
   {
     path: '/login',
@@ -69,16 +80,19 @@ export const router = createBrowserRouter([
   },
 
   // ── Authenticated layout ─────────────────────────────────────────────────
+  // Pathless on purpose: it wraps its children in the app shell without
+  // claiming a path segment of its own, so a sibling can own exact "/" for
+  // the public landing page above while these children keep their existing
+  // absolute paths (/dashboard, /patients, /beds, ...) unchanged.
   {
-    path: '/',
     element: <MainLayout />,
     loader: requireAuthLoader,
     errorElement: <RouteError />,
     children: [
       // Shared across all clinical roles
-      { 
-        index: true, 
-        element: <DashboardPage /> 
+      {
+        path: 'dashboard',
+        element: <DashboardPage />,
       },
       {
         path: 'patients',

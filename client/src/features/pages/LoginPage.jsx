@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity,
+  ArrowLeft,
   Eye,
   EyeOff,
   Loader2,
@@ -198,7 +199,7 @@ export default function LoginPage() {
         // Ignore storage failures (private mode, etc.)
       }
 
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       setServerError(getAuthErrorMessage(error));
     }
@@ -211,6 +212,19 @@ export default function LoginPage() {
     <div className="relative flex min-h-svh items-center justify-center overflow-x-clip bg-login-page px-4 py-16 sm:px-6 sm:py-20 md:px-8 xl:p-8">
       <div className="login-page-atmosphere pointer-events-none absolute inset-0" aria-hidden />
       <LoginMedicalMotifs />
+
+      <div className="absolute top-4 left-4 z-20 sm:top-5 sm:left-5">
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link to="/" />}
+          className="gap-1.5 rounded-full border-border bg-background pl-2.5 pr-3.5 shadow-sm hover:bg-muted"
+        >
+          <ArrowLeft className="size-4" aria-hidden />
+          Back to home
+        </Button>
+      </div>
 
       <div className="absolute top-4 right-4 z-20 sm:top-5 sm:right-5">
         <ThemeToggle />
