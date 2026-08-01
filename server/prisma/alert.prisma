@@ -1,0 +1,47 @@
+enum AlertSeverity {
+  P0
+  P1
+}
+
+enum AlertStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+}
+
+model Alert {
+  id                String        @id @default(uuid())
+  admissionId       String        @map("admission_id")
+  severity          AlertSeverity
+  title             String        @db.Text
+  triggeringMetrics Json          @map("triggering_metrics")
+  clinicalReasoning String?       @map("clinical_reasoning") @db.Text
+  status            AlertStatus   @default(OPEN)
+  isArchived        Boolean       @default(false) @map("is_archived")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  admission Admission     @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  reviews   AlertReview[]
+
+  @@index([admissionId])
+  @@index([status])
+  @@map("alerts")
+}
+
+model AlertReview {
+  id          String   @id @default(uuid())
+  alertId     String   @map("alert_id")
+  reviewerId  String   @map("reviewer_id")
+  reviewNotes String?  @map("review_notes") @db.Text
+  accepted    Boolean  @default(true)
+  reviewedAt  DateTime @default(now()) @map("reviewed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  alert    Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  reviewer User  @relation("AlertReviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@index([alertId])
+  @@index([reviewerId])
+  @@map("alert_reviews")
+}

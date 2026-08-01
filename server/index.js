@@ -18,6 +18,9 @@ async function startServer() {
     initSocket(server);
     logger.info("Socket.IO initialized");
 
+    const { startMonitoring } = require('./src/modules/alerts/monitoring.job');
+    startMonitoring();
+
     process.on("unhandledRejection", (err) => {
       logger.error("UNHANDLED REJECTION! 💥 Shutting down...");
       logger.error(err.name, err.message);
