@@ -2,6 +2,7 @@ const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 const config = require("../config/env");
 const cookie = require("cookie");
+const logger = require("./logger");
 
 let io;
 
@@ -35,10 +36,13 @@ const initSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
-    console.log(`Socket connected: ${socket.id} (User: ${socket.user.id})`);
+    // One line per connect/disconnect, for every clinician, all day — real
+    // signal for debugging a specific dropped session, not something worth
+    // the default log level in steady state.
+    logger.debug(`Socket connected: ${socket.id} (User: ${socket.user.id})`);
 
     socket.on("disconnect", () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      logger.debug(`Socket disconnected: ${socket.id}`);
     });
   });
 

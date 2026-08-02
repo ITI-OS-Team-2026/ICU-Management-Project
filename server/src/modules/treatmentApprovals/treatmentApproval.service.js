@@ -2,6 +2,7 @@ const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
 const notificationService = require("../notifications/notification.service");
+const logger = require("../../utils/logger");
 
 const USER_SELECT = {
   id: true,
@@ -27,7 +28,7 @@ const notifyQuietly = async (payload) => {
   try {
     await notificationService.createNotification(payload);
   } catch (err) {
-    console.error("Failed to send treatment approval notification:", err);
+    logger.error(`Failed to send treatment approval notification: ${err.message}`);
   }
 };
 

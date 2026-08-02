@@ -1,7 +1,21 @@
 const APIError = require("../utils/APIError");
+const logger = require("../utils/logger");
+
+// Expected control flow — a bad request, a duplicate key, a missing record —
+// not an incident. Logging every one of these at error level made a routine
+// "that email is taken" indistinguishable from an actual crash in the log,
+// which is worse than logging nothing: real errors get lost in the noise.
+const isExpectedClientError = (err) =>
+  (err instanceof APIError && err.statusCode >= 400 && err.statusCode < 500) ||
+  ["CastError", "MongoServerError", "ValidationError", "TokenExpiredError", "JsonWebTokenError", "NotBeforeError"].includes(err.name) ||
+  ["P2000", "P2002", "P2025"].includes(err.code);
 
 module.exports = (err, req, res, next) => {
-  console.error("ERROR", err.stack);
+  // Only the genuinely unexpected path — anything that reaches the plain
+  // 500 fallback below — is worth an error-level log entry with a stack trace.
+  if (!isExpectedClientError(err)) {
+    logger.error(`Unhandled error on ${req.method} ${req.originalUrl}: ${err.message}`, { stack: err.stack });
+  }
 
   if (err instanceof APIError) {
     return res.status(err.statusCode).json({

@@ -93,4 +93,10 @@ model RefreshToken {
   ipAddress String?
   userAgent String?
   createdAt DateTime  @default(now())
+
+  // Without these, both a session lookup ("this user's active tokens") and
+  // the retention job's cleanup scan ("everything past its expiry") are full
+  // table scans — this table only ever grows, one row per login.
+  @@index([userId])
+  @@index([expiresAt])
 }

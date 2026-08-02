@@ -58,12 +58,18 @@ const generateTestToken = (user) => {
   });
 };
 
-// Seed emails that should not be wiped by cleanup
+// Seed emails that should not be wiped by cleanup. Must cover every account
+// prisma/seed.js creates — the *2 accounts are hardcoded there (not env-driven)
+// and are assigned as real doctors/nurses on seeded admissions, so deleting
+// them hits a RESTRICT foreign key and aborts this cleanup entirely.
 const PROTECTED_EMAILS = [
   process.env.SEED_ADMIN_EMAIL,
   process.env.SEED_NURSE_EMAIL,
   process.env.SEED_RESIDENT_EMAIL,
   process.env.SEED_SPECIALIST_EMAIL,
+  "specialist2@smartcare.icu",
+  "resident2@smartcare.icu",
+  "nurse2@smartcare.icu",
 ]
   .filter(Boolean)
   .map((e) => e.toLowerCase());

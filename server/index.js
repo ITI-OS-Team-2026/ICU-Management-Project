@@ -21,6 +21,9 @@ async function startServer() {
     const { startMonitoring } = require('./src/modules/alerts/monitoring.job');
     startMonitoring();
 
+    const { startLogRetention } = require('./src/jobs/logRetention.job');
+    startLogRetention();
+
     process.on("unhandledRejection", (err) => {
       logger.error("UNHANDLED REJECTION! 💥 Shutting down...");
       logger.error(err.name, err.message);

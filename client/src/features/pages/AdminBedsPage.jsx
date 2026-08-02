@@ -263,13 +263,7 @@ function BedCard({ bed, updateBedStatus }) {
   };
 
   return (
-    <div 
-      className="cursor-pointer transition-transform hover:scale-[1.02] h-full"
-      onClick={() => {
-        // e.g. navigate(`/patients/${bed.patientId}`)
-        console.log(`Navigate to patient overview for bed ${bed.id}`);
-      }}
-    >
+    <div className="transition-transform hover:scale-[1.02] h-full">
       <Card className={`flex flex-col h-full min-h-[200px] shadow-sm border-border bg-card transition-shadow hover:shadow-md ${isAlert ? 'border-destructive ring-1 ring-destructive' : ''}`}>
         <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">

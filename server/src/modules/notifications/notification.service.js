@@ -1,5 +1,6 @@
 const prisma = require("../../utils/prismaClient");
 const { getIo } = require("../../utils/socket");
+const logger = require("../../utils/logger");
 
 /**
  * Creates a new notification in the database and emits it via socket.io
@@ -20,7 +21,9 @@ const createNotification = async (data) => {
     const io = getIo();
     io.to(data.userId.toString()).emit("notification", notification);
   } catch (err) {
-    console.error("Failed to emit socket notification:", err);
+    // Expected outside the running server — Jest, one-off scripts, the
+    // socket layer not booted yet — not a real error each time it happens.
+    logger.warn(`Socket.io not initialized — real-time notification skipped: ${err.message}`);
   }
 
   return notification;
