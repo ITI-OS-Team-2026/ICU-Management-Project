@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Check, Trash } from "lucide-react";
+import { Bell, Check, Loader2, Trash } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Popover,
@@ -18,6 +18,9 @@ const NotificationDropdown = () => {
     notifications,
     unreadCount,
     fetchNotifications,
+    loadMore,
+    hasMore,
+    isLoadingMore,
     markAsRead,
     initRealtime,
     isInitialized,
@@ -32,9 +35,12 @@ const NotificationDropdown = () => {
     }
   }, [isInitialized, fetchNotifications, initRealtime]);
 
-  const handleMarkAsRead = (id, metadata) => {
+  // Only closes the dropdown when the click is also navigating away (View
+  // Details) — marking a single item read in place must keep the list open,
+  // otherwise every "mark as read" click reads as the whole list vanishing.
+  const handleViewDetails = (id) => {
     markAsRead(id);
-    if (!metadata) setIsOpen(false);
+    setIsOpen(false);
   };
 
   const getLinkHref = (metadata) => {
@@ -45,7 +51,12 @@ const NotificationDropdown = () => {
       case "PATIENT":
         return `/patients/${metadata.entityId}`;
       case "ALERT":
-        return `/alerts/${metadata.entityId}`;
+        // There is no standalone /alerts/:id route — an alert is viewed on
+        // its admission's Alerts tab, same destination pattern as a treatment
+        // approval notification below.
+        return metadata.admissionId
+          ? `/patients/${metadata.admissionId}/alerts`
+          : null;
       case "TREATMENT_APPROVAL":
         return metadata.admissionId
           ? `/patients/${metadata.admissionId}/treatment-approvals`
@@ -123,7 +134,7 @@ const NotificationDropdown = () => {
                           variant="link"
                           size="sm"
                           className="h-auto p-0 text-primary"
-                          onClick={() => handleMarkAsRead(notification.id, notification.metadata)}
+                          onClick={() => handleViewDetails(notification.id)}
                           render={<Link to={href} />}
                         >
                           View Details
@@ -136,7 +147,7 @@ const NotificationDropdown = () => {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 rounded-full"
-                          onClick={() => handleMarkAsRead(notification.id)}
+                          onClick={() => markAsRead(notification.id)}
                           title="Mark as read"
                         >
                           <Check className="h-4 w-4 text-primary" />
@@ -146,6 +157,26 @@ const NotificationDropdown = () => {
                   </div>
                 );
               })}
+              {hasMore && (
+                <div className="p-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs text-muted-foreground"
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                  >
+                    {isLoadingMore ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                        Loading…
+                      </>
+                    ) : (
+                      "Load more"
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </ScrollArea>

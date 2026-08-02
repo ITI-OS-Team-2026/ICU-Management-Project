@@ -90,16 +90,25 @@ const calculateScore = (vitals) => {
   // Determine Severity
   let severity = null;
   let title = null;
-  
+
   const hasParameterScore3 = Object.values(breakdown).some(param => param.score === 3);
+
+  // The headline names whichever parameter scored highest, not whichever was
+  // evaluated first. Picking the first non-zero score would name respiratory
+  // rate every time it contributed at all — even a bare 1 point — while the
+  // parameter actually driving the total (say, a systolic BP at 3) went
+  // unnamed. All scores are still in `breakdown` regardless; this only
+  // decides which one leads the sentence a clinician reads first.
+  const worstParam = Object.keys(breakdown).reduce(
+    (worst, key) => (!worst || breakdown[key].score > breakdown[worst].score ? key : worst),
+    null
+  );
 
   if (total >= 5 || hasParameterScore3) {
     severity = 'P0';
-    const worstParam = Object.keys(breakdown).find(k => breakdown[k].score === 3) || Object.keys(breakdown)[0];
     title = `Critical: Abnormal ${worstParam} — immediate review required`;
   } else if (total >= 1 && total <= 4) {
     severity = 'P1';
-    const worstParam = Object.keys(breakdown)[0];
     title = `Warning: Abnormal ${worstParam}`;
   }
 

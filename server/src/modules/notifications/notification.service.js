@@ -26,18 +26,42 @@ const createNotification = async (data) => {
   return notification;
 };
 
+/**
+ * Cursor-paginated notifications, newest first. `cursor` is the id of the
+ * last notification the caller already has — pass back `nextCursor` from the
+ * previous page to fetch the next one.
+ *
+ * Cursor over offset because notifications keep arriving in real time; an
+ * offset page would skip or repeat rows as new ones land above it, while a
+ * cursor anchored to an id is stable regardless of what's been inserted since.
+ *
+ * `createdAt` alone isn't a safe cursor — two notifications can share a
+ * timestamp — so ordering (and the cursor) is `createdAt desc, id desc`,
+ * unique and deterministic.
+ */
 const getUserNotifications = async (userId, options = {}) => {
-  const { status, limit = 50 } = options;
+  const { status, limit = 20, cursor } = options;
   const where = { userId };
   if (status) {
     where.status = status;
   }
 
-  return await prisma.notification.findMany({
+  const rows = await prisma.notification.findMany({
     where,
-    orderBy: { createdAt: "desc" },
-    take: limit,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    // One extra row: if it comes back, there's a next page.
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
+
+  const hasMore = rows.length > limit;
+  const notifications = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    notifications,
+    hasMore,
+    nextCursor: hasMore ? notifications[notifications.length - 1].id : null,
+  };
 };
 
 const markAsRead = async (notificationId, userId) => {

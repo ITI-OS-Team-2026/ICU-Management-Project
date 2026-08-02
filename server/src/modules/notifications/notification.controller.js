@@ -46,16 +46,20 @@ const summonDoctor = catchAsync(async (req, res, next) => {
 });
 
 const getNotifications = catchAsync(async (req, res) => {
-  const { status, limit } = req.query;
+  const { status, limit, cursor } = req.query;
 
-  const notifications = await service.getUserNotifications(req.user.id, {
-    status,
-    limit: limit ? parseInt(limit, 10) : 50,
-  });
+  const { notifications, hasMore, nextCursor } = await service.getUserNotifications(
+    req.user.id,
+    {
+      status,
+      limit: limit ? parseInt(limit, 10) : 20,
+      cursor,
+    }
+  );
 
   res.status(200).json({
     status: "success",
-    data: { notifications },
+    data: { notifications, hasMore, nextCursor },
   });
 });
 

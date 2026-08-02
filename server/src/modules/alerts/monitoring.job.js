@@ -2,12 +2,27 @@ const cron = require('node-cron');
 const prisma = require('../../utils/prismaClient');
 const { calculateScore } = require('./news2');
 const alertService = require('./alert.service');
-const { getIo } = require('../../utils/socket');
 const logger = require('../../utils/logger');
 
 const { generateAlertReasoning } = require('./alertAi.service');
 
+// node-cron does not wait for a prior invocation to finish before firing the
+// next one. Each admission needing a new alert makes a sequential Bedrock
+// call (up to a 30s timeout apiece); a ward with several admissions newly
+// deteriorating in the same cycle can easily run past the 2-minute schedule.
+// Without this guard, an overlapping run re-checks the same admissions before
+// the first run's alert is committed, sees no OPEN alert yet, and creates a
+// duplicate. This makes the check-then-create in the loop below effectively
+// atomic with respect to this job, even though it is not atomic at the DB level.
+let cycleInFlight = false;
+
 const runMonitoringCycle = async () => {
+  if (cycleInFlight) {
+    logger.warn('Alerts Monitoring Cycle still running from a previous tick — skipping this one.');
+    return;
+  }
+  cycleInFlight = true;
+
   logger.info('Running Alerts Monitoring Cycle...');
   try {
     // 1. Fetch all active admissions with their latest vitals
@@ -39,16 +54,21 @@ const runMonitoringCycle = async () => {
         const existingAlert = await alertService.findOpenAlert(admission.id);
         
         if (existingAlert) {
-          logger.info(`Admission ${admission.id} already has OPEN alert. Skipping.`);
+          // Expected steady-state noise for any admission with an unresolved
+          // alert — every 2-minute cycle re-evaluates it and finds nothing new
+          // to do. Not operationally interesting at info level; alert
+          // creation and cycle boundaries are.
+          logger.debug(`Admission ${admission.id} already has OPEN alert. Skipping.`);
           continue;
         }
 
         // 4. Generate AI Clinical Reasoning via Bedrock (Graceful degradation on failure)
         const clinicalReasoning = await generateAlertReasoning(scoreResult);
 
-        // 5. Create Alert
+        // 5. Create the alert. Notification rows (and their real-time push to
+        // each recipient) are handled inside createAlert — see alert.service.js.
         logger.info(`Creating ${scoreResult.severity} alert for admission ${admission.id}`);
-        const { alert, userIdsToNotify } = await alertService.createAlert({
+        await alertService.createAlert({
           admissionId: admission.id,
           severity: scoreResult.severity,
           title: scoreResult.title,
@@ -58,33 +78,14 @@ const runMonitoringCycle = async () => {
           },
           clinicalReasoning
         });
-
-        // 6. Emit real-time notification
-        let io;
-        try {
-          io = getIo();
-        } catch (e) {
-          logger.warn('Socket.io not initialized. Skipping real-time event.');
-        }
-
-        if (io) {
-          userIdsToNotify.forEach(userId => {
-            // Emitting to standard room patterns if applicable, or globally broadcast if simple
-            // Assuming users join a room matching their ID:
-            io.to(userId.toString()).emit('new_alert', {
-              id: alert.id,
-              severity: alert.severity,
-              title: alert.title,
-              admissionId: alert.admissionId
-            });
-          });
-        }
       }
     }
     logger.info('Alerts Monitoring Cycle completed.');
   } catch (error) {
     logger.error(`Error in Alerts Monitoring Cycle: ${error.message}`);
     throw error;
+  } finally {
+    cycleInFlight = false;
   }
 };
 

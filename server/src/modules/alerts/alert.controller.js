@@ -22,10 +22,8 @@ const submitReview = catchAsync(async (req, res) => {
 });
 
 const getReviews = catchAsync(async (req, res) => {
-  // Can just fetch the alert and include reviews
-  const alerts = await alertService.getAlertsByAdmission(req.params.id); // Wait, this gets alerts for admission
-  // For alert reviews, we probably just want to return them from the alert
-  res.status(200).json({ status: 'success', data: [] }); // Stub if not needed directly
+  const reviews = await alertService.getReviewsByAlert(req.params.id);
+  res.status(200).json({ status: 'success', data: reviews });
 });
 
 module.exports = {
