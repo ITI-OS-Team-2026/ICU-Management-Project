@@ -60,4 +60,11 @@ module.exports = {
   // — short, since an expired token is inert, but non-zero so a concurrent
   // refresh mid-rotation can't be cleaned up out from under it.
   refreshTokenGraceDays: Number(process.env.REFRESH_TOKEN_GRACE_DAYS) || 7,
+
+  // ── SMTP (password reset emails) ───────────────────────────────────────
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || "ICU SmartCare <noreply@smartcare.local>",
 };

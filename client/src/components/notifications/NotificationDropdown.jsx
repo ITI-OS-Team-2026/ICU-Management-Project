@@ -61,6 +61,10 @@ const NotificationDropdown = () => {
         return metadata.admissionId
           ? `/patients/${metadata.admissionId}/treatment-approvals`
           : null;
+      case "PASSWORD_RESET_REQUEST":
+        // Resolving these lives on the admin's Settings page, not a
+        // per-request route — every admin notification lands the same place.
+        return "/settings";
       default:
         return null;
     }
