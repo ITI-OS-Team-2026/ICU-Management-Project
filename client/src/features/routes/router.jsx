@@ -1,64 +1,28 @@
-import { createBrowserRouter, useRouteError } from 'react-router-dom';
+import { Suspense } from 'react';
+import { createBrowserRouter } from 'react-router-dom';
 
 import { landingLoader, loginLoader, requireAuthLoader, roleGuardLoader } from './authLoaders';
+import { RouteError, RouteFallback } from './RouteStates';
+import * as Pages from './lazyPages';
 
+// The app shell stays in the entry bundle. Splitting a layout would only add a
+// second waterfall — the page inside it cannot begin loading until its layout
+// has — and every authenticated route needs MainLayout anyway.
 import MainLayout from '../layouts/MainLayout';
 import PatientDetailLayout from '../layouts/PatientDetailLayout';
-import LandingPage from '../pages/LandingPage';
-import LoginPage from '../pages/LoginPage';
-import DashboardPage from '../pages/DashboardPage';
-import PatientListPage from '../pages/PatientListPage';
-import AdmitPatientPage from '../pages/AdmitPatientPage';
-import BedOverviewPage from '../pages/BedOverviewPage';
-import VitalsMonitorPage from '../pages/VitalsMonitorPage';
-import VitalsEntryPage from '../pages/VitalsEntryPage';
-import MedicationsPage from '../pages/MedicationsPage';
-import MedAdministrationPage from '../pages/MedAdministrationPage';
-import LabResultsPage from '../pages/LabResultsPage';
-import DischargePage from '../pages/DischargePage';
-import AdminUsersPage from '../pages/AdminUsersPage';
-import AdminBedsPage from '../pages/AdminBedsPage';
-import AuditLogsPage from '../pages/AuditLogsPage';
-import NursingNotesPage from '../pages/NursingNotesPage';
-import NotFoundPage from '../pages/NotFoundPage';
-import SettingsPage from '../pages/SettingsPage';
-import HelpPage from '../pages/HelpPage';
 
-// Patient detail tab pages
-import PatientOverviewPage    from '../pages/patient/PatientOverviewPage';
-import PatientVitalsPage      from '../pages/patient/PatientVitalsPage';
-import PatientMedicationsPage from '../pages/patient/PatientMedicationsPage';
-import PatientDiagnosesPage   from '../pages/patient/PatientDiagnosesPage';
-import PatientNotesPage       from '../pages/patient/PatientNotesPage';
-import PatientDocumentsPage   from '../pages/patient/PatientDocumentsPage';
-import PatientFollowUpsPage   from '../pages/patient/PatientFollowUpsPage';
-import PatientAlertsPage      from '../pages/patient/PatientAlertsPage';
-import PatientTreatmentApprovalsPage from '../pages/patient/PatientTreatmentApprovalsPage';
-import PatientAIAssistantPage from '../pages/patient/PatientAIAssistantPage';
-import PatientRagChatPage     from '../pages/patient/PatientRagChatPage';
-import MedicalAssistantPage   from '../pages/MedicalAssistantPage';
-
-function RouteError() {
-  const error = useRouteError();
-  console.error("ROUTE ERROR:", error);
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="font-display text-2xl font-semibold text-foreground">
-          Something went wrong
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We could not load this page. Refresh and try again.
-        </p>
-        <div className="mt-4 text-xs text-red-500 max-w-lg text-left overflow-auto p-2 bg-red-500/10 rounded">
-          {error?.message || error?.statusText || "Unknown error"}
-          <br/>
-          {error?.stack}
-        </div>
-      </div>
-    </div>
-  );
-}
+/**
+ * Wraps a code-split page in the Suspense boundary it requires.
+ *
+ * Lowercase on purpose: it is a helper that returns an element, not a
+ * component, and naming it as one would have React tooling treat it as a
+ * component boundary it is not.
+ */
+const page = (Component) => (
+  <Suspense fallback={<RouteFallback />}>
+    <Component />
+  </Suspense>
+);
 
 export const router = createBrowserRouter([
   // ── Public ────────────────────────────────────────────────────────────────
@@ -66,7 +30,7 @@ export const router = createBrowserRouter([
   // with a session is bounced straight to /dashboard by the loader.
   {
     path: '/',
-    element: <LandingPage />,
+    element: page(Pages.LandingPage),
     loader: landingLoader,
     errorElement: <RouteError />,
   },
@@ -74,7 +38,7 @@ export const router = createBrowserRouter([
   // ── Guest-only ──────────────────────────────────────────────────────────
   {
     path: '/login',
-    element: <LoginPage />,
+    element: page(Pages.LoginPage),
     loader: loginLoader,
     errorElement: <RouteError />,
   },
@@ -92,16 +56,16 @@ export const router = createBrowserRouter([
       // Shared across all clinical roles
       {
         path: 'dashboard',
-        element: <DashboardPage />,
+        element: page(Pages.DashboardPage),
       },
       {
         path: 'patients',
-        element: <PatientListPage />,
+        element: page(Pages.PatientListPage),
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       {
         path: 'medical-assistant',
-        element: <MedicalAssistantPage />,
+        element: page(Pages.MedicalAssistantPage),
         loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
 
@@ -113,93 +77,93 @@ export const router = createBrowserRouter([
         // record treatment execution; per-endpoint roles are enforced server-side.
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
         children: [
-          { index: true,          element: <PatientOverviewPage /> },
-          { path: 'vitals',       element: <PatientVitalsPage /> },
-          { path: 'medications',  element: <PatientMedicationsPage /> },
-          { path: 'diagnoses',    element: <PatientDiagnosesPage /> },
-          { path: 'notes',        element: <PatientNotesPage /> },
-          { path: 'documents',    element: <PatientDocumentsPage /> },
-          { path: 'follow-ups',    element: <PatientFollowUpsPage /> },
-          { path: 'treatment-approvals', element: <PatientTreatmentApprovalsPage /> },
-          { path: 'alerts',       element: <PatientAlertsPage /> },
-          { path: 'ai-assistant', element: <PatientAIAssistantPage /> },
+          { index: true,          element: page(Pages.PatientOverviewPage) },
+          { path: 'vitals',       element: page(Pages.PatientVitalsPage) },
+          { path: 'medications',  element: page(Pages.PatientMedicationsPage) },
+          { path: 'diagnoses',    element: page(Pages.PatientDiagnosesPage) },
+          { path: 'notes',        element: page(Pages.PatientNotesPage) },
+          { path: 'documents',    element: page(Pages.PatientDocumentsPage) },
+          { path: 'follow-ups',    element: page(Pages.PatientFollowUpsPage) },
+          { path: 'treatment-approvals', element: page(Pages.PatientTreatmentApprovalsPage) },
+          { path: 'alerts',       element: page(Pages.PatientAlertsPage) },
+          { path: 'ai-assistant', element: page(Pages.PatientAIAssistantPage) },
           // RAG assistant — Residents and Specialists only; the endpoints
           // enforce the same restriction server-side.
           {
             path: 'ai-chat',
-            element: <PatientRagChatPage />,
+            element: page(Pages.PatientRagChatPage),
             loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
           },
         ],
       },
       { 
         path: 'patients/admit', 
-        element: <AdmitPatientPage />,
+        element: page(Pages.AdmitPatientPage),
         loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'beds', 
-        element: <BedOverviewPage />,
+        element: page(Pages.BedOverviewPage),
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'vitals/monitor', 
-        element: <VitalsMonitorPage />,
+        element: page(Pages.VitalsMonitorPage),
         loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'vitals/entry', 
-        element: <VitalsEntryPage />,
+        element: page(Pages.VitalsEntryPage),
         loader: roleGuardLoader(['ICU_NURSE']),
       },
       { 
         path: 'medications', 
-        element: <MedicationsPage />,
+        element: page(Pages.MedicationsPage),
         loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'medications/administration', 
-        element: <MedAdministrationPage />,
+        element: page(Pages.MedAdministrationPage),
         loader: roleGuardLoader(['ICU_NURSE']),
       },
       { 
         path: 'labs', 
-        element: <LabResultsPage />,
+        element: page(Pages.LabResultsPage),
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       { 
         path: 'discharge', 
-        element: <DischargePage />,
+        element: page(Pages.DischargePage),
         loader: roleGuardLoader(['ICU_SPECIALIST']),
       },
       {
         path: 'nursing-notes',
-        element: <NursingNotesPage />,
+        element: page(Pages.NursingNotesPage),
         loader: roleGuardLoader(['ICU_NURSE', 'MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
       },
       {
         path: 'settings',
-        element: <SettingsPage />,
+        element: page(Pages.SettingsPage),
       },
       {
         path: 'help',
-        element: <HelpPage />,
+        element: page(Pages.HelpPage),
       },
 
       // Admin-only routes — roleGuardLoader redirects non-admins to /
       {
         path: 'admin/users',
-        element: <AdminUsersPage />,
+        element: page(Pages.AdminUsersPage),
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
       {
         path: 'admin/beds',
-        element: <AdminBedsPage />,
+        element: page(Pages.AdminBedsPage),
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
       {
         path: 'admin/audit-logs',
-        element: <AuditLogsPage />,
+        element: page(Pages.AuditLogsPage),
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
     ],
@@ -208,6 +172,6 @@ export const router = createBrowserRouter([
   // ── 404 Catch-all ────────────────────────────────────────────────────────
   {
     path: '*',
-    element: <NotFoundPage />,
+    element: page(Pages.NotFoundPage),
   },
 ]);

@@ -51,6 +51,10 @@ const formatAdmission = (a) => ({
   nurses: a.nurses ? a.nurses.map(formatNurseAssignment) : [],
   latestVitals: a.vitalSigns && a.vitalSigns.length > 0 ? a.vitalSigns[0] : null,
   diagnosesList: a.diagnoses || [],
+  // Only the queries that load the relation expose the key. Defaulting to []
+  // instead would make "not requested" look identical to "none pending",
+  // which is exactly the sort of thing that quietly zeroes a dashboard count.
+  ...(a.investigationOrders ? { pendingInvestigations: a.investigationOrders } : {}),
 });
 
 const formatNurseAssignment = (n) => ({
@@ -493,6 +497,15 @@ const getAdmissions = async (query) => {
         },
         diagnoses: {
           where: { isArchived: false },
+        },
+        // Pending orders travel with the list so a caller showing many
+        // admissions at once (the dashboard) does not need one request per
+        // patient to count them. Narrow select and a status-indexed filter
+        // keep this cheap — only what the summary views actually render.
+        investigationOrders: {
+          where: { status: "Pending" },
+          select: { id: true, orderName: true, type: true, orderDate: true },
+          orderBy: { orderDate: "desc" },
         },
       },
     }),
