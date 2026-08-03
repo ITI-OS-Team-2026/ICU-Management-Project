@@ -36,7 +36,6 @@ model User {
   updatedAt           DateTime     @updatedAt
 
   loginAttempts           LoginAttempt[]
-  refreshTokens           RefreshToken[]
   auditLogs               AuditLog[]
   admissionsAsDoctor      Admission[]                @relation("AdmissionDoctor")
   nurseAssignments        AdmissionNurse[]           @relation("AdmissionNurseAssignments")
@@ -83,14 +82,3 @@ model LoginAttempt {
   @@index([success])
 }
 
-model RefreshToken {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime  @default(now())
-}

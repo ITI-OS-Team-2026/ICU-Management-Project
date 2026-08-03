@@ -5,6 +5,7 @@ const prisma = require("../src/utils/prismaClient");
 const bcrypt = require("bcrypt");
 const fs = require("fs");
 const { seedICUPatients } = require("./icuPatientSeed");
+const { seedDemoExtras } = require("./seedDemoExtras");
 
 // Shared helper to seed a user. Uses upsert to be idempotent.
 async function seedUser({ email, password, firstName, lastName, role }) {
@@ -438,6 +439,14 @@ async function main() {
       }
     }, { maxWait: 15000, timeout: 45000 });
   }
+
+  // Runs last so it can see every admission from both patient sets above
+  // (the 6 quick ones here and the 15 detailed ones from seedICUPatients).
+  await seedDemoExtras({
+    specialistUser: specialist, specialist2User: specialist2,
+    residentUser: resident, resident2User: resident2,
+    nurseUser: nurse, nurse2User: nurse2,
+  });
 
   console.log("\n✓ Database seeding completed successfully!");
   console.log("\nLogin credentials:");

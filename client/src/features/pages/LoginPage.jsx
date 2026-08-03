@@ -6,8 +6,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity,
   ArrowLeft,
+  CheckCircle2,
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
   Lock,
   Mail,
@@ -16,11 +18,22 @@ import {
 
 import { useAuthStore } from '../store/authStore';
 import { getAuthErrorMessage } from '../services/authService';
+import { passwordResetRequestService } from '../services/passwordResetRequestService';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -37,6 +50,7 @@ import {
 } from '@/components/ui/input-group';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 const REMEMBER_EMAIL_KEY = 'smartcare_remember_email';
 
@@ -162,6 +176,195 @@ function LoginBrandPanel() {
         <div className="css-ekg" />
       </div>
     </aside>
+  );
+}
+
+const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Please provide a valid email address'),
+  message: z.string().max(500, 'Keep it under 500 characters').optional(),
+});
+
+/**
+ * The one entry point for a clinician who is locked out and has no session —
+ * the authenticated request-a-reset flow on the Settings page structurally
+ * cannot serve them, since it requires the very login they're stuck on.
+ * Identifies the account by email instead, and always reports the same
+ * generic outcome (see passwordResetRequestService/passwordReset.service.js
+ * on the backend) so the response itself can't be used to probe which emails
+ * are registered.
+ */
+function ForgotPasswordDialog() {
+  const [open, setOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState(null);
+
+  const form = useForm({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '', message: '' },
+  });
+
+  const isSubmitting = form.formState.isSubmitting;
+
+  const handleOpenChange = (next) => {
+    setOpen(next);
+    if (!next) {
+      // Reset only after the close animation would have finished reading —
+      // reopening mid-session shouldn't show a stale success state.
+      setSubmitted(false);
+      setServerError(null);
+      form.reset();
+    }
+  };
+
+  async function onSubmit(values) {
+    setServerError(null);
+    try {
+      await passwordResetRequestService.createPublicRequest(values.email, values.message);
+      setSubmitted(true);
+    } catch (error) {
+      if (error?.response?.status === 429) {
+        setServerError('Too many attempts. Please try again in an hour.');
+      } else {
+        setSubmitted(true);
+      }
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger
+        render={
+          <button
+            type="button"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Forgot password?
+          </button>
+        }
+      />
+
+      <DialogContent className="sm:max-w-md">
+        {submitted ? (
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CheckCircle2 className="size-6" aria-hidden />
+            </span>
+            <DialogTitle>Request sent</DialogTitle>
+            <DialogDescription>
+              If that email belongs to an account, an administrator has been
+              notified and will follow up with a new temporary password.
+            </DialogDescription>
+            <DialogClose render={<Button className="mt-2 w-full">Done</Button>} />
+          </div>
+        ) : (
+          <>
+            <DialogHeader>
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <KeyRound className="size-4" aria-hidden />
+              </span>
+              <DialogTitle>Reset your password</DialogTitle>
+              <DialogDescription>
+                Tell us the email on your account. An administrator reviews
+                every request and sets a new temporary password — there is no
+                self-service reset.
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form
+                onSubmit={(event) => {
+                  // This form is portaled into document.body (DialogContent),
+                  // but React bubbles synthetic events through the *component*
+                  // tree, not the DOM tree — and this dialog is a JSX child of
+                  // the sign-in form below. Without stopping it here, sending a
+                  // reset request also fires the sign-in form's own submit,
+                  // running its validation against fields nobody touched and
+                  // showing "required" errors on an untouched email/password.
+                  event.stopPropagation();
+                  form.handleSubmit(onSubmit)(event);
+                }}
+                className="flex flex-col gap-4"
+                noValidate
+              >
+                {serverError ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>Could not send request</AlertTitle>
+                    <AlertDescription>{serverError}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <InputGroup className="h-11 min-w-0">
+                        <InputGroupAddon align="inline-start">
+                          <Mail className="size-4" aria-hidden />
+                        </InputGroupAddon>
+                        <FormControl>
+                          <InputGroupInput
+                            type="email"
+                            autoComplete="email"
+                            placeholder="you@hospital.org"
+                            disabled={isSubmitting}
+                            className="min-w-0"
+                            {...field}
+                          />
+                        </FormControl>
+                      </InputGroup>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="message"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Note for the admin{' '}
+                        <span className="font-normal text-muted-foreground">(optional)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          rows={3}
+                          placeholder="e.g. locked out after too many attempts"
+                          disabled={isSubmitting}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" disabled={isSubmitting} />}>
+                    Cancel
+                  </DialogClose>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Sending…
+                      </>
+                    ) : (
+                      'Send request'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -357,28 +560,32 @@ export default function LoginPage() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="remember"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2">
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked === true)
-                      }
-                      disabled={isSubmitting}
-                      id="remember"
-                    />
-                    <Label
-                      htmlFor="remember"
-                      className="cursor-pointer font-normal text-muted-foreground"
-                    >
-                      Remember this device
-                    </Label>
-                  </FormItem>
-                )}
-              />
+              <div className="flex items-center justify-between gap-3">
+                <FormField
+                  control={form.control}
+                  name="remember"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2">
+                      <Checkbox
+                        checked={Boolean(field.value)}
+                        onCheckedChange={(checked) =>
+                          field.onChange(checked === true)
+                        }
+                        disabled={isSubmitting}
+                        id="remember"
+                      />
+                      <Label
+                        htmlFor="remember"
+                        className="cursor-pointer font-normal text-muted-foreground"
+                      >
+                        Remember this device
+                      </Label>
+                    </FormItem>
+                  )}
+                />
+
+                <ForgotPasswordDialog />
+              </div>
 
               <Button
                 type="submit"

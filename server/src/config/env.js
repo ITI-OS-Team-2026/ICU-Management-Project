@@ -46,4 +46,20 @@ module.exports = {
   ragRelevanceRatio: Number(process.env.RAG_RELEVANCE_RATIO) || 0.35,
   ragMaxContextChars: Number(process.env.RAG_MAX_CONTEXT_CHARS) || 14000,
   ragMaxDocumentChars: Number(process.env.RAG_MAX_DOCUMENT_CHARS) || 400000,
+
+  // ── Log & session retention ─────────────────────────────────────────────
+  // How long each append-only table is kept before the nightly job removes
+  // it. See src/jobs/logRetention.job.js for the reasoning per table.
+  logRetentionCron: process.env.LOG_RETENTION_CRON || "15 3 * * *", // 03:15 daily
+  logRetentionBatchSize: Number(process.env.LOG_RETENTION_BATCH_SIZE) || 500,
+  auditLogRetentionDays: Number(process.env.AUDIT_LOG_RETENTION_DAYS) || 365,
+  auditLogArchiveDir: process.env.AUDIT_LOG_ARCHIVE_DIR || "storage/audit-archive",
+  aiQueryLogRetentionDays: Number(process.env.AI_QUERY_LOG_RETENTION_DAYS) || 180,
+  loginAttemptRetentionDays: Number(process.env.LOGIN_ATTEMPT_RETENTION_DAYS) || 90,
+  // ── SMTP (password reset emails) ───────────────────────────────────────
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || "ICU SmartCare <noreply@smartcare.local>",
 };

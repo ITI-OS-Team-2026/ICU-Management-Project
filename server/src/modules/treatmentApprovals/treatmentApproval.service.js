@@ -2,6 +2,7 @@ const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
 const notificationService = require("../notifications/notification.service");
+const logger = require("../../utils/logger");
 
 const USER_SELECT = {
   id: true,
@@ -27,7 +28,7 @@ const notifyQuietly = async (payload) => {
   try {
     await notificationService.createNotification(payload);
   } catch (err) {
-    console.error("Failed to send treatment approval notification:", err);
+    logger.error(`Failed to send treatment approval notification: ${err.message}`);
   }
 };
 
@@ -47,12 +48,14 @@ const getAdmissionOrThrow = async (admissionId) => {
   return admission;
 };
 
-const createTreatmentApproval = async (admissionId, requestedBy, data, req) => {
+const createTreatmentApproval = async (admissionId, requestedBy, requesterRole, data, req) => {
   const admission = await getAdmissionOrThrow(admissionId);
 
   if (admission.status !== "ACTIVE") {
     throw new APIError("Cannot request a treatment approval on a non-active admission", 409);
   }
+
+  const isSpecialist = requesterRole === "ICU_SPECIALIST";
 
   const approval = await auditedTransaction(
     req,
@@ -64,6 +67,11 @@ const createTreatmentApproval = async (admissionId, requestedBy, data, req) => {
           requestedBy,
           treatmentName: data.treatment_name,
           clinicalJustification: data.clinical_justification || null,
+          ...(isSpecialist && {
+            approvalStatus: true,
+            approvedBy: requestedBy,
+            approvedAt: new Date(),
+          }),
         },
         include: APPROVAL_INCLUDE,
       });
@@ -74,13 +82,19 @@ const createTreatmentApproval = async (admissionId, requestedBy, data, req) => {
           treatmentName: created.treatmentName,
           clinicalJustification: created.clinicalJustification,
           admissionId: created.admissionId,
+          approvalStatus: created.approvalStatus,
         },
         result: created,
       };
     }
   );
 
-  // Any active specialist can decide, so alert all of them except the requester.
+  if (isSpecialist) {
+    // Auto-approved — no specialist notification needed.
+    return approval;
+  }
+
+  // Resident request — alert all active specialists.
   const specialists = await prisma.user.findMany({
     where: {
       role: "ICU_SPECIALIST",
