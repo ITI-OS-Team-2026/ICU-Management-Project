@@ -421,26 +421,52 @@ const updateBed = async (req, id, data) => {
 
 
 
-// Every AuditAction must belong to exactly one level, otherwise rows written with
-// that action are invisible to every level filter. Keep in sync with the enum in
-// prisma/audit.prisma and with the badge colours in the client's AuditLogsPage.
-const AUDIT_LEVEL_ACTIONS = {
-  Critical: ['ARCHIVE', 'ACCOUNT_LOCKED'],
-  Warning: ['UPDATE'],
-  Info: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW', 'GENERATE_SUMMARY', 'QUERY_RAG'],
-};
+// Classification lives in ./auditCategories.js, guarded by the coverage test
+// beside it: a table that is audited but uncategorised is written to the log
+// and then unreachable by every filter in the UI.
+const { AUDIT_LEVEL_ACTIONS, AUDIT_CATEGORY_TABLES } = require('./auditCategories');
 
-const AUDIT_CATEGORY_TABLES = {
-  Patients: ['Patient', 'Allergy', 'MedicalHistory'],
-  Admissions: ['Admission', 'AdmissionNurse'],
-  Documents: ['MedicalDocument'],
-  Admin: ['User', 'Bed'],
+/**
+ * Time windows the audit log can be narrowed to.
+ *
+ * `24h` is the default rather than `today` on purpose. "Since local midnight"
+ * makes the page read zero for the first hours of every day no matter how busy
+ * the night was — and an ICU night shift straddles midnight, so the window
+ * would reset in the middle of the very shift an auditor is looking at.
+ */
+const AUDIT_RANGES = ['24h', 'today', '7d', '30d', 'all'];
+const DEFAULT_AUDIT_RANGE = '24h';
+
+/**
+ * Resolve a range key into a `createdAt` filter.
+ *
+ * Both the list and the stat cards run through this, which is what stops them
+ * from answering different questions: previously the cards counted "today"
+ * while the list was unfiltered, so a critical event from minutes ago could sit
+ * directly beneath a card reading zero.
+ *
+ * @returns {{ createdAt?: { gte: Date } }} — spreadable into a Prisma `where`
+ */
+const resolveAuditRange = (range = DEFAULT_AUDIT_RANGE) => {
+  const key = AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE;
+  if (key === 'all') return {};
+
+  const since = new Date();
+
+  if (key === 'today') {
+    since.setHours(0, 0, 0, 0);
+  } else {
+    const days = { '24h': 1, '7d': 7, '30d': 30 }[key];
+    since.setDate(since.getDate() - days);
+  }
+
+  return { createdAt: { gte: since } };
 };
 
 const getAuditLogs = async (query = {}) => {
-  const { search, page = 1, limit = 10, eventLevel, category } = query;
+  const { search, page = 1, limit = 10, eventLevel, category, range } = query;
 
-  const where = {};
+  const where = { ...resolveAuditRange(range) };
 
   if (search) {
     // `action` is an enum, so `contains` cannot be used on it — match whole
@@ -522,39 +548,36 @@ const getAuditLogs = async (query = {}) => {
   };
 };
 
-const getAuditLogStats = async () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+const getAuditLogStats = async (query = {}) => {
+  const { range } = query;
+  // The same window the list uses, so a card can never contradict a row
+  // sitting directly beneath it.
+  const window = resolveAuditRange(range);
 
   // Counted in one round trip instead of four sequential ones, and reusing the
   // same level map as the list filter so the cards can't disagree with the rows.
-  const [totalEventsToday, criticalEvents, warningEvents, adminActions] = await Promise.all([
-    prisma.auditLog.count({ where: { createdAt: { gte: today } } }),
+  const [totalEvents, criticalEvents, warningEvents, adminActions] = await Promise.all([
+    prisma.auditLog.count({ where: { ...window } }),
     prisma.auditLog.count({
-      where: {
-        createdAt: { gte: today },
-        action: { in: AUDIT_LEVEL_ACTIONS.Critical }
-      }
+      where: { ...window, action: { in: AUDIT_LEVEL_ACTIONS.Critical } }
     }),
     prisma.auditLog.count({
-      where: {
-        createdAt: { gte: today },
-        action: { in: AUDIT_LEVEL_ACTIONS.Warning }
-      }
+      where: { ...window, action: { in: AUDIT_LEVEL_ACTIONS.Warning } }
     }),
     prisma.auditLog.count({
-      where: {
-        createdAt: { gte: today },
-        user: { role: 'SYSTEM_ADMIN' }
-      }
+      where: { ...window, user: { role: 'SYSTEM_ADMIN' } }
     }),
   ]);
 
   return {
-    totalEventsToday,
+    range: AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE,
+    totalEvents,
     criticalEvents,
     warningEvents,
-    adminActions
+    adminActions,
+    // Kept so an older client reading `totalEventsToday` does not render a
+    // blank card against a newer server.
+    totalEventsToday: totalEvents,
   };
 };
 

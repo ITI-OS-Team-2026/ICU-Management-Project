@@ -105,7 +105,7 @@ const getAuditLogs = async (req, res, next) => {
 
 const getAuditLogStats = async (req, res, next) => {
   try {
-    const stats = await adminService.getAuditLogStats();
+    const stats = await adminService.getAuditLogStats(req.query);
     res.status(200).json(stats);
   } catch (error) {
     next(error);
