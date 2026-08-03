@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import {
   MessageSquareText,
@@ -11,6 +11,11 @@ import {
   RefreshCcw,
   StopCircle,
   Info,
+  Mic,
+  Headphones,
+  Volume2,
+  AudioLines,
+  Square,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,8 +33,11 @@ import {
 
 import { FormattedMarkdown } from '@/components/ui/formatted-markdown';
 import { useRagChat } from '../../hooks/useRagChat';
+import { useVoiceAgent } from '../../hooks/useVoiceAgent';
+import { useVoiceStore } from '@/store/voiceStore';
 import CitationList from '../../components/rag/CitationList';
 import KnowledgeBasePanel from '../../components/rag/KnowledgeBasePanel';
+import VoiceSettingsPopover from '../../components/rag/VoiceSettingsPopover';
 import { useAuthStore } from '../../store/authStore';
 
 const PATIENT_QUESTIONS = [
@@ -91,7 +99,7 @@ function RetrievalFootnote({ retrieval }) {
   );
 }
 
-function ChatBubble({ message }) {
+function ChatBubble({ message, canSpeak, isSpeaking, onToggleSpeech }) {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -129,6 +137,20 @@ function ChatBubble({ message }) {
           <span className="font-sans text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             SmartCare AI
           </span>
+          {!message.isError && canSpeak && (
+            <button
+              type="button"
+              onClick={() => onToggleSpeech(message)}
+              title={isSpeaking ? 'Stop reading' : 'Read this answer aloud'}
+              aria-label={isSpeaking ? 'Stop reading this answer' : 'Read this answer aloud'}
+              className={`inline-flex h-4 items-center gap-1 rounded px-1 text-[9px] transition-colors ${
+                isSpeaking ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {isSpeaking ? <AudioLines size={11} className="animate-pulse" /> : <Volume2 size={11} />}
+              {isSpeaking ? 'Stop' : 'Listen'}
+            </button>
+          )}
         </div>
         <div
           className={`rounded-2xl rounded-tl-sm border px-3.5 py-2.5 ${
@@ -173,12 +195,25 @@ export default function PatientRagChatPage() {
     dismissError,
   } = useRagChat(admissionId);
 
+  const { autoSpeak } = useVoiceStore();
+
   const [question, setQuestion] = useState('');
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  // Whatever was typed before the microphone opened; dictation appends to it.
+  const dictationBaseRef = useRef('');
+  // The voice agent sends, and sending speaks the answer — one direction of
+  // that cycle goes through a ref.
+  const submitRef = useRef(() => {});
+
+  const voice = useVoiceAgent({
+    onUtterance: (text) => submitRef.current(text),
+    onInterim: (text) =>
+      setQuestion(dictationBaseRef.current ? `${dictationBaseRef.current} ${text}` : text),
+  });
 
   const canClear = user?.role === 'MEDICAL_RESIDENT' || user?.role === 'ICU_SPECIALIST';
   const patientName = admission?.patient?.name;
@@ -189,14 +224,73 @@ export default function PatientRagChatPage() {
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages, isAsking]);
 
-  const submitQuestion = async (text) => {
-    const value = String(text ?? question).trim();
-    if (!value || isAsking) return;
+  const submitQuestion = useCallback(
+    async (text) => {
+      const value = String(text ?? question).trim();
+      if (!value || isAsking) {
+        // A spoken question that arrives mid-request would otherwise vanish and
+        // leave hands-free waiting on a turn that never happened.
+        voice.resumeIfHandsFree();
+        return;
+      }
 
+      setQuestion('');
+      dictationBaseRef.current = '';
+      // Anything said from here belongs to the next turn, not this one.
+      voice.stopListening();
+
+      const result = await ask(value, { mode: 'patient' });
+
+      if (result?.ai_response && (voice.getHandsFree() || autoSpeak)) {
+        voice.speak(result.ai_response, result.id);
+      } else {
+        // Cancelled, failed, or nothing to read — reopen the microphone rather
+        // than ending the conversation on a silent failure.
+        voice.resumeIfHandsFree();
+      }
+
+      inputRef.current?.focus();
+    },
+    [question, isAsking, ask, autoSpeak, voice]
+  );
+
+  useEffect(() => {
+    submitRef.current = submitQuestion;
+  });
+
+  /** Push-to-talk dictation: the text lands in the composer for review. */
+  const handleMicToggle = useCallback(() => {
+    if (voice.isListening) {
+      voice.stopListening();
+      return;
+    }
+    dictationBaseRef.current = question.trim();
+    voice.startListening();
+  }, [voice, question]);
+
+  const handleToggleSpeech = useCallback(
+    (message) => {
+      if (voice.speakingId === message.id) voice.stopSpeaking();
+      else voice.speak(message.text, message.id);
+    },
+    [voice]
+  );
+
+  const handleToggleHandsFree = useCallback(() => {
+    dictationBaseRef.current = '';
     setQuestion('');
-    await ask(value, { mode: 'patient' });
-    inputRef.current?.focus();
-  };
+    voice.toggleHandsFree();
+  }, [voice]);
+
+  // This page is mounted per admission, but the route can swap the admission
+  // underneath it. An answer about the previous patient must not keep playing,
+  // and the microphone must not stay open against a record that has changed.
+  useEffect(() => {
+    voice.setHandsFree(false);
+    // Only the admission change should trigger this; `voice` is a fresh object
+    // every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admissionId]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -242,6 +336,39 @@ export default function PatientRagChatPage() {
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              {voice.sttSupported && (
+                <Button
+                  variant={voice.handsFree ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={handleToggleHandsFree}
+                  title={
+                    voice.handsFree
+                      ? 'Turn off hands-free conversation'
+                      : 'Hands-free: ask by voice, hear the answer, keep talking'
+                  }
+                  aria-label={
+                    voice.handsFree
+                      ? 'Turn off hands-free conversation'
+                      : 'Turn on hands-free conversation'
+                  }
+                  aria-pressed={voice.handsFree}
+                  className={`h-8 w-8 ${
+                    voice.handsFree ? '' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Headphones size={14} />
+                </Button>
+              )}
+
+              {(voice.ttsSupported || voice.sttSupported) && (
+                <VoiceSettingsPopover
+                  voices={voice.voices}
+                  ttsSupported={voice.ttsSupported}
+                  onPreview={(text) => voice.speak(text, 'preview')}
+                  triggerClassName="h-8 w-8 text-muted-foreground hover:text-foreground"
+                />
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -311,7 +438,15 @@ export default function PatientRagChatPage() {
                 </div>
               </div>
             ) : (
-              messages.map((message) => <ChatBubble key={message.id} message={message} />)
+              messages.map((message) => (
+                <ChatBubble
+                  key={message.id}
+                  message={message}
+                  canSpeak={voice.ttsSupported}
+                  isSpeaking={voice.speakingId === message.id}
+                  onToggleSpeech={handleToggleSpeech}
+                />
+              ))
             )}
 
             {isAsking && (
@@ -331,6 +466,27 @@ export default function PatientRagChatPage() {
                     className="h-6 w-6 text-muted-foreground hover:text-destructive"
                   >
                     <StopCircle size={13} />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Hands-free has no send button to watch, so the loop says where
+                it is: listening, or reading the answer back. */}
+            {voice.isSpeaking && !isAsking && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2.5 rounded-2xl rounded-tl-sm border border-primary/30 bg-primary/5 px-3.5 py-2.5">
+                  <AudioLines size={14} className="animate-pulse text-primary" />
+                  <span className="font-sans text-xs text-muted-foreground">Reading the answer…</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={voice.stopSpeaking}
+                    title="Stop reading"
+                    aria-label="Stop reading the answer"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  >
+                    <Square size={11} />
                   </Button>
                 </div>
               </div>
@@ -355,7 +511,38 @@ export default function PatientRagChatPage() {
               </Alert>
             )}
 
+            {voice.micError && (
+              <Alert variant="destructive" className="mb-2 py-2">
+                <Mic size={14} />
+                <AlertDescription className="flex items-center justify-between gap-2 text-xs">
+                  <span>{voice.micError}</span>
+                  <button
+                    type="button"
+                    onClick={voice.dismissMicError}
+                    className="shrink-0 underline underline-offset-2"
+                  >
+                    Dismiss
+                  </button>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              {voice.sttSupported && (
+                <Button
+                  type="button"
+                  variant={voice.isListening ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={handleMicToggle}
+                  title={voice.isListening ? 'Stop listening' : 'Dictate your question'}
+                  aria-label={voice.isListening ? 'Stop listening' : 'Dictate your question'}
+                  aria-pressed={voice.isListening}
+                  className={`h-[42px] w-[42px] shrink-0 ${voice.isListening ? 'animate-pulse' : ''}`}
+                >
+                  <Mic size={17} />
+                </Button>
+              )}
+
               <Textarea
                 ref={inputRef}
                 value={question}
@@ -364,7 +551,11 @@ export default function PatientRagChatPage() {
                 rows={1}
                 maxLength={2000}
                 disabled={isAsking}
-                placeholder="Ask about vitals, labs, medications, notes, or an uploaded document…"
+                placeholder={
+                  voice.isListening
+                    ? 'Listening — speak your question…'
+                    : 'Ask about vitals, labs, medications, notes, or an uploaded document…'
+                }
                 aria-label="Ask the AI assistant a question"
                 className="min-h-[42px] max-h-32 resize-y font-sans text-sm"
               />
@@ -379,11 +570,26 @@ export default function PatientRagChatPage() {
               </Button>
             </form>
 
-            <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
-              <Info size={10} className="shrink-0" />
-              Enter to send · Shift+Enter for a new line. Decision support only — verify every answer
-              against the cited record.
-            </p>
+            {voice.isListening ? (
+              // A live microphone is invisible otherwise, and the two modes end
+              // an utterance differently — say which one is running.
+              <p className="mt-1.5 flex items-center gap-1.5 font-sans text-[10px] text-primary">
+                <span className="relative flex h-1.5 w-1.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                </span>
+                {voice.handsFree
+                  ? 'Listening — stop speaking for a moment and your question sends itself.'
+                  : 'Listening — press the microphone again to stop, then review before sending.'}
+              </p>
+            ) : (
+              <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
+                <Info size={10} className="shrink-0" />
+                Enter to send · Shift+Enter for a new line
+                {voice.sttSupported ? ' · microphone to dictate' : ''}. Decision support only — verify
+                every answer against the cited record.
+              </p>
+            )}
           </div>
         </div>
 
