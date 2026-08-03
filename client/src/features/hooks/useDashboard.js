@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { dashboardService } from '../services/dashboardService';
-import { patientsService } from '../services/patientsService';
 
 // Helper to determine acuity dynamically from latest vitals
 const checkIsCritical = (vitals) => {
@@ -59,84 +58,81 @@ export function useDashboard() {
       let totalAiAlerts = 0;
       const gatheredActivities = [];
 
-      // 2. Fetch details for each active admission
-      const enrichedAdmissions = await Promise.all(
-        activeAdmissions.map(async (admission) => {
-          try {
-            const [vitals, investigations, diagnoses] = await Promise.all([
-              patientsService.getLatestVitals(admission.id),
-              dashboardService.getPendingInvestigations(admission.id),
-              patientsService.getDiagnoses(admission.id),
-            ]);
+      // 2. Derive everything from that one response.
+      //
+      // The list query carries the newest vital sign, the active diagnoses and
+      // the pending investigation orders for each admission, so the dashboard
+      // costs a single request rather than one per patient on top of it. From
+      // Egypt against a us-east-1 database that difference is the whole load
+      // time — every extra request is another Atlantic round trip.
+      const enrichedAdmissions = activeAdmissions.map((admission) => {
+        const vitals = admission.latestVitals || null;
+        const diagnoses = admission.diagnosesList || [];
+        const investigations = admission.pendingInvestigations || [];
 
-            // Count critical cases
-            const isCritical = checkIsCritical(vitals);
-            if (isCritical) {
-              criticalCount++;
-              totalAiAlerts += 1; // Simulate alert trigger
-            }
+        // Count critical cases
+        const isCritical = checkIsCritical(vitals);
+        if (isCritical) {
+          criticalCount++;
+          totalAiAlerts += 1; // Simulate alert trigger
+        }
 
-            // Count pending investigations
-            totalPendingLabs += investigations.length;
+        // Count pending investigations
+        totalPendingLabs += investigations.length;
 
-            // Compile dynamic activity logs based on DB state
-            const bedStr = admission.bed?.bed_number ? `Bed ${admission.bed.bed_number.split('/')[1] || admission.bed.bed_number}` : 'Bed —';
-            const patName = admission.patient?.name || 'Patient';
+        // Compile dynamic activity logs based on DB state
+        const bedStr = admission.bed?.bed_number ? `Bed ${admission.bed.bed_number.split('/')[1] || admission.bed.bed_number}` : 'Bed —';
+        const patName = admission.patient?.name || 'Patient';
 
-            if (vitals) {
-              const vitalsAt = new Date(vitals.recordedAt || admission.updatedAt).getTime();
+        if (vitals) {
+          const vitalsAt = new Date(vitals.recordedAt || admission.updatedAt).getTime();
 
-              gatheredActivities.push({
-                type: 'vitals',
-                title: 'Vitals updated',
-                desc: `${patName} — ${bedStr}`,
-                dotColor: 'bg-status-available',
-                timestamp: vitalsAt,
-              });
+          gatheredActivities.push({
+            type: 'vitals',
+            title: 'Vitals updated',
+            desc: `${patName} — ${bedStr}`,
+            dotColor: 'bg-status-available',
+            timestamp: vitalsAt,
+          });
 
-              if (isCritical) {
-                gatheredActivities.push({
-                  type: 'alert',
-                  title: 'Critical alert raised',
-                  desc: `System Alert: abnormal vitals — ${bedStr}`,
-                  dotColor: 'bg-destructive',
-                  timestamp: vitalsAt,
-                });
-              }
-            }
-
-            investigations.forEach((inv) => {
-              gatheredActivities.push({
-                type: 'lab',
-                title: `${inv.type} order pending`,
-                desc: `${inv.orderName} — ${bedStr}`,
-                dotColor: 'bg-status-reserved',
-                timestamp: new Date(inv.orderDate || admission.createdAt).getTime(),
-              });
+          if (isCritical) {
+            gatheredActivities.push({
+              type: 'alert',
+              title: 'Critical alert raised',
+              desc: `System Alert: abnormal vitals — ${bedStr}`,
+              dotColor: 'bg-destructive',
+              timestamp: vitalsAt,
             });
-
-            diagnoses.forEach((diag) => {
-              gatheredActivities.push({
-                type: 'diagnosis',
-                title: 'Diagnosis updated',
-                desc: `${diag.conditionName} — ${bedStr}`,
-                dotColor: 'bg-status-occupied',
-                timestamp: new Date(diag.diagnosedAt || admission.updatedAt).getTime(),
-              });
-            });
-
-            return {
-              ...admission,
-              latestVitals: vitals,
-              isCritical,
-              pendingInvestigations: investigations,
-            };
-          } catch (err) {
-            console.error(`Failed to enrich dashboard for admission ${admission.id}:`, err);
-            return admission;
           }
-        })
-      );
+        }
+
+        investigations.forEach((inv) => {
+          gatheredActivities.push({
+            type: 'lab',
+            title: `${inv.type} order pending`,
+            desc: `${inv.orderName} — ${bedStr}`,
+            dotColor: 'bg-status-reserved',
+            timestamp: new Date(inv.orderDate || admission.createdAt).getTime(),
+          });
+        });
+
+        diagnoses.forEach((diag) => {
+          gatheredActivities.push({
+            type: 'diagnosis',
+            title: 'Diagnosis updated',
+            desc: `${diag.conditionName} — ${bedStr}`,
+            dotColor: 'bg-status-occupied',
+            timestamp: new Date(diag.diagnosedAt || admission.updatedAt).getTime(),
+          });
+        });
+
+        return {
+          ...admission,
+          latestVitals: vitals,
+          isCritical,
+          pendingInvestigations: investigations,
+        };
+      });
 
       // Sort activities newest first. No placeholder rows are injected when the
       // list is empty — this is a clinical feed, so an empty state must read as

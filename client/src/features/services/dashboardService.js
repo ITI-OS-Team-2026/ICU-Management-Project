@@ -8,10 +8,9 @@ export const dashboardService = {
     return data.data || [];
   },
 
-  async getPendingInvestigations(admissionId) {
-    const { data } = await api.get(`/admissions/${admissionId}/investigation-orders`);
-    return data.filter(order => order.status === 'Pending') || [];
-  },
+  // Pending investigation orders used to be fetched here, one request per
+  // admission, then filtered client-side. They now arrive on each admission in
+  // the list above as `pendingInvestigations`, already filtered by the query.
 
   // The AI assistant lives in `ragService` — see features/services/ragService.js.
 };
