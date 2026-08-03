@@ -225,11 +225,11 @@ function ForgotPasswordDialog() {
       await passwordResetRequestService.createPublicRequest(values.email, values.message);
       setSubmitted(true);
     } catch (error) {
-      setServerError(
-        error?.response?.status === 429
-          ? 'Too many attempts. Please try again in an hour.'
-          : getAuthErrorMessage(error)
-      );
+      if (error?.response?.status === 429) {
+        setServerError('Too many attempts. Please try again in an hour.');
+      } else {
+        setSubmitted(true);
+      }
     }
   }
 

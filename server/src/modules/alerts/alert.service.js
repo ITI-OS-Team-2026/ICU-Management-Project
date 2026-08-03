@@ -63,23 +63,23 @@ const alertService = {
       // createMany doesn't return the created rows, and the real-time emit
       // below needs each row's id to hand the client something it can mark
       // as read and deep-link from.
-      const notifications = await Promise.all(
-        userIdsToNotify.map(userId =>
-          tx.notification.create({
-            data: {
-              userId,
-              title: `New Patient Alert: ${data.severity}`,
-              message: data.title,
-              type: 'ALERT',
-              metadata: {
-                entityType: 'ALERT',
-                entityId: alert.id,
-                admissionId: data.admissionId,
-              },
+      const notifications = [];
+      for (const userId of userIdsToNotify) {
+        const notification = await tx.notification.create({
+          data: {
+            userId,
+            title: `New Patient Alert: ${data.severity}`,
+            message: data.title,
+            type: 'ALERT',
+            metadata: {
+              entityType: 'ALERT',
+              entityId: alert.id,
+              admissionId: data.admissionId,
             },
-          })
-        )
-      );
+          },
+        });
+        notifications.push(notification);
+      }
 
       return { alert, notifications };
     });

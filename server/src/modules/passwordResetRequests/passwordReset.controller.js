@@ -19,12 +19,15 @@ const createPublicRequest = async (req, res, next) => {
       return res.status(400).json({ message: "An email address is required." });
     }
     await passwordResetService.createPublicRequest(email, message);
-    // Reaching here means it genuinely succeeded — an unknown email or an
-    // already-pending request both throw instead, see createPublicRequest.
     res.status(202).json({
-      message: "Request sent. An admin has been notified and will follow up.",
+      message: "If an active account exists for that email, an admin has been notified.",
     });
   } catch (error) {
+    if (error.statusCode === 404 || error.statusCode === 409) {
+      return res.status(202).json({
+        message: "If an active account exists for that email, an admin has been notified.",
+      });
+    }
     next(error);
   }
 };

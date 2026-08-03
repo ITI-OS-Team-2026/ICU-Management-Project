@@ -80,7 +80,7 @@ async function archiveThenDelete(model, whereOlderThan, chunkSize, archiveFilePa
     if (rows.length === 0) break;
 
     const lines = rows.map((row) => JSON.stringify(row)).join("\n") + "\n";
-    fs.appendFileSync(archiveFilePath, lines, "utf8");
+    await fs.promises.appendFile(archiveFilePath, lines, "utf8");
 
     await model.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
     total += rows.length;
@@ -148,8 +148,7 @@ const runRetentionCycle = async () => {
 
     logger.info("Log retention cycle completed.");
   } catch (error) {
-    logger.error(`Error in log retention cycle: ${error.message}`);
-    throw error;
+    logger.error(`Error in log retention cycle: ${error.message}`, { stack: error.stack });
   } finally {
     cycleInFlight = false;
   }

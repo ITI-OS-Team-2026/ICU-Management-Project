@@ -76,7 +76,7 @@ const PROTECTED_EMAILS = [
 
 async function cleanupTestData() {
   // Find protected user IDs first so we can exclude their related
-  // AuditLog / LoginAttempt / RefreshToken rows too, not just the User row.
+  // AuditLog / LoginAttempt rows too, not just the User row.
   const protectedUsers = await prisma.user.findMany({
     where: { email: { in: PROTECTED_EMAILS } },
     select: { id: true },

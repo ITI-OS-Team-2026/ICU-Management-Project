@@ -82,8 +82,7 @@ const runMonitoringCycle = async () => {
     }
     logger.info('Alerts Monitoring Cycle completed.');
   } catch (error) {
-    logger.error(`Error in Alerts Monitoring Cycle: ${error.message}`);
-    throw error;
+    logger.error(`Error in Alerts Monitoring Cycle: ${error.message}`, { stack: error.stack });
   } finally {
     cycleInFlight = false;
   }
