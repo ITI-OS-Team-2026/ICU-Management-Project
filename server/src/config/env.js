@@ -56,11 +56,6 @@ module.exports = {
   auditLogArchiveDir: process.env.AUDIT_LOG_ARCHIVE_DIR || "storage/audit-archive",
   aiQueryLogRetentionDays: Number(process.env.AI_QUERY_LOG_RETENTION_DAYS) || 180,
   loginAttemptRetentionDays: Number(process.env.LOGIN_ATTEMPT_RETENTION_DAYS) || 90,
-  // Grace period after a refresh token expires/is revoked before it's purged
-  // — short, since an expired token is inert, but non-zero so a concurrent
-  // refresh mid-rotation can't be cleaned up out from under it.
-  refreshTokenGraceDays: Number(process.env.REFRESH_TOKEN_GRACE_DAYS) || 7,
-
   // ── SMTP (password reset emails) ───────────────────────────────────────
   smtpHost: process.env.SMTP_HOST || "",
   smtpPort: Number(process.env.SMTP_PORT) || 587,

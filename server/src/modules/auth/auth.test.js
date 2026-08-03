@@ -94,9 +94,6 @@ async function cleanupTestData() {
       ],
     },
   });
-  await prisma.refreshToken.deleteMany({
-    where: { userId: { notIn: protectedIds } },
-  });
   await prisma.user.deleteMany({
     where: { email: { notIn: PROTECTED_EMAILS } },
   });

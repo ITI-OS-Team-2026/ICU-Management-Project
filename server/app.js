@@ -4,7 +4,6 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { xss } = require("express-xss-sanitizer");
 const secureHpp = require("./src/middlewares/secureHpp");
-// const { limiter } = require("./src/middlewares/rateLimiter");
 
 const errorHandler = require("./src/middlewares/errorHandler");
 const apiRouter = require("./src/routes");
@@ -32,8 +31,6 @@ app.use(cookieParser());
 // Block HTTP parameter pollution, then sanitize XSS payloads in body/query/params
 app.use(secureHpp());
 app.use(xss());
-
-// app.use(limiter);
 
 // Route Mount
 app.get("/", (req, res) => {

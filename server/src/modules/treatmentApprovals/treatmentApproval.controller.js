@@ -7,6 +7,7 @@ const createTreatmentApproval = async (req, res, next) => {
     const approval = await treatmentApprovalService.createTreatmentApproval(
       admissionId,
       req.user.id,
+      req.user.role,
       req.body,
       req
     );

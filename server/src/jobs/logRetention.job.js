@@ -13,10 +13,9 @@ const logger = require("../utils/logger");
  *
  * Two different policies, on purpose:
  *
- *  - RefreshToken and LoginAttempt are operational exhaust. An expired
- *    session token is inert the moment it expires; a login attempt is a
- *    rate-limiting/lockout signal that's only useful for a bounded recent
- *    window. Both are hard-deleted once past their retention window.
+ *  - LoginAttempt is operational exhaust — a rate-limiting/lockout signal
+ *    that's only useful for a bounded recent window. Hard-deleted once past
+ *    its retention window.
  *
  *  - AuditLog is the compliance trail (who did what to which patient record,
  *    and when) — the one table here it would be actively wrong to just
@@ -104,15 +103,6 @@ const runRetentionCycle = async () => {
 
   logger.info("Running log retention cycle...");
   try {
-    // Expired or revoked refresh tokens, past a short grace period.
-    const tokenCutoff = daysAgo(config.refreshTokenGraceDays);
-    const tokensDeleted = await batchedDelete(
-      prisma.refreshToken,
-      { OR: [{ expiresAt: { lt: tokenCutoff } }, { revokedAt: { lt: tokenCutoff } }] },
-      chunkSize
-    );
-    if (tokensDeleted > 0) logger.info(`Log retention: purged ${tokensDeleted} expired/revoked refresh token(s).`);
-
     // Login attempts past the security-log retention window.
     const loginAttemptCutoff = daysAgo(config.loginAttemptRetentionDays);
     const loginAttemptsDeleted = await batchedDelete(

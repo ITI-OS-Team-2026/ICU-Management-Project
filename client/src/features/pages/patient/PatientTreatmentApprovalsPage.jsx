@@ -289,7 +289,7 @@ function ApprovalSkeleton() {
 /* ================================================================
    Request dialog
    ================================================================ */
-function NewApprovalDialog({ open, onClose, onSave, isSaving }) {
+function NewApprovalDialog({ open, onClose, onSave, isSaving, isSpecialist }) {
   const [treatmentName, setTreatmentName] = useState('');
   const [justification, setJustification] = useState('');
   const [error, setError] = useState('');
@@ -315,7 +315,7 @@ function NewApprovalDialog({ open, onClose, onSave, isSaving }) {
         <DialogHeader>
           <DialogTitle className="font-display text-lg font-bold text-foreground flex items-center gap-2">
             <ShieldCheck size={18} className="text-primary" />
-            Request Treatment Approval
+            {isSpecialist ? 'Create Treatment' : 'Request Treatment Approval'}
           </DialogTitle>
         </DialogHeader>
 
@@ -359,7 +359,7 @@ function NewApprovalDialog({ open, onClose, onSave, isSaving }) {
             </Button>
             <Button type="submit" disabled={isSaving} className="min-w-[140px] gap-1.5">
               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-              {isSaving ? 'Sending…' : 'Send Request'}
+              {isSaving ? 'Saving…' : isSpecialist ? 'Create Treatment' : 'Send Request'}
             </Button>
           </div>
         </form>
@@ -457,8 +457,9 @@ export default function PatientTreatmentApprovalsPage() {
 
   const [execRequest, setExecRequest] = useState(null); // { approval, status }
 
-  const canRequest = user?.role === 'ICU_SPECIALIST' || user?.role === 'MEDICAL_RESIDENT';
-  const canDecide  = user?.role === 'ICU_SPECIALIST';
+  const isSpecialist = user?.role === 'ICU_SPECIALIST';
+  const canRequest = isSpecialist || user?.role === 'MEDICAL_RESIDENT';
+  const canDecide  = isSpecialist;
   const canExecute = user?.role === 'ICU_NURSE';
 
   const fetchApprovals = useCallback(async () => {
@@ -567,7 +568,7 @@ export default function PatientTreatmentApprovalsPage() {
         {canRequest && (
           <Button size="sm" className="gap-1.5 font-sans text-xs" onClick={() => setShowNew(true)}>
             <Plus size={14} />
-            Request Approval
+            {isSpecialist ? 'Create Treatment' : 'Request Approval'}
           </Button>
         )}
       </div>
@@ -620,13 +621,15 @@ export default function PatientTreatmentApprovalsPage() {
             <p className="font-sans text-sm font-semibold text-foreground">No treatment approvals yet</p>
             <p className="font-sans text-xs text-muted-foreground mt-1">
               {canRequest
-                ? 'Request specialist sign-off before starting a high-risk treatment.'
+                ? isSpecialist
+                  ? 'Create a treatment to begin the execution workflow.'
+                  : 'Request specialist sign-off before starting a high-risk treatment.'
                 : 'No treatment approvals have been requested for this patient.'}
             </p>
           </div>
           {canRequest && (
             <Button size="sm" className="gap-1.5 font-sans text-xs mt-1" onClick={() => setShowNew(true)}>
-              <Plus size={13} /> Request Approval
+              <Plus size={13} /> {isSpecialist ? 'Create Treatment' : 'Request Approval'}
             </Button>
           )}
         </div>
@@ -660,6 +663,7 @@ export default function PatientTreatmentApprovalsPage() {
         onClose={() => setShowNew(false)}
         onSave={handleSave}
         isSaving={isSaving}
+        isSpecialist={isSpecialist}
       />
 
       <ExecutionDialog
