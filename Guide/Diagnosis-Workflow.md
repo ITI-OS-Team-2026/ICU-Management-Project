@@ -27,7 +27,6 @@ The problem list is not decorative. `patientSummary.service.js`, the RAG retriev
 | type                  | `DiagnosisType`         | PRIMARY / SECONDARY / COMORBIDITY / COMPLICATION                |
 | status                | `DiagnosisStatus`       | SUSPECTED / CONFIRMED / RULED_OUT / RESOLVED                    |
 | clinicalNotes         | Text (nullable)         | The reasoning — what supports this                              |
-| onsetDate             | DateTime (nullable)     | When the condition began, not when it was typed in              |
 | diagnosedById         | UUID                    | Who authored **this version**                                   |
 | originalDiagnosedById | UUID (nullable)         | Who authored it originally — survives amendments                |
 | ruledOutReason        | Text (nullable)         | Why it was excluded                                             |
@@ -149,8 +148,6 @@ Amending is append-only. The current row is archived and a new one is created:
 
 **Audit.** Every create, amend, status change, archive, acknowledgement, concern and response is written through `auditedTransaction`, so the audit row and the clinical row commit or roll back together.
 
-**Onset validation.** Onset cannot be in the future.
-
 ---
 
 ## API
@@ -174,8 +171,7 @@ Amending is append-only. The current row is archived and a new one is created:
   "condition_name": "Community-acquired pneumonia",
   "type": "PRIMARY",
   "status": "SUSPECTED",
-  "clinical_notes": "Right basal crackles, CXR consolidation, CRP 180",
-  "onset_date": "2026-08-03T22:00:00.000Z"
+  "clinical_notes": "Right basal crackles, CXR consolidation, CRP 180"
 }
 ```
 
@@ -185,7 +181,7 @@ Amending is append-only. The current row is archived and a new one is created:
 { "status": "RULED_OUT", "reason": "CTPA negative; raised D-dimer explained by sepsis" }
 ```
 
-`resolved_at` is accepted only when `status` is `RESOLVED`, and defaults to now.
+The resolution timestamp is recorded automatically — a condition resolves when the ward marks it resolved.
 
 ---
 
@@ -238,8 +234,9 @@ npx jest src/modules/diagnoses
 
 Migrations for this feature:
 
-- `20260804180000_diagnosis_workflow` — replaces the status enum, adds classification, reasoning, onset and the outcome trail, and creates the acknowledgement and concern tables. Existing `ACTIVE` rows become `CONFIRMED`: every one was entered by a doctor as a working diagnosis, so treating them as suspected would misrepresent the record.
+- `20260804180000_diagnosis_workflow` — replaces the status enum, adds classification, reasoning and the outcome trail, and creates the acknowledgement and concern tables. Existing `ACTIVE` rows become `CONFIRMED`: every one was entered by a doctor as a working diagnosis, so treating them as suspected would misrepresent the record.
 - `20260804183000_backfill_primary_diagnosis` — every pre-existing row defaulted to `SECONDARY`, leaving admissions with no reason for admission marked. Promotes the earliest diagnosis on each admission, and only touches admissions that have no primary at all.
+- `20260804230000_drop_diagnosis_onset_date` — removes the onset column. It competed with `diagnosed_at` for the same question and was answered inconsistently.
 - `20260804210000_drop_diagnosis_icd_code` — removes the ICD-10 column. Coding was dropped from the workflow: clinicians record the condition in words, and a code the ward never reads is one more field to get wrong.
 
 Two consumers were reading the old status and had to move with it: the admin dashboard's per-patient condition lookup, and the AI patient summary's active/resolved split. Both now treat `CONFIRMED` and `SUSPECTED` as the active problem list.

@@ -262,7 +262,6 @@ const createFullAdmission = async (req, data) => {
             type: isPrimary ? "PRIMARY" : diag.type === "PRIMARY" ? "SECONDARY" : diag.type,
             status: diag.status || "SUSPECTED",
             clinicalNotes: diag.clinical_notes || null,
-            onsetDate: diag.onset_date ? new Date(diag.onset_date) : null,
             diagnosedById: req.user.id,
             originalDiagnosedById: req.user.id,
           };

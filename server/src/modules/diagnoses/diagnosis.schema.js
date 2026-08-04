@@ -13,9 +13,6 @@ const diagnosisCreateSchema = Joi.object({
   // already has the evidence in hand.
   status: Joi.string().valid("SUSPECTED", "CONFIRMED").default("SUSPECTED"),
   clinical_notes: Joi.string().max(4000).optional().allow(null, ""),
-  onset_date: Joi.date().iso().max("now").optional().messages({
-    "date.max": "Onset cannot be in the future.",
-  }),
 });
 
 const diagnosisUpdateSchema = Joi.object({
@@ -24,7 +21,6 @@ const diagnosisUpdateSchema = Joi.object({
     .valid(...TYPES)
     .optional(),
   clinical_notes: Joi.string().max(4000).optional().allow(null, ""),
-  onset_date: Joi.date().iso().max("now").optional().allow(null),
   // Present only so the service can reject it with a helpful message rather
   // than Joi rejecting it as an unknown key.
   status: Joi.string()
@@ -39,11 +35,6 @@ const diagnosisStatusSchema = Joi.object({
   reason: Joi.string().max(2000).required().messages({
     "any.required":
       "A clinical reason is required — it is the record of why the differential moved.",
-  }),
-  resolved_at: Joi.date().iso().max("now").when("status", {
-    is: "RESOLVED",
-    then: Joi.optional(),
-    otherwise: Joi.forbidden(),
   }),
 });
 

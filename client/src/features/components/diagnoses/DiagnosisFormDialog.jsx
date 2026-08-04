@@ -34,16 +34,7 @@ const EMPTY = {
   type: 'SECONDARY',
   status: 'SUSPECTED',
   clinical_notes: '',
-  onset_date: '',
 };
-
-function toLocalInput(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /**
  * Record a new diagnosis or amend an existing one.
@@ -70,7 +61,6 @@ export default function DiagnosisFormDialog({
           type: diagnosis.type || 'SECONDARY',
           status: diagnosis.status || 'SUSPECTED',
           clinical_notes: diagnosis.clinicalNotes || '',
-          onset_date: toLocalInput(diagnosis.onsetDate),
         }
       : EMPTY
   );
@@ -91,9 +81,6 @@ export default function DiagnosisFormDialog({
   const validate = () => {
     const next = {};
     if (!values.condition_name.trim()) next.condition_name = 'Condition name is required.';
-    if (values.onset_date && new Date(values.onset_date) > new Date()) {
-      next.onset_date = 'Onset cannot be in the future.';
-    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -109,7 +96,6 @@ export default function DiagnosisFormDialog({
         type: values.type,
       };
       if (values.clinical_notes.trim()) payload.clinical_notes = values.clinical_notes.trim();
-      if (values.onset_date) payload.onset_date = new Date(values.onset_date).toISOString();
       // Status is only settable at creation.
       if (!isEdit) payload.status = values.status;
 
@@ -231,23 +217,6 @@ export default function DiagnosisFormDialog({
               </p>
             </div>
           )}
-
-          <div className="space-y-2">
-            <Label htmlFor="onset_date">Onset</Label>
-            <Input
-              id="onset_date"
-              type="datetime-local"
-              value={values.onset_date}
-              onChange={(e) => setField('onset_date', e.target.value)}
-            />
-            {errors.onset_date ? (
-              <p className="text-xs text-destructive">{errors.onset_date}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                When the condition began, if it differs from now.
-              </p>
-            )}
-          </div>
 
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="clinical_notes">Clinical reasoning</Label>

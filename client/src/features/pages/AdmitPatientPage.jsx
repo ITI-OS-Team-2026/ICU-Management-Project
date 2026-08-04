@@ -23,6 +23,7 @@ import Step5LocalExamination from "./admission/steps/Step5LocalExamination";
 import Step6ProvisionalDiagnosis from "./admission/steps/Step6ProvisionalDiagnosis";
 import Step7Investigations from "./admission/steps/Step7Investigations";
 import Step8TreatmentPlan from "./admission/steps/Step8TreatmentPlan";
+import { dateInputToIso } from "../services/medicationsService";
 
 const optionalEnum = (values) =>
   z.union([z.literal(""), z.enum(values)]).optional();
@@ -222,8 +223,8 @@ const admissionSchema = z
       )
       .default([]),
 
-    // Dates here are the raw datetime-local strings the inputs produce; they
-    // are converted to ISO when the payload is built.
+    // Dates here are the raw "YYYY-MM-DD" strings the day inputs produce; they
+    // are converted to ISO instants at local midnight when the payload is built.
     medications: z
       .array(
         z
@@ -784,8 +785,8 @@ export default function AdmitPatientPage() {
               med.frequency === "OTHER" ? emptyToUndefined(med.frequency_text) : undefined,
             route: med.route,
             instructions: emptyToUndefined(med.instructions),
-            start_date: med.start_date ? new Date(med.start_date).toISOString() : undefined,
-            end_date: med.end_date ? new Date(med.end_date).toISOString() : undefined,
+            start_date: dateInputToIso(med.start_date),
+            end_date: dateInputToIso(med.end_date),
           })),
       };
 

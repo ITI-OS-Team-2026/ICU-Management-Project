@@ -39,7 +39,6 @@ const auditableFields = (d) => ({
   type: d.type,
   status: d.status,
   clinicalNotes: d.clinicalNotes,
-  onsetDate: d.onsetDate,
 });
 
 const notifyAssignedNurses = async (admissionId, { title, message, type = "INFO", metadata }) => {
@@ -146,7 +145,6 @@ const createDiagnosis = async (req, admissionId, data, userId) => {
           type: data.type || "SECONDARY",
           status: data.status || "SUSPECTED",
           clinicalNotes: data.clinical_notes || null,
-          onsetDate: data.onset_date ? new Date(data.onset_date) : null,
           diagnosedById: userId,
           originalDiagnosedById: userId,
         },
@@ -222,12 +220,6 @@ const updateDiagnosis = async (req, id, data, userId) => {
           status: existing.status,
           clinicalNotes:
             data.clinical_notes !== undefined ? data.clinical_notes : existing.clinicalNotes,
-          onsetDate:
-            data.onset_date !== undefined
-              ? data.onset_date
-                ? new Date(data.onset_date)
-                : null
-              : existing.onsetDate,
           // The amending clinician owns the new version; the original author
           // is carried forward so authorship is never lost.
           diagnosedById: userId,
@@ -297,7 +289,9 @@ const changeStatus = async (req, id, data, userId) => {
             next === "CONFIRMED" && data.reason ? data.reason : existing.clinicalNotes,
           ruledOutReason: next === "RULED_OUT" ? data.reason : null,
           resolutionReason: next === "RESOLVED" ? data.reason : null,
-          resolvedAt: next === "RESOLVED" ? new Date(data.resolved_at || Date.now()) : null,
+          // Recorded automatically — a condition resolves when the ward marks
+          // it resolved, not at some other time someone types in.
+          resolvedAt: next === "RESOLVED" ? new Date() : null,
         },
         include: diagnosisInclude,
       });

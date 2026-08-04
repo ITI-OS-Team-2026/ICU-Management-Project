@@ -55,9 +55,11 @@ const generateSlots = (medication, day) => {
   const dayStart = startOfDay(day);
   const dayEnd = endOfDay(day);
 
-  // An order is only live between its start and end dates.
+  // An order is only live between its start and end dates. Orders carry a
+  // start/end *date*, so the end date means "through the end of that day" —
+  // taking it literally as midnight would drop the final day's doses.
   const orderStart = new Date(medication.startDate || medication.prescribedAt);
-  const orderEnd = medication.endDate ? new Date(medication.endDate) : null;
+  const orderEnd = medication.endDate ? endOfDay(medication.endDate) : null;
   if (orderEnd && orderEnd < dayStart) return [];
 
   // STAT is a single dose at the moment the order goes live.
@@ -80,23 +82,18 @@ const generateSlots = (medication, day) => {
   const intervalHours = INTERVAL_HOURS[frequency];
   if (!intervalHours) return [];
 
-  // Walk forward from the order's start time in fixed steps, keeping only the
-  // steps that land inside the requested day.
+  // A fixed daily grid from midnight: Q6H is 00:00, 06:00, 12:00, 18:00 on
+  // every date. Dose times used to be anchored to the order's start *time*,
+  // which no longer exists — orders carry a start date only — and anchoring to
+  // an arbitrary minute meant no two drugs shared a round.
   const slots = [];
-  const stepMs = intervalHours * 60 * 60 * 1000;
-  // Jump straight to the first step at or after the day's start instead of
-  // iterating from the order date — orders can be weeks old.
-  const elapsed = dayStart.getTime() - orderStart.getTime();
-  const firstStep = elapsed <= 0 ? 0 : Math.ceil(elapsed / stepMs);
-
-  for (let i = firstStep; ; i += 1) {
-    const slot = new Date(orderStart.getTime() + i * stepMs);
-    if (slot > dayEnd) break;
-    if (orderEnd && slot > orderEnd) break;
-    if (slot >= dayStart) slots.push(slot);
+  for (let hour = 0; hour < 24; hour += intervalHours) {
+    const slot = new Date(dayStart);
+    slot.setHours(hour, 0, 0, 0);
+    slots.push(slot);
   }
 
-  return slots;
+  return slots.filter(withinOrder);
 };
 
 // Administrations are matched to the nearest slot within half an interval, so a

@@ -349,9 +349,7 @@ export default function PatientDiagnosesPage() {
                         <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-sans text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <Clock size={12} className="opacity-70" />
-                            {diagnosis.onsetDate
-                              ? `Onset: ${formatDate(diagnosis.onsetDate, 'MMM d, yyyy')}`
-                              : `Recorded: ${formatDate(diagnosis.diagnosedAt, 'MMM d, yyyy')}`}
+                            Recorded: {formatDate(diagnosis.diagnosedAt, 'MMM d, yyyy')}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <User size={12} className="opacity-70" />

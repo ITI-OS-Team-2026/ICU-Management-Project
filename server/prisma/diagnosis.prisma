@@ -30,8 +30,6 @@ model Diagnosis {
   // Why the clinician believes this — the reasoning a condition name alone
   // cannot carry.
   clinicalNotes String?         @map("clinical_notes") @db.Text
-  // When the condition began, as distinct from when it was typed in.
-  onsetDate     DateTime?       @map("onset_date")
   diagnosedById String          @map("diagnosed_by")
   // Survives the archive-and-recreate amendment cycle.
   originalDiagnosedById String? @map("original_diagnosed_by")

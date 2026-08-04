@@ -103,10 +103,8 @@ export const diagnosesService = {
   },
 
   /** Confirm / rule out / resolve. The reason is mandatory server-side. */
-  async changeStatus(diagnosisId, status, reason, resolvedAt) {
-    const body = { status, reason };
-    if (status === 'RESOLVED' && resolvedAt) body.resolved_at = resolvedAt;
-    const { data } = await api.patch(`/diagnoses/${diagnosisId}/status`, body);
+  async changeStatus(diagnosisId, status, reason) {
+    const { data } = await api.patch(`/diagnoses/${diagnosisId}/status`, { status, reason });
     return data;
   },
 
