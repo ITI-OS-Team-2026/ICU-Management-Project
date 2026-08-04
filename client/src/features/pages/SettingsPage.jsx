@@ -19,7 +19,11 @@ import {
   CheckCircle2,
   KeyRound,
   Send,
+  Keyboard,
+  RotateCcw,
 } from 'lucide-react';
+import { getEventKeyString } from '../hooks/useShortcuts';
+import { useShortcutStore } from '../store/shortcutStore';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
@@ -165,6 +169,134 @@ function AdminRequestCard({ req, activeReplyId, setActiveReplyId, replyText, set
         </div>
       )}
     </div>
+  );
+}
+
+// ── Shortcut Manager ──────────────────────────────────────────────────────────
+const SHORTCUT_LABELS = {
+  global: {
+    title: 'Global',
+    items: {
+      goToDashboard: 'Go to Dashboard',
+      goToSettings: 'Go to Settings',
+      focusSearch: 'Focus Global Search'
+    }
+  },
+  dashboard: {
+    title: 'Dashboard',
+    items: {
+      nextPatient: 'Select Next Patient',
+      prevPatient: 'Select Previous Patient',
+      openPatient: 'Open Selected Patient',
+      admitPatient: 'Admit New Patient'
+    }
+  },
+  patientDetails: {
+    title: 'Patient Details',
+    items: {
+      closePatient: 'Close Patient (Return to Dashboard)',
+      openOverview: 'Open Overview Tab',
+      openVitals: 'Open Vitals Tab',
+      openLabs: 'Open Labs Tab',
+      openMedications: 'Open Medications Tab',
+      openAiAssistant: 'Open AI Assistant Tab',
+      openNotes: 'Open Notes Tab',
+      openDocuments: 'Open Documents Tab',
+      focusAction: 'Focus Action/Input',
+    }
+  }
+};
+
+function ShortcutManager() {
+  const { shortcuts, setShortcut, resetToDefaults } = useShortcutStore();
+  const [recording, setRecording] = useState(null); // { context, action }
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!recording) return;
+
+    const handleKeyDown = (e) => {
+      e.preventDefault();
+      
+      const keyString = getEventKeyString(e);
+      // Skip if it's just a modifier key
+      if (['ctrl', 'meta', 'alt', 'shift'].includes(keyString)) {
+        return; 
+      }
+      
+      // Check for collisions within the same context
+      let conflict = null;
+      for (const [existingAction, existingKey] of Object.entries(shortcuts[recording.context] || {})) {
+        if (existingKey === keyString && existingAction !== recording.action) {
+          conflict = SHORTCUT_LABELS[recording.context].items[existingAction];
+          break;
+        }
+      }
+
+      if (conflict) {
+        setError(`"${keyString}" is already used for "${conflict}" in this context.`);
+        setRecording(null);
+        return;
+      }
+
+      setError('');
+      setShortcut(recording.context, recording.action, keyString);
+      setRecording(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [recording, shortcuts, setShortcut]);
+
+  return (
+    <Card className="border-border shadow-sm mt-8">
+      <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
+        <div className="flex items-center justify-between">
+          <CardTitle className="font-sans text-sm font-semibold flex items-center gap-2">
+            <Keyboard className="w-4 h-4 text-primary" />
+            Keyboard Shortcuts
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={resetToDefaults} className="h-7 text-xs">
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+            Reset to Defaults
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-5 space-y-6">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        {Object.entries(SHORTCUT_LABELS).map(([contextKey, contextData]) => (
+          <div key={contextKey} className="space-y-3">
+            <h4 className="font-semibold text-sm text-foreground uppercase tracking-wider">{contextData.title}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {Object.entries(contextData.items).map(([actionKey, label]) => {
+                const currentKey = shortcuts[contextKey]?.[actionKey] || 'Unbound';
+                const isRecording = recording?.context === contextKey && recording?.action === actionKey;
+                
+                return (
+                  <div key={actionKey} className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+                    <span className="text-sm font-medium text-foreground">{label}</span>
+                    <Button
+                      variant={isRecording ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-7 px-3 text-xs font-mono min-w-[80px] ${isRecording ? 'animate-pulse' : ''}`}
+                      onClick={() => setRecording(isRecording ? null : { context: contextKey, action: actionKey })}
+                    >
+                      {isRecording ? 'Press a key...' : currentKey}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -528,6 +660,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Shortcut Manager ───────────────────────────────────────── */}
+      <ShortcutManager />
 
     </div>
   );

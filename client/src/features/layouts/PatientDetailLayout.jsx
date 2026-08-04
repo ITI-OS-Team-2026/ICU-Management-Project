@@ -17,8 +17,10 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { patientsService } from '../services/patientsService';
+import { useShortcuts } from '../hooks/useShortcuts';
 import { useAuthStore } from '../store/authStore';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
@@ -125,6 +127,17 @@ export default function PatientDetailLayout() {
   const { acuity, dot, riskColor } = getAcuityMeta(vitals);
   const riskScore = getRiskScore(vitals, acuity);
   const basePath  = `/patients/${admissionId}`;
+
+  useShortcuts('patientDetails', {
+    closePatient: () => navigate('/dashboard'),
+    openOverview: () => navigate(`${basePath}/overview`),
+    openVitals: () => navigate(`${basePath}/vitals`),
+    openLabs: () => navigate(`${basePath}/labs`),
+    openMedications: () => navigate(`${basePath}/medications`),
+    openAiAssistant: () => navigate(`${basePath}/ai`),
+    openNotes: () => navigate(`${basePath}/notes`),
+    openDocuments: () => navigate(`${basePath}/documents`),
+  });
 
   // ─ Loading ──────────────────────────────────────────────────────────────────
   if (isLoading) {
