@@ -40,6 +40,7 @@ const nurseAssignSchema = Joi.object({
 
 const { patientCreateSchema, medicalHistoryCreateSchema } = require("../patients/patient.schema");
 const { createVitalSignSchema } = require("../vitalSigns/vitalSign.schema");
+const { createMedicationSchema } = require("../medications/medication.schema");
 
 const fullAdmissionCreateSchema = Joi.object({
   patient: patientCreateSchema.required(),
@@ -62,6 +63,10 @@ const fullAdmissionCreateSchema = Joi.object({
     provisional_diagnosis: Joi.string().allow(null, "").optional(),
   }).required(),
   vital_signs: createVitalSignSchema.optional(),
+  // Step 8 of the admission form — initial treatment plan. Reuses the standard
+  // medication rules so an order written here is validated exactly like one
+  // written later from the patient's medication tab.
+  medications: Joi.array().items(createMedicationSchema).optional().default([]),
 });
 
 module.exports = {

@@ -5,25 +5,67 @@ enum AdministrationStatus {
   MISSED
 }
 
+// Dosing frequencies the schedule generator understands. OTHER is the escape
+// hatch for legacy free-text orders and anything the enum can't express — those
+// keep their original wording in `frequencyText` and produce no due slots.
+enum MedicationFrequency {
+  OD
+  BD
+  TDS
+  QDS
+  Q4H
+  Q6H
+  Q8H
+  Q12H
+  PRN
+  STAT
+  CONTINUOUS
+  OTHER
+}
+
+enum MedicationRoute {
+  IV
+  PO
+  IM
+  SC
+  INH
+  TOPICAL
+  PR
+  NG
+}
+
 model Medication {
   id             String    @id @default(uuid())
   admissionId    String    @map("admission_id")
   prescribedById String    @map("prescribed_by")
+  // Survives the archive-and-recreate edit cycle so the clinician who wrote the
+  // original order is never lost when someone else amends it.
+  originalPrescriberId String? @map("original_prescriber_id")
   drugName       String    @map("drug_name") @db.VarChar(200)
   dosage         String    @db.VarChar(100)
-  frequency      String    @db.VarChar(100)
+  frequency      MedicationFrequency @default(OTHER)
+  frequencyText  String?   @map("frequency_text") @db.VarChar(100)
+  route          MedicationRoute?
+  instructions   String?   @db.Text
   startDate      DateTime? @map("start_date")
   endDate        DateTime? @map("end_date")
   prescribedAt   DateTime  @default(now()) @map("prescribed_at")
   isActive       Boolean   @default(true) @map("is_active")
+  // Set when a prescriber wrote the order despite a matching allergy on file.
+  allergyAcknowledged Boolean @default(false) @map("allergy_acknowledged")
+  discontinuedById   String?   @map("discontinued_by")
+  discontinuedAt     DateTime? @map("discontinued_at")
+  discontinueReason  String?   @map("discontinue_reason") @db.Text
   isArchived     Boolean   @default(false) @map("is_archived")
   archivedAt     DateTime? @map("archived_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  admission       Admission                  @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  prescribedBy    User                       @relation("MedicationPrescriber", fields: [prescribedById], references: [id])
-  administrations MedicationAdministration[]
+  admission           Admission                  @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  prescribedBy        User                       @relation("MedicationPrescriber", fields: [prescribedById], references: [id])
+  originalPrescriber  User?                      @relation("MedicationOriginalPrescriber", fields: [originalPrescriberId], references: [id])
+  discontinuedBy      User?                      @relation("MedicationDiscontinuedBy", fields: [discontinuedById], references: [id])
+  administrations     MedicationAdministration[]
 
   @@index([admissionId])
   @@index([isActive])
@@ -49,5 +91,6 @@ model MedicationAdministration {
 
   @@index([medicationId])
   @@index([administeredById])
+  @@index([scheduledTime])
   @@map("medication_administrations")
 }

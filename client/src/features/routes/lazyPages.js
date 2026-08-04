@@ -21,7 +21,6 @@ export const AdmitPatientPage = lazy(() => import('../pages/AdmitPatientPage'));
 export const BedOverviewPage = lazy(() => import('../pages/BedOverviewPage'));
 export const VitalsMonitorPage = lazy(() => import('../pages/VitalsMonitorPage'));
 export const VitalsEntryPage = lazy(() => import('../pages/VitalsEntryPage'));
-export const MedicationsPage = lazy(() => import('../pages/MedicationsPage'));
 export const MedAdministrationPage = lazy(() => import('../pages/MedAdministrationPage'));
 export const LabResultsPage = lazy(() => import('../pages/LabResultsPage'));
 export const DischargePage = lazy(() => import('../pages/DischargePage'));

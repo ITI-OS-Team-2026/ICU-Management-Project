@@ -197,7 +197,28 @@ const createFullAdmission = async (req, data) => {
       });
     }
 
-    // 6. Update Bed Status
+    // 6. Create initial medication orders (Step 8 of the admission form).
+    // Written inside this transaction so an admission can never end up with a
+    // partial drug list — either every order lands or the admission rolls back.
+    if (Array.isArray(data.medications) && data.medications.length > 0) {
+      await tx.medication.createMany({
+        data: data.medications.map((med) => ({
+          admissionId: admission.id,
+          prescribedById: req.user.id,
+          originalPrescriberId: req.user.id,
+          drugName: med.drug_name,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          frequencyText: med.frequency === "OTHER" ? med.frequency_text : null,
+          route: med.route,
+          instructions: med.instructions || null,
+          startDate: med.start_date ? new Date(med.start_date) : null,
+          endDate: med.end_date ? new Date(med.end_date) : null,
+        })),
+      });
+    }
+
+    // 7. Update Bed Status
     await tx.bed.update({
       where: { id: data.admission.bed_id },
       data: { status: "OCCUPIED" },

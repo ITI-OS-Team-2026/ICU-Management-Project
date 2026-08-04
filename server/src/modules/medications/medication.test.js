@@ -33,11 +33,20 @@ const generateTokenForRole = async (email, role) => {
   };
 };
 
+// Every delete is scoped to this suite's own MED-TEST- patients. An unscoped
+// deleteMany({}) here will empty the whole ward if the suite is ever pointed at
+// a shared database — which it was, and it did.
+const testPatientFilter = { mrn: { startsWith: "MED-TEST-" } };
+const testAdmissionFilter = { patient: testPatientFilter };
+
 async function cleanupTestData() {
-  await prisma.medicationAdministration.deleteMany({});
-  await prisma.medication.deleteMany({});
-  await prisma.admissionNurse.deleteMany({});
-  await prisma.admission.deleteMany({});
+  await prisma.medicationAdministration.deleteMany({
+    where: { medication: { admission: testAdmissionFilter } },
+  });
+  await prisma.medication.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admissionNurse.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admission.deleteMany({ where: testAdmissionFilter });
+  await prisma.allergy.deleteMany({ where: { patient: testPatientFilter } });
   await prisma.patient.deleteMany({ where: { mrn: { startsWith: "MED-TEST-" } } });
   await prisma.bed.deleteMany({ where: { bedNumber: { startsWith: "MED-" } } });
 }
@@ -95,7 +104,8 @@ describe("Medications API", () => {
         .send({
           drug_name: "Aspirin",
           dosage: "81mg",
-          frequency: "Daily",
+          frequency: "OD",
+          route: "PO",
         });
 
       expect(res.status).toBe(201);
@@ -107,14 +117,14 @@ describe("Medications API", () => {
       const res = await request(app)
         .post(`/api/admissions/${testAdmissionId}/medications`)
         .set("Cookie", nurseCookie)
-        .send({ drug_name: "Aspirin", dosage: "81mg", frequency: "Daily" });
+        .send({ drug_name: "Aspirin", dosage: "81mg", frequency: "OD", route: "PO" });
 
       expect(res.status).toBe(403);
     });
 
     it("should append-only update medication (discontinue)", async () => {
       const med = await prisma.medication.create({
-        data: { admissionId: testAdmissionId, prescribedById: residentUser.id, drugName: "Aspirin", dosage: "81mg", frequency: "Daily" }
+        data: { admissionId: testAdmissionId, prescribedById: residentUser.id, drugName: "Aspirin", dosage: "81mg", frequency: "OD", route: "PO" }
       });
 
       const res = await request(app)
@@ -136,7 +146,7 @@ describe("Medications API", () => {
 
     beforeEach(async () => {
       const med = await prisma.medication.create({
-        data: { admissionId: testAdmissionId, prescribedById: residentUser.id, drugName: "Aspirin", dosage: "81mg", frequency: "Daily" }
+        data: { admissionId: testAdmissionId, prescribedById: residentUser.id, drugName: "Aspirin", dosage: "81mg", frequency: "OD", route: "PO" }
       });
       testMedId = med.id;
     });
@@ -223,6 +233,171 @@ describe("Medications API", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/modification_reason is required/);
+    });
+
+    it("should reject a second log for the same dose slot", async () => {
+      const slot = new Date();
+      const payload = {
+        status: "ADMINISTERED",
+        administered_dose: "81mg",
+        scheduled_time: slot.toISOString(),
+      };
+
+      const first = await request(app)
+        .post(`/api/medications/${testMedId}/administrations`)
+        .set("Cookie", nurseCookie)
+        .send(payload);
+      expect(first.status).toBe(201);
+
+      const second = await request(app)
+        .post(`/api/medications/${testMedId}/administrations`)
+        .set("Cookie", nurseCookie)
+        .send(payload);
+
+      expect(second.status).toBe(409);
+      expect(second.body.message).toMatch(/already been recorded/);
+    });
+  });
+
+  describe("Allergy safety", () => {
+    beforeEach(async () => {
+      await prisma.allergy.create({
+        data: { patientId: testPatientId, allergen: "Penicillin", severity: "SEVERE" },
+      });
+    });
+
+    it("should block a prescription that conflicts with a documented allergy", async () => {
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/medications`)
+        .set("Cookie", residentCookie)
+        .send({ drug_name: "Benzylpenicillin", dosage: "1.2g", frequency: "Q6H", route: "IV" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toMatch(/Penicillin/);
+    });
+
+    it("should allow the prescription when the prescriber acknowledges the allergy", async () => {
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/medications`)
+        .set("Cookie", residentCookie)
+        .send({
+          drug_name: "Benzylpenicillin",
+          dosage: "1.2g",
+          frequency: "Q6H",
+          route: "IV",
+          acknowledge_allergy: true,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.allergyAcknowledged).toBe(true);
+    });
+
+    it("should not block an unrelated drug", async () => {
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/medications`)
+        .set("Cookie", residentCookie)
+        .send({ drug_name: "Paracetamol", dosage: "1g", frequency: "QDS", route: "PO" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.allergyAcknowledged).toBe(false);
+    });
+  });
+
+  describe("Discontinuation", () => {
+    let testMedId;
+
+    beforeEach(async () => {
+      const med = await prisma.medication.create({
+        data: {
+          admissionId: testAdmissionId,
+          prescribedById: residentUser.id,
+          drugName: "Aspirin",
+          dosage: "81mg",
+          frequency: "OD",
+          route: "PO",
+        },
+      });
+      testMedId = med.id;
+    });
+
+    it("should require a reason to discontinue", async () => {
+      const res = await request(app)
+        .delete(`/api/medications/${testMedId}`)
+        .set("Cookie", residentCookie)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/discontinue_reason is required/);
+    });
+
+    it("should keep a discontinued order visible with its reason", async () => {
+      const res = await request(app)
+        .delete(`/api/medications/${testMedId}`)
+        .set("Cookie", residentCookie)
+        .send({ discontinue_reason: "Bleeding risk" });
+
+      expect(res.status).toBe(204);
+
+      const med = await prisma.medication.findUnique({ where: { id: testMedId } });
+      expect(med.isActive).toBe(false);
+      expect(med.isArchived).toBe(false); // still part of the patient's record
+      expect(med.discontinueReason).toBe("Bleeding risk");
+      expect(med.discontinuedById).toBe(residentUser.id);
+    });
+
+    it("should deny a nurse from discontinuing", async () => {
+      const res = await request(app)
+        .delete(`/api/medications/${testMedId}`)
+        .set("Cookie", nurseCookie)
+        .send({ discontinue_reason: "Bleeding risk" });
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe("MAR (dose schedule)", () => {
+    it("should expand a TDS order into three dose slots for the day", async () => {
+      await prisma.medication.create({
+        data: {
+          admissionId: testAdmissionId,
+          prescribedById: residentUser.id,
+          drugName: "Paracetamol",
+          dosage: "1g",
+          frequency: "TDS",
+          route: "PO",
+          startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      });
+
+      const res = await request(app)
+        .get(`/api/admissions/${testAdmissionId}/mar`)
+        .set("Cookie", nurseCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.medications).toHaveLength(1);
+      expect(res.body.medications[0].doses).toHaveLength(3);
+      expect(res.body.medications[0].isScheduled).toBe(true);
+    });
+
+    it("should give a PRN order no scheduled slots", async () => {
+      await prisma.medication.create({
+        data: {
+          admissionId: testAdmissionId,
+          prescribedById: residentUser.id,
+          drugName: "Morphine",
+          dosage: "2.5mg",
+          frequency: "PRN",
+          route: "IV",
+        },
+      });
+
+      const res = await request(app)
+        .get(`/api/admissions/${testAdmissionId}/mar`)
+        .set("Cookie", nurseCookie);
+
+      expect(res.status).toBe(200);
+      expect(res.body.medications[0].isScheduled).toBe(false);
+      expect(res.body.medications[0].doses).toHaveLength(0);
     });
   });
 });

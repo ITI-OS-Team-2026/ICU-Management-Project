@@ -1,28 +1,82 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  // Activity,
   AlertCircle,
   AlertTriangle,
   CheckCircle,
-  // Clock,
+  Clock,
   Info,
   Pill,
-  // Shield,
+  ShieldAlert,
   User,
-  // XCircle,
 } from 'lucide-react';
-import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent,/* CardHeader, CardTitle*/ } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { patientsService } from '../services/patientsService';
+import { medicationsService, formatFrequency } from '../services/medicationsService';
+
+// One visual language for dose state, shared by the slot pill and its card.
+const SLOT_STYLES = {
+  ADMINISTERED: {
+    label: 'Given',
+    badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
+    ring: 'border-emerald-500/30 bg-emerald-500/[0.03]',
+  },
+  REFUSED: {
+    label: 'Refused',
+    badge: 'bg-destructive/10 text-destructive border-destructive/30',
+    ring: 'border-destructive/30 bg-destructive/[0.03]',
+  },
+  HELD: {
+    label: 'Withheld',
+    badge: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+    ring: 'border-amber-500/30 bg-amber-500/[0.03]',
+  },
+  MISSED: {
+    label: 'Overdue',
+    badge: 'bg-destructive/10 text-destructive border-destructive/40',
+    ring: 'border-destructive/40 bg-destructive/[0.05]',
+  },
+  DUE: {
+    label: 'Due now',
+    badge: 'bg-primary/10 text-primary border-primary/30',
+    ring: 'border-primary/40 bg-primary/[0.03]',
+  },
+  UPCOMING: {
+    label: 'Upcoming',
+    badge: 'bg-muted text-muted-foreground border-border',
+    ring: 'border-border bg-card',
+  },
+  NOT_APPLICABLE: {
+    label: 'Cancelled',
+    badge: 'bg-muted text-muted-foreground border-border',
+    ring: 'border-border bg-muted/20',
+  },
+};
+
+const todayIso = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
+const formatTime = (value) =>
+  new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export default function MedAdministrationPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,17 +85,17 @@ export default function MedAdministrationPage() {
   // Core state
   const [admissions, setAdmissions] = useState([]);
   const [activeAdmission, setActiveAdmission] = useState(null);
-  const [medications, setMedications] = useState([]);
+  const [mar, setMar] = useState(null);
+  const [date, setDate] = useState(todayIso());
   const [isLoadingAdmissions, setIsLoadingAdmissions] = useState(true);
-  const [isLoadingMedications, setIsLoadingMedications] = useState(false);
+  const [isLoadingMar, setIsLoadingMar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
   // Dialog state for Refusal / Withhold notes
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedMed, setSelectedMed] = useState(null);
-  const [actionStatus, setActionStatus] = useState(''); // 'REFUSED' | 'HELD'
+  const [pendingAction, setPendingAction] = useState(null); // { medication, dose, status }
   const [actionNotes, setActionNotes] = useState('');
 
   // Fetch active admissions ONCE on mount
@@ -49,22 +103,21 @@ export default function MedAdministrationPage() {
     async function initPage() {
       try {
         setIsLoadingAdmissions(true);
-        const { data: adData } = await api.get('/admissions?status=ACTIVE&limit=100');
-        const activeList = adData.data || [];
+        const activeList = await patientsService.getActiveAdmissions();
         setAdmissions(activeList);
 
         // Pick initial admission from URL or use first
         let initialAd = null;
         if (admissionIdFromUrl) {
-          initialAd = activeList.find(a => a.id === admissionIdFromUrl);
+          initialAd = activeList.find((a) => a.id === admissionIdFromUrl);
         }
         if (!initialAd && activeList.length > 0) {
-          initialAd = activeList.find(a => a.patient?.name?.includes('Emma')) || activeList[0];
+          initialAd = activeList[0];
         }
         setActiveAdmission(initialAd);
       } catch (err) {
-        console.error("Initialization error:", err);
-        setErrorMsg("Failed to load active patient admissions.");
+        console.error('Initialization error:', err);
+        setErrorMsg('Failed to load active patient admissions.');
       } finally {
         setIsLoadingAdmissions(false);
       }
@@ -72,89 +125,91 @@ export default function MedAdministrationPage() {
     initPage();
   }, []); // Empty array: runs only on mount
 
-  // Fetch medications when activeAdmission changes
-  useEffect(() => {
-    if (!activeAdmission) return;
-    async function fetchMedications() {
-      try {
-        setIsLoadingMedications(true);
-        const { data: medsData } = await api.get(`/admissions/${activeAdmission.id}/medications`);
-        setMedications(medsData || []);
-      } catch (err) {
-        console.error("Fetch medications error:", err);
-        setErrorMsg("Failed to load patient medications.");
-      } finally {
-        setIsLoadingMedications(false);
-      }
+  const fetchMar = useCallback(async () => {
+    if (!activeAdmission?.id) return;
+    try {
+      setIsLoadingMar(true);
+      const data = await medicationsService.getMar(activeAdmission.id, date);
+      setMar(data);
+    } catch (err) {
+      console.error('Fetch MAR error:', err);
+      setErrorMsg('Failed to load the administration record.');
+    } finally {
+      setIsLoadingMar(false);
     }
-    fetchMedications();
-  }, [activeAdmission?.id]); // Only depend on the ID to prevent reference changes
+  }, [activeAdmission, date]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchMar();
+  }, [fetchMar]);
 
   const handlePatientSwitch = (val) => {
-    const selected = admissions.find(a => a.id === val);
+    const selected = admissions.find((a) => a.id === val);
     setActiveAdmission(selected);
     setSearchParams({ admissionId: val });
     setErrorMsg('');
     setSuccessMsg('');
   };
 
-  // Submit medication log action
-  const logMedAction = async (medId, status, dose, notes) => {
+  // Submit a dose against the slot it belongs to — never against "now", so a
+  // late-recorded 08:00 dose stays an 08:00 dose in the record.
+  const logDose = async (medication, dose, status, notes) => {
     try {
       setIsSubmitting(true);
       setErrorMsg('');
       setSuccessMsg('');
 
-      // ponytail: simplification - using now as scheduled_time default for quick logging
-      const payload = {
+      await medicationsService.logAdministration(medication.id, {
         status,
-        administered_dose: dose || undefined,
+        administered_dose: status === 'ADMINISTERED' ? medication.dosage : undefined,
         notes: notes || undefined,
-        scheduled_time: new Date().toISOString(),
-        administered_at: new Date().toISOString()
-      };
+        scheduled_time: dose.scheduledTime,
+        administered_at: new Date().toISOString(),
+      });
 
-      await api.post(`/medications/${medId}/administrations`, payload);
-      setSuccessMsg(`Successfully logged medication action: ${status.toLowerCase()}.`);
-
-      // Refresh patient medications and administrations history
-      const { data: medsData } = await api.get(`/admissions/${activeAdmission.id}/medications`);
-      setMedications(medsData || []);
+      setSuccessMsg(
+        `${medication.drugName} — ${formatTime(dose.scheduledTime)} dose recorded as ${status.toLowerCase()}.`
+      );
+      await fetchMar();
     } catch (err) {
-      console.error("Log action error:", err);
-      setErrorMsg(err.response?.data?.message || "Failed to log medication administration.");
+      console.error('Log action error:', err);
+      setErrorMsg(err.response?.data?.message || 'Failed to log medication administration.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Open note drawer/dialog for Refused or Withheld actions
-  const triggerRefusalOrWithhold = (med, status) => {
-    setSelectedMed(med);
-    setActionStatus(status);
+  // PRN and continuous orders have no slots, so the dose time is the moment the
+  // nurse records it.
+  const logUnscheduledDose = (medication, status) => {
+    const dose = { scheduledTime: new Date().toISOString() };
+    if (status === 'ADMINISTERED') return logDose(medication, dose, status);
+    openNotesDialog(medication, dose, status);
+    return undefined;
+  };
+
+  const openNotesDialog = (medication, dose, status) => {
+    setPendingAction({ medication, dose, status });
     setActionNotes('');
     setIsDialogOpen(true);
   };
 
-  // Submit from notes Dialog
   const handleDialogSubmit = async () => {
-    if (!actionNotes.trim()) {
-      alert("A reason is required to document withholding or refusing medication.");
-      return;
-    }
+    if (!actionNotes.trim()) return;
+    const { medication, dose, status } = pendingAction;
     setIsDialogOpen(false);
-    await logMedAction(selectedMed.id, actionStatus, null, actionNotes);
+    await logDose(medication, dose, status, actionNotes.trim());
   };
 
-  // Calculate shift progress metrics
-  const totalMedsCount = medications.length;
-  const recordedMedsCount = medications.filter(med => med.administrations?.length > 0).length;
-  const progressPercent = totalMedsCount > 0 ? (recordedMedsCount / totalMedsCount) * 100 : 0;
+  const medications = mar?.medications || [];
+  const summary = mar?.summary || { total: 0, administered: 0, missed: 0, due: 0 };
+  const progressPercent = summary.total > 0 ? (summary.administered / summary.total) * 100 : 0;
+  const isToday = date === todayIso();
 
   if (isLoadingAdmissions) {
     return (
       <div className="mx-auto max-w-5xl px-4 py-6">
-        {/* Header */}
         <div className="mb-6 flex items-center gap-3">
           <Skeleton className="h-10 w-10 rounded-lg" />
           <div className="space-y-2">
@@ -163,7 +218,6 @@ export default function MedAdministrationPage() {
           </div>
         </div>
 
-        {/* Patient list pills */}
         <div className="mb-8">
           <Skeleton className="mb-3 h-3 w-24" />
           <div className="flex flex-wrap gap-2">
@@ -173,34 +227,14 @@ export default function MedAdministrationPage() {
           </div>
         </div>
 
-        {/* Active patient info block */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-52" />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-        </div>
-
-        {/* Medication cards */}
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, idx) => (
             <Card key={idx} className="border-border">
-              <CardContent className="p-4 flex items-center gap-4">
-                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+              <CardContent className="flex items-center gap-4 p-4">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-3 w-24" />
-                </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-16" />
                 </div>
               </CardContent>
             </Card>
@@ -212,46 +246,73 @@ export default function MedAdministrationPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-      
+
       {/* ── Page Header ──────────────────────────────────────────────────────── */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <Pill className="h-5 w-5" />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Pill className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="font-display text-headline font-bold text-foreground">
+              Medication Administration
+            </h1>
+            <p className="font-sans text-xs text-muted-foreground">
+              MAR &mdash; Medication Administration Record
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="font-display text-headline font-bold text-foreground">
-            Medication Administration
-          </h1>
-          <p className="text-xs text-muted-foreground font-sans">
-            MAR &mdash; Medication Administration Record
-          </p>
+
+        <div className="flex items-center gap-2">
+          <Label htmlFor="mar-date" className="text-xs font-semibold text-muted-foreground">
+            Date
+          </Label>
+          <input
+            id="mar-date"
+            type="date"
+            value={date}
+            max={todayIso()}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-3 font-tnum text-sm text-foreground"
+          />
+          {!isToday && (
+            <Button variant="ghost" size="sm" onClick={() => setDate(todayIso())}>
+              Today
+            </Button>
+          )}
         </div>
       </div>
 
       {/* ── Active Patients Horizontal List ───────────────────────────────────── */}
       <div className="mb-8">
-        <div className="text-xs font-label uppercase tracking-wider text-muted-foreground mb-3 font-semibold">
+        <div className="mb-3 font-label text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Patient List
         </div>
         {/* One swipeable row on phones. Wrapping this list pushed the medication
             cards ~430px down a 812px screen once the ward had a dozen patients. */}
         <div className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:pb-0">
-          {admissions.map(ad => {
+          {admissions.map((ad) => {
             const isSelected = activeAdmission?.id === ad.id;
             return (
               <Button
                 key={ad.id}
-                variant={isSelected ? "default" : "outline"}
-                className={`h-auto shrink-0 snap-start px-4 py-3 flex flex-col items-start gap-1 rounded-xl transition-all ${
+                variant={isSelected ? 'default' : 'outline'}
+                className={`h-auto shrink-0 snap-start flex-col items-start gap-1 rounded-xl px-4 py-3 transition-all ${
                   isSelected
-                    ? "bg-primary text-white border-primary shadow-sm"
-                    : "bg-card text-foreground hover:bg-muted/50 border-border"
+                    ? 'border-primary bg-primary text-white shadow-sm'
+                    : 'border-border bg-card text-foreground hover:bg-muted/50'
                 }`}
                 onClick={() => handlePatientSwitch(ad.id)}
               >
-                <span className="font-display text-sm font-semibold">{ad.patient?.name?.split(' ')[0]}</span>
-                <span className={`text-[10px] font-mono font-tnum ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
-                  {ad.bed?.bed_number || 'No Bed'}
+                <span className="font-display text-sm font-semibold">
+                  {ad.patient?.name?.split(' ')[0]}
+                </span>
+                <span
+                  className={`font-mono font-tnum text-[10px] ${
+                    isSelected ? 'text-white/80' : 'text-muted-foreground'
+                  }`}
+                >
+                  {ad.bed?.bed_number || ad.bed?.bedNumber || 'No Bed'}
                 </span>
               </Button>
             );
@@ -271,8 +332,20 @@ export default function MedAdministrationPage() {
       {successMsg && (
         <Alert className="mb-6 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
           <CheckCircle className="h-4 w-4" />
-          <AlertTitle>Administered</AlertTitle>
+          <AlertTitle>Recorded</AlertTitle>
           <AlertDescription>{successMsg}</AlertDescription>
+        </Alert>
+      )}
+
+      {summary.missed > 0 && (
+        <Alert variant="destructive" className="mb-6">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>
+            {summary.missed} overdue {summary.missed === 1 ? 'dose' : 'doses'}
+          </AlertTitle>
+          <AlertDescription>
+            Record what happened with each overdue dose, or document why it was withheld.
+          </AlertDescription>
         </Alert>
       )}
 
@@ -287,15 +360,19 @@ export default function MedAdministrationPage() {
               <h3 className="font-display text-base font-semibold text-foreground">
                 {activeAdmission.patient?.name}
               </h3>
-              <p className="text-xs text-muted-foreground font-mono">
-                MRN: {activeAdmission.patient?.mrn} &middot; Bed: {activeAdmission.bed?.bed_number}
+              <p className="font-mono text-xs text-muted-foreground">
+                MRN: {activeAdmission.patient?.mrn} &middot; Bed:{' '}
+                {activeAdmission.bed?.bed_number || activeAdmission.bed?.bedNumber}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-sans text-muted-foreground">
+          <div className="flex items-center gap-4 font-sans text-xs text-muted-foreground">
             <div>
-              Age: <span className="font-tnum font-semibold text-foreground">{activeAdmission.patient?.age}</span>
+              Age:{' '}
+              <span className="font-tnum font-semibold text-foreground">
+                {activeAdmission.patient?.age}
+              </span>
             </div>
             <Separator orientation="vertical" className="h-4 bg-border" />
             <div>
@@ -305,21 +382,17 @@ export default function MedAdministrationPage() {
         </div>
       )}
 
-      {/* ── Medications Checklist ────────────────────────────────────────────── */}
-      <div className="space-y-4 mb-24">
-        {isLoadingMedications ? (
+      {/* ── Medication Schedule ──────────────────────────────────────────────── */}
+      <div className="mb-24 space-y-4">
+        {isLoadingMar ? (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, idx) => (
               <Card key={idx} className="border-border">
-                <CardContent className="p-4 flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                <CardContent className="flex items-center gap-4 p-4">
+                  <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-3 w-24" />
-                  </div>
-                  <div className="flex gap-2">
-                    <Skeleton className="h-8 w-20" />
-                    <Skeleton className="h-8 w-16" />
                   </div>
                 </CardContent>
               </Card>
@@ -327,155 +400,184 @@ export default function MedAdministrationPage() {
           </div>
         ) : medications.length === 0 ? (
           <Card className="border-border bg-card p-8 text-center">
-            <Info className="mx-auto h-12 w-12 text-muted-foreground/60 mb-4" />
-            <h3 className="font-display text-base font-semibold text-foreground mb-2">No Active Medication Orders</h3>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              There are currently no active medication prescriptions logged for this patient.
+            <Info className="mx-auto mb-4 h-12 w-12 text-muted-foreground/60" />
+            <h3 className="mb-2 font-display text-base font-semibold text-foreground">
+              No Active Medication Orders
+            </h3>
+            <p className="mx-auto max-w-sm text-sm text-muted-foreground">
+              There are currently no active medication prescriptions for this patient.
             </p>
           </Card>
         ) : (
-          medications.map(med => {
-            const hasRecord = med.administrations && med.administrations.length > 0;
-            const latestAdmin = hasRecord ? med.administrations[med.administrations.length - 1] : null;
+          medications.map((med) => (
+            <Card key={med.id} className="border-border">
+              <CardContent className="space-y-4 p-4">
 
-            return (
-              <Card 
-                key={med.id} 
-                className={`border transition-all ${
-                  latestAdmin?.status === 'ADMINISTERED' 
-                    ? 'border-emerald-500/20 bg-emerald-500/[0.02]' 
-                    : latestAdmin?.status === 'REFUSED' 
-                    ? 'border-destructive/20 bg-destructive/[0.02]' 
-                    : latestAdmin?.status === 'HELD' 
-                    ? 'border-amber-500/20 bg-amber-500/[0.02]' 
-                    : 'border-border bg-card'
-                }`}
-              >
-                <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  
-                  {/* Medication Info */}
-                  <div className="flex items-start gap-4">
-                    <div className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                      latestAdmin?.status === 'ADMINISTERED' 
-                        ? 'bg-emerald-500/10 text-emerald-500' 
-                        : latestAdmin?.status === 'REFUSED' 
-                        ? 'bg-destructive/10 text-destructive' 
-                        : latestAdmin?.status === 'HELD' 
-                        ? 'bg-amber-500/10 text-amber-500' 
-                        : 'bg-primary/10 text-primary'
-                    }`}>
-                      <Pill className="h-5 w-5" />
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-display text-base font-bold text-foreground">
-                          {med.drugName}
-                        </h4>
-                        
-                        {/* Status tag */}
-                        {med.isActive ? (
-                          <Badge variant="secondary" className="text-[10px] py-0 font-mono">Running</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] py-0 font-mono text-muted-foreground">Discontinued</Badge>
-                        )}
-                      </div>
-
-                      <p className="text-sm font-sans text-muted-foreground">
-                        {med.dosage} &middot; IV &middot; {med.frequency}
-                      </p>
-
-                      {/* Warning/hold instructions if applicable */}
-                      {med.drugName === 'Lisinopril' && (
-                        <p className="text-xs font-sans font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          Hold if SBP &lt; 100
-                        </p>
-                      )}
-
-                      {/* Historical details */}
-                      {latestAdmin && (
-                        <p className="text-xs font-sans text-muted-foreground mt-2">
-                          Recorded at <span className="font-tnum">{new Date(latestAdmin.administeredAt || latestAdmin.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span> by <span className="font-semibold">{latestAdmin.administeredBy?.firstName} {latestAdmin.administeredBy?.lastName}, RN</span>
-                        </p>
-                      )}
-                    </div>
+                {/* Order header */}
+                <div className="flex items-start gap-4">
+                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Pill className="h-5 w-5" />
                   </div>
 
-                  {/* Actions — full width on phones so each is a comfortable tap
-                      target rather than three narrow buttons crammed on one row. */}
-                  <div className="flex w-full flex-wrap items-center gap-2 self-end sm:w-auto sm:flex-nowrap sm:shrink-0 sm:self-center">
-                    {!latestAdmin ? (
-                      <>
-                        {/* Administered is the routine action, so it takes the full
-                            first row on phones; the two exceptions share the next. */}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="font-display text-base font-bold text-foreground">
+                        {med.drugName}
+                      </h4>
+                      {!med.isScheduled && (
+                        <Badge variant="secondary" className="py-0 font-mono text-[10px]">
+                          {formatFrequency(med)}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <p className="font-sans text-sm text-muted-foreground">
+                      {med.dosage}
+                      {med.route && <> &middot; {med.route}</>} &middot; {formatFrequency(med)}
+                    </p>
+
+                    {med.instructions && (
+                      <p className="flex items-center gap-1 font-sans text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        {med.instructions}
+                      </p>
+                    )}
+
+                    {med.allergyAcknowledged && (
+                      <p className="flex items-center gap-1 font-sans text-xs font-semibold text-destructive">
+                        <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                        Prescribed despite a documented allergy — check with the prescriber if unsure.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dose slots */}
+                {med.doses.length === 0 ? (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed border-border p-3">
+                    <p className="font-sans text-xs text-muted-foreground">
+                      {med.isScheduled
+                        ? 'No doses due on this date.'
+                        : 'No fixed schedule — record each dose as it is given.'}
+                    </p>
+                    {!med.isScheduled && isToday && (
+                      <div className="flex flex-wrap gap-2">
                         <Button
-                          variant="default"
                           size="sm"
-                          className="h-10 w-full sm:h-9 sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-sans font-semibold flex items-center justify-center gap-1.5"
+                          className="bg-emerald-600 font-sans font-semibold text-white hover:bg-emerald-700"
                           disabled={isSubmitting}
-                          onClick={() => logMedAction(med.id, 'ADMINISTERED', med.dosage)}
+                          onClick={() => logUnscheduledDose(med, 'ADMINISTERED')}
                         >
-                          <CheckCircle className="h-4 w-4" />
-                          Administered
+                          <CheckCircle className="mr-1.5 h-4 w-4" />
+                          Record dose
                         </Button>
                         <Button
-                          variant="outline"
                           size="sm"
-                          className="h-10 flex-1 sm:h-9 sm:flex-none text-destructive hover:bg-destructive/10 border-destructive/20 font-sans"
-                          disabled={isSubmitting}
-                          onClick={() => triggerRefusalOrWithhold(med, 'REFUSED')}
-                        >
-                          Refused
-                        </Button>
-                        <Button
                           variant="outline"
-                          size="sm"
-                          className="h-10 flex-1 sm:h-9 sm:flex-none text-amber-600 hover:bg-amber-500/10 border-amber-500/20 font-sans"
+                          className="border-amber-500/20 font-sans text-amber-600 hover:bg-amber-500/10"
                           disabled={isSubmitting}
-                          onClick={() => triggerRefusalOrWithhold(med, 'HELD')}
+                          onClick={() => logUnscheduledDose(med, 'HELD')}
                         >
                           Withheld
                         </Button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        {latestAdmin.status === 'ADMINISTERED' && (
-                          <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/10 font-sans font-semibold border-emerald-500/20 py-1 px-3 text-sm">
-                            Administered ✓
-                          </Badge>
-                        )}
-                        {latestAdmin.status === 'REFUSED' && (
-                          <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/10 font-sans font-semibold border-destructive/20 py-1 px-3 text-sm">
-                            Refused
-                          </Badge>
-                        )}
-                        {latestAdmin.status === 'HELD' && (
-                          <Badge className="bg-amber-500/10 text-amber-500 hover:bg-amber-500/10 font-sans font-semibold border-amber-500/20 py-1 px-3 text-sm">
-                            Withheld
-                          </Badge>
-                        )}
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className="space-y-2">
+                    {med.doses.map((dose) => {
+                      const style = SLOT_STYLES[dose.status] || SLOT_STYLES.UPCOMING;
+                      const isActionable = ['DUE', 'MISSED', 'UPCOMING'].includes(dose.status);
+                      const adm = dose.administration;
 
-                </CardContent>
-              </Card>
-            );
-          })
+                      return (
+                        <div
+                          key={dose.scheduledTime}
+                          className={`flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between ${style.ring}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="w-14 font-tnum text-sm font-bold text-foreground">
+                              {formatTime(dose.scheduledTime)}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className={`font-sans text-[10px] font-semibold ${style.badge}`}
+                            >
+                              {style.label}
+                            </Badge>
+                            {adm && (
+                              <span className="font-sans text-xs text-muted-foreground">
+                                {adm.administeredBy
+                                  ? `${adm.administeredBy.firstName} ${adm.administeredBy.lastName}`
+                                  : 'Unknown'}
+                                {adm.administeredAt && <> at {formatTime(adm.administeredAt)}</>}
+                                {adm.notes && <> &middot; {adm.notes}</>}
+                              </span>
+                            )}
+                          </div>
+
+                          {isActionable && (
+                            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                              {/* Administered is the routine action, so it takes the
+                                  full first row on phones; exceptions share the next. */}
+                              <Button
+                                size="sm"
+                                className="h-10 w-full bg-emerald-600 font-sans font-semibold text-white hover:bg-emerald-700 sm:h-9 sm:w-auto"
+                                disabled={isSubmitting}
+                                onClick={() => logDose(med, dose, 'ADMINISTERED')}
+                              >
+                                <CheckCircle className="mr-1.5 h-4 w-4" />
+                                Given
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-10 flex-1 border-destructive/20 font-sans text-destructive hover:bg-destructive/10 sm:h-9 sm:flex-none"
+                                disabled={isSubmitting}
+                                onClick={() => openNotesDialog(med, dose, 'REFUSED')}
+                              >
+                                Refused
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-10 flex-1 border-amber-500/20 font-sans text-amber-600 hover:bg-amber-500/10 sm:h-9 sm:flex-none"
+                                disabled={isSubmitting}
+                                onClick={() => openNotesDialog(med, dose, 'HELD')}
+                              >
+                                Withheld
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
 
       {/* ── Bottom Shift Progress Bar ────────────────────────────────────────── */}
-      {medications.length > 0 && (
+      {summary.total > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card p-4 shadow-lg lg:left-64">
-          <div className="mx-auto max-w-5xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="mx-auto flex max-w-5xl flex-col justify-between gap-4 md:flex-row md:items-center">
             <div className="space-y-1">
               <h4 className="font-display text-sm font-semibold text-foreground">
-                Shift Checklist Status
+                Dose Checklist Status
               </h4>
-              <p className="text-xs text-muted-foreground font-sans">
-                <span className="font-tnum font-semibold text-foreground">{recordedMedsCount}</span> of <span className="font-tnum font-semibold text-foreground">{totalMedsCount}</span> medications recorded this shift
+              <p className="font-sans text-xs text-muted-foreground">
+                <span className="font-tnum font-semibold text-foreground">{summary.administered}</span>{' '}
+                of <span className="font-tnum font-semibold text-foreground">{summary.total}</span>{' '}
+                doses given
+                {summary.due > 0 && (
+                  <> &middot; <span className="font-semibold text-primary">{summary.due} due now</span></>
+                )}
+                {summary.missed > 0 && (
+                  <> &middot; <span className="font-semibold text-destructive">{summary.missed} overdue</span></>
+                )}
               </p>
             </div>
             <div className="w-full md:w-80">
@@ -485,48 +587,57 @@ export default function MedAdministrationPage() {
         </div>
       )}
 
-      {/* ── Dialog for Withholding or Refusing Vitals ─────────────────────────── */}
+      {/* ── Dialog for Withholding or Refusing a dose ────────────────────────── */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-md bg-card border-border">
+        <DialogContent className="max-w-md border-border bg-card">
           <DialogHeader>
-            <DialogTitle className="font-display text-base font-semibold text-foreground flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-display text-base font-semibold text-foreground">
               <AlertCircle className="h-5 w-5 text-amber-500" />
-              Document Medication {actionStatus === 'REFUSED' ? 'Refusal' : 'Withhold'}
+              Document Medication {pendingAction?.status === 'REFUSED' ? 'Refusal' : 'Withhold'}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Please document the clinical details or reason for this action. This documentation will be saved in the patient's electronic MAR history.
+              {pendingAction && (
+                <>
+                  {pendingAction.medication.drugName} &middot;{' '}
+                  {formatTime(pendingAction.dose.scheduledTime)} dose. This documentation is saved in
+                  the patient&apos;s electronic MAR history.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-xs font-semibold">Clinical Notes / Reason</Label>
+              <Label htmlFor="notes" className="text-xs font-semibold">
+                Clinical Notes / Reason
+              </Label>
               <Textarea
                 id="notes"
                 placeholder={
-                  actionStatus === 'REFUSED' 
-                    ? "e.g. Patient refused stating nausea..." 
-                    : "e.g. Held Metoprolol because Systolic BP is 92 mmHg..."
+                  pendingAction?.status === 'REFUSED'
+                    ? 'e.g. Patient refused stating nausea...'
+                    : 'e.g. Held Metoprolol because systolic BP is 92 mmHg...'
                 }
                 value={actionNotes}
                 onChange={(e) => setActionNotes(e.target.value)}
                 className="min-h-24 bg-background"
               />
+              {!actionNotes.trim() && (
+                <p className="text-xs text-muted-foreground">
+                  A reason is required to record a refused or withheld dose.
+                </p>
+              )}
             </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDialogOpen(false)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
             <Button
               variant="default"
               size="sm"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !actionNotes.trim()}
               onClick={handleDialogSubmit}
             >
               Save Documentation
@@ -534,7 +645,6 @@ export default function MedAdministrationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

@@ -1,4 +1,5 @@
 const prisma = require("../src/utils/prismaClient");
+const { normalizeFrequency, inferRoute } = require("../src/modules/medications/medication.frequency");
 
 /**
  * Advanced ICU Patient Seeder
@@ -1573,13 +1574,19 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
     const existingMedsCount = await prisma.medication.count({ where: { admissionId: admission.id } });
     if (existingMedsCount === 0) {
       for (const med of p.medications) {
+        // Seed data is written in ward shorthand ("BID", "PRN for ICP >20"),
+        // so it goes through the same normaliser as the legacy-data migration.
+        const { frequency, frequencyText } = normalizeFrequency(med.frequency);
         const createdMed = await prisma.medication.create({
           data: {
             admissionId: admission.id,
             prescribedById: med.doctorId,
+            originalPrescriberId: med.doctorId,
             drugName: med.drugName,
             dosage: med.dosage,
-            frequency: med.frequency,
+            frequency,
+            frequencyText,
+            route: inferRoute(med.dosage),
             startDate: admission.admittedAt,
             isActive: true,
           },

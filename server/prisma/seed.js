@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt");
 const fs = require("fs");
 const { seedICUPatients } = require("./icuPatientSeed");
 const { seedDemoExtras } = require("./seedDemoExtras");
+const { normalizeFrequency, inferRoute } = require("../src/modules/medications/medication.frequency");
 
 // Shared helper to seed a user. Uses upsert to be idempotent.
 async function seedUser({ email, password, firstName, lastName, role }) {
@@ -391,10 +392,14 @@ async function main() {
 
         const meds = medsTemplate[p.mrn] || [];
         for (const med of meds) {
+          const { frequency, frequencyText } = normalizeFrequency(med.freq);
           await tx.medication.create({
             data: {
               admissionId: admission.id, prescribedById: specialist.id,
-              drugName: med.name, dosage: med.dose, frequency: med.freq, isActive: true,
+              originalPrescriberId: specialist.id,
+              drugName: med.name, dosage: med.dose,
+              frequency, frequencyText, route: inferRoute(med.dose),
+              isActive: true,
             },
           });
         }
