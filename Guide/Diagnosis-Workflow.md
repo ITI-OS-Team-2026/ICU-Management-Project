@@ -24,7 +24,6 @@ The problem list is not decorative. `patientSummary.service.js`, the RAG retriev
 | id                    | UUID                    | Primary key                                                     |
 | admissionId           | UUID                    | Links to the patient admission                                  |
 | conditionName         | String(255)             | The condition                                                   |
-| icdCode               | String(20) (nullable)   | ICD-10 code, shape-validated                                    |
 | type                  | `DiagnosisType`         | PRIMARY / SECONDARY / COMORBIDITY / COMPLICATION                |
 | status                | `DiagnosisStatus`       | SUSPECTED / CONFIRMED / RULED_OUT / RESOLVED                    |
 | clinicalNotes         | Text (nullable)         | The reasoning — what supports this                              |
@@ -146,7 +145,7 @@ Amending is append-only. The current row is archived and a new one is created:
 
 **Duplicate detection.** Creating a diagnosis whose name matches an existing open (`SUSPECTED` or `CONFIRMED`) condition returns `duplicateWarning` with the existing ids. Step 6 flags duplicates inline before submission.
 
-**ICD-10 validation.** Codes are shape-checked (`^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$`) on both client and server. This catches typos; it does not validate against the real code set. A short list of ~24 common ICU conditions with their codes powers the autocomplete chips — a convenience, not a coding system. Free text stays valid.
+**Condition suggestions.** A short list of ~24 common ICU conditions powers the autocomplete chips under the condition field. It is a typing convenience only — free text is always valid, and nothing is rejected for being off-list.
 
 **Audit.** Every create, amend, status change, archive, acknowledgement, concern and response is written through `auditedTransaction`, so the audit row and the clinical row commit or roll back together.
 
@@ -173,7 +172,6 @@ Amending is append-only. The current row is archived and a new one is created:
 ```json
 {
   "condition_name": "Community-acquired pneumonia",
-  "icd_code": "J18.9",
   "type": "PRIMARY",
   "status": "SUSPECTED",
   "clinical_notes": "Right basal crackles, CXR consolidation, CRP 180",
@@ -217,7 +215,7 @@ Before this change, Step 6 wrote one text blob to `admission.provisionalDiagnosi
 
 | File                                                                  | Responsibility                        |
 | --------------------------------------------------------------------- | ------------------------------------- |
-| `client/src/features/services/diagnosesService.js`                    | API calls, statuses, ICD suggestions  |
+| `client/src/features/services/diagnosesService.js`                    | API calls, statuses, suggestions      |
 | `client/src/features/components/diagnoses/DiagnosisFormDialog.jsx`    | Record / amend dialog                 |
 | `client/src/features/components/diagnoses/ReasonDialog.jsx`           | Captures the mandatory written reason |
 | `client/src/features/components/diagnoses/DiagnosisContextStrip.jsx`  | Problem list on the nurse's screens   |
@@ -232,15 +230,16 @@ Before this change, Step 6 wrote one text blob to `admission.provisionalDiagnosi
 npx jest src/modules/diagnoses
 ```
 
-21 tests covering role guards, every allowed and forbidden transition, the mandatory reason, resolution fields, primary demotion, duplicate warnings, ICD validation, idempotent acknowledgement, and the full concern round trip.
+20 tests covering role guards, every allowed and forbidden transition, the mandatory reason, resolution fields, primary demotion, duplicate warnings, idempotent acknowledgement, and the full concern round trip.
 
 ---
 
 ## Migration notes
 
-Three migrations ship with this feature:
+Migrations for this feature:
 
-- `20260804180000_diagnosis_workflow` — replaces the status enum, adds classification, ICD code, reasoning, onset and the outcome trail, and creates the acknowledgement and concern tables. Existing `ACTIVE` rows become `CONFIRMED`: every one was entered by a doctor as a working diagnosis, so treating them as suspected would misrepresent the record.
+- `20260804180000_diagnosis_workflow` — replaces the status enum, adds classification, reasoning, onset and the outcome trail, and creates the acknowledgement and concern tables. Existing `ACTIVE` rows become `CONFIRMED`: every one was entered by a doctor as a working diagnosis, so treating them as suspected would misrepresent the record.
 - `20260804183000_backfill_primary_diagnosis` — every pre-existing row defaulted to `SECONDARY`, leaving admissions with no reason for admission marked. Promotes the earliest diagnosis on each admission, and only touches admissions that have no primary at all.
+- `20260804210000_drop_diagnosis_icd_code` — removes the ICD-10 column. Coding was dropped from the workflow: clinicians record the condition in words, and a code the ward never reads is one more field to get wrong.
 
 Two consumers were reading the old status and had to move with it: the admin dashboard's per-patient condition lookup, and the AI patient summary's active/resolved split. Both now treat `CONFIRMED` and `SUSPECTED` as the active problem list.

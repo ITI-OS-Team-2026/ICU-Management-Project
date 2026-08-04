@@ -239,7 +239,7 @@ export default function MedicationFormDialog({
               Route <span className="text-destructive">*</span>
             </Label>
             <Select value={values.route} onValueChange={(v) => setField('route', v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select route" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +258,7 @@ export default function MedicationFormDialog({
               Frequency <span className="text-destructive">*</span>
             </Label>
             <Select value={values.frequency} onValueChange={(v) => setField('frequency', v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select frequency" />
               </SelectTrigger>
               <SelectContent>

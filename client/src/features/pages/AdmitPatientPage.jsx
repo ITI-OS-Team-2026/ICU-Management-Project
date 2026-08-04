@@ -207,13 +207,6 @@ const admissionSchema = z
       .array(
         z.object({
           condition_name: z.string().min(1, "Condition is required"),
-          icd_code: z
-            .string()
-            .optional()
-            .refine(
-              (v) => !v?.trim() || /^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/.test(v.trim().toUpperCase()),
-              "Codes look like J44.1 or A41"
-            ),
           type: z.string().min(1, "Classification is required"),
           status: z.string().min(1, "Certainty is required"),
           clinical_notes: z.string().optional(),
@@ -743,7 +736,6 @@ export default function AdmitPatientPage() {
           .filter((diag) => diag.condition_name?.trim())
           .map((diag) => ({
             condition_name: diag.condition_name.trim(),
-            icd_code: diag.icd_code?.trim() ? diag.icd_code.trim().toUpperCase() : undefined,
             type: diag.type,
             status: diag.status,
             clinical_notes: emptyToUndefined(diag.clinical_notes),

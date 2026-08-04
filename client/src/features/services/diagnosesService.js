@@ -52,38 +52,33 @@ export const TRANSITION_PROMPTS = {
 };
 
 // A short starter list so the common ICU conditions are one keystroke away.
-// This is a convenience, not a coding system — free text stays valid.
+// A convenience for typing, not a coding system — free text stays valid.
 export const COMMON_DIAGNOSES = [
-  { name: 'Sepsis', icd: 'A41.9' },
-  { name: 'Septic shock', icd: 'R65.21' },
-  { name: 'Acute respiratory failure', icd: 'J96.0' },
-  { name: 'ARDS', icd: 'J80' },
-  { name: 'Community-acquired pneumonia', icd: 'J18.9' },
-  { name: 'Aspiration pneumonia', icd: 'J69.0' },
-  { name: 'COPD exacerbation', icd: 'J44.1' },
-  { name: 'Acute kidney injury', icd: 'N17.9' },
-  { name: 'Acute myocardial infarction', icd: 'I21.9' },
-  { name: 'Cardiogenic shock', icd: 'R57.0' },
-  { name: 'Congestive heart failure', icd: 'I50.9' },
-  { name: 'Atrial fibrillation', icd: 'I48.91' },
-  { name: 'Pulmonary embolism', icd: 'I26.99' },
-  { name: 'Acute ischaemic stroke', icd: 'I63.9' },
-  { name: 'Intracerebral haemorrhage', icd: 'I61.9' },
-  { name: 'Diabetic ketoacidosis', icd: 'E10.10' },
-  { name: 'Type 2 diabetes mellitus', icd: 'E11.9' },
-  { name: 'Essential hypertension', icd: 'I10' },
-  { name: 'Acute liver failure', icd: 'K72.00' },
-  { name: 'Upper GI bleed', icd: 'K92.2' },
-  { name: 'Acute pancreatitis', icd: 'K85.90' },
-  { name: 'Hypovolaemic shock', icd: 'R57.1' },
-  { name: 'Delirium', icd: 'F05' },
-  { name: 'Seizure disorder', icd: 'G40.909' },
+  'Sepsis',
+  'Septic shock',
+  'Acute respiratory failure',
+  'ARDS',
+  'Community-acquired pneumonia',
+  'Aspiration pneumonia',
+  'COPD exacerbation',
+  'Acute kidney injury',
+  'Acute myocardial infarction',
+  'Cardiogenic shock',
+  'Congestive heart failure',
+  'Atrial fibrillation',
+  'Pulmonary embolism',
+  'Acute ischaemic stroke',
+  'Intracerebral haemorrhage',
+  'Diabetic ketoacidosis',
+  'Type 2 diabetes mellitus',
+  'Essential hypertension',
+  'Acute liver failure',
+  'Upper GI bleed',
+  'Acute pancreatitis',
+  'Hypovolaemic shock',
+  'Delirium',
+  'Seizure disorder',
 ];
-
-/** ICD-10 shape check matching the server's Joi rule. */
-export function isValidIcdCode(code) {
-  return /^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/.test(code);
-}
 
 export const diagnosesService = {
   async list(admissionId, params = {}) {

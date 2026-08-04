@@ -113,7 +113,7 @@ export default function Step8TreatmentPlan({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select route" />
                             </SelectTrigger>
                           </FormControl>
@@ -140,7 +140,7 @@ export default function Step8TreatmentPlan({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select frequency" />
                             </SelectTrigger>
                           </FormControl>

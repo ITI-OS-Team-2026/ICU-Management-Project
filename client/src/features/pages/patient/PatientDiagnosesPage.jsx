@@ -334,11 +334,6 @@ export default function PatientDiagnosesPage() {
                           <h3 className="font-sans text-lg font-bold text-foreground leading-tight">
                             {diagnosis.conditionName}
                           </h3>
-                          {diagnosis.icdCode && (
-                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                              {diagnosis.icdCode}
-                            </span>
-                          )}
                           <Badge
                             variant="outline"
                             className={`font-sans text-[10px] font-semibold ${

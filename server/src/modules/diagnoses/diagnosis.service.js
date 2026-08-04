@@ -36,7 +36,6 @@ const diagnosisInclude = {
 
 const auditableFields = (d) => ({
   conditionName: d.conditionName,
-  icdCode: d.icdCode,
   type: d.type,
   status: d.status,
   clinicalNotes: d.clinicalNotes,
@@ -144,7 +143,6 @@ const createDiagnosis = async (req, admissionId, data, userId) => {
         data: {
           admissionId: admission.id,
           conditionName: data.condition_name,
-          icdCode: data.icd_code || null,
           type: data.type || "SECONDARY",
           status: data.status || "SUSPECTED",
           clinicalNotes: data.clinical_notes || null,
@@ -220,7 +218,6 @@ const updateDiagnosis = async (req, id, data, userId) => {
         data: {
           admissionId: existing.admissionId,
           conditionName: data.condition_name || existing.conditionName,
-          icdCode: data.icd_code !== undefined ? data.icd_code : existing.icdCode,
           type: nextType,
           status: existing.status,
           clinicalNotes:

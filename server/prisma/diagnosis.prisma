@@ -25,7 +25,6 @@ model Diagnosis {
   id            String          @id @default(uuid())
   admissionId   String          @map("admission_id")
   conditionName String          @map("condition_name") @db.VarChar(255)
-  icdCode       String?         @map("icd_code") @db.VarChar(20)
   type          DiagnosisType   @default(SECONDARY)
   status        DiagnosisStatus @default(SUSPECTED)
   // Why the clinician believes this — the reasoning a condition name alone
