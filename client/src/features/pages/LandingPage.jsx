@@ -3,7 +3,11 @@ import {
   Activity,
   ArrowRight,
   FileText,
+  History,
+  Lock,
   MessagesSquare,
+  Server,
+  Shield,
   ShieldCheck,
   Sparkles,
   Stethoscope,
@@ -13,6 +17,11 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import dashboardImg from '@/assets/screenshots/dashboard.png';
+import aiAssistantImg from '@/assets/screenshots/ai-assistant.png';
+import admissionImg from '@/assets/screenshots/admission.png';
 
 /**
  * Public entry point at "/". Unauthenticated visitors land here; the route
@@ -44,10 +53,22 @@ const FEATURES = [
       'Vitals, labs, medications, and notes in one continuously updated view, built for the pace of a shift.',
   },
   {
+    icon: Stethoscope,
+    title: 'Multi-step admission',
+    description:
+      'Streamlined patient intake with guided protocols for history, vitals, and provisional diagnosis.',
+  },
+  {
     icon: ShieldCheck,
     title: 'Role-scoped access',
     description:
       'Nurses, residents, and specialists each see exactly what their role permits — enforced on every request, not just the UI.',
+  },
+  {
+    icon: History,
+    title: 'Full audit trail',
+    description:
+      'Every clinical action, medication administration, and access request is logged and attributable to a specific clinician.',
   },
 ];
 
@@ -76,7 +97,7 @@ function BrandMark({ variant = 'default' }) {
           SmartCare ICU
         </p>
         <p
-          className={`mt-1.5 font-sans text-[0.65rem] font-medium tracking-[0.08em] uppercase ${
+          className={`mt-1.5 font-sans text-[0.6875rem] font-medium tracking-[0.08em] uppercase ${
             variant === 'onBrand' ? 'text-login-brand-muted' : 'text-muted-foreground'
           }`}
         >
@@ -187,6 +208,19 @@ function Hero() {
   );
 }
 
+function DifferentiationStatement() {
+  return (
+    <section className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
+      <h2 className="text-balance font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        General-purpose EHRs weren't designed for the pace of an ICU shift. SmartCare was.
+      </h2>
+      <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
+        Every screen, every shortcut, and every alert is built for the clinician who doesn't have time to click through six menus to find a lab result.
+      </p>
+    </section>
+  );
+}
+
 function FeatureGrid() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
@@ -199,9 +233,9 @@ function FeatureGrid() {
         </h2>
       </div>
 
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
         {FEATURES.map(({ icon: Icon, title, description }) => (
-          <Card key={title} className="ring-1 ring-border">
+          <Card key={title}>
             <CardHeader className="gap-3">
               <span className="flex size-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                 <Icon className="size-5" aria-hidden />
@@ -215,6 +249,53 @@ function FeatureGrid() {
             </CardContent>
           </Card>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function ProductPreview() {
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+      <div className="mx-auto max-w-2xl text-center">
+        <p className="font-sans text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+          Clinical Interface
+        </p>
+        <h2 className="mt-3 text-balance font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+          Designed for cognitive precision
+        </h2>
+        <p className="mt-4 text-balance text-base leading-relaxed text-muted-foreground sm:text-lg">
+          High-contrast tabular data, restrained motion, and zero visual noise. 
+          Built for the reality of an ICU shift.
+        </p>
+      </div>
+
+      <div className="mt-12 sm:mt-16">
+        <Tabs defaultValue="overview" className="flex w-full flex-col items-center">
+          <TabsList className="mb-8 grid w-full max-w-[400px] grid-cols-3 sm:flex sm:max-w-fit">
+            <TabsTrigger value="overview" className="text-[0.65rem] sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="ai" className="text-[0.65rem] sm:text-sm">AI Assistant</TabsTrigger>
+            <TabsTrigger value="admission" className="text-[0.65rem] sm:text-sm">Admission</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="overview" className="w-full focus-visible:outline-none">
+            <figure className="w-full overflow-hidden rounded-2xl bg-card p-2 ring-1 ring-border sm:p-4">
+              <img src={dashboardImg} alt="Patient Overview Dashboard" className="block h-auto w-full rounded-xl ring-1 ring-border/40" />
+            </figure>
+          </TabsContent>
+          
+          <TabsContent value="ai" className="w-full focus-visible:outline-none">
+            <figure className="w-full overflow-hidden rounded-2xl bg-card p-2 ring-1 ring-border sm:p-4">
+              <img src={aiAssistantImg} alt="Medical Knowledge Assistant" className="block h-auto w-full rounded-xl ring-1 ring-border/40" />
+            </figure>
+          </TabsContent>
+          
+          <TabsContent value="admission" className="w-full focus-visible:outline-none">
+            <figure className="w-full overflow-hidden rounded-2xl bg-card p-2 ring-1 ring-border sm:p-4">
+              <img src={admissionImg} alt="Patient Admission Workflow" className="block h-auto w-full rounded-xl ring-1 ring-border/40" />
+            </figure>
+          </TabsContent>
+        </Tabs>
       </div>
     </section>
   );
@@ -237,13 +318,40 @@ function CapabilityStrip() {
   );
 }
 
+const SECURITY_SIGNALS = [
+  { icon: Shield, label: 'Role-based enforcement', desc: 'Enforced on every API request' },
+  { icon: History, label: 'Full audit logging', desc: 'Every action attributed' },
+  { icon: Lock, label: 'Session security', desc: 'HttpOnly secure cookies' },
+  { icon: Server, label: 'Institutional data', desc: 'Data stays within your walls' },
+];
+
+function SecurityStrip() {
+  return (
+    <section className="border-y border-border/60 bg-muted/20">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4 sm:px-6 sm:py-14 lg:px-8">
+        {SECURITY_SIGNALS.map(({ icon: Icon, label, desc }) => (
+          <div key={label} className="flex min-w-0 items-start gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-background ring-1 ring-border shadow-sm">
+              <Icon className="size-5 text-muted-foreground" aria-hidden />
+            </div>
+            <div>
+              <p className="font-display text-sm font-semibold text-foreground">{label}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ClosingCta() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
       <div className="flex flex-col items-start gap-6 rounded-2xl bg-login-brand px-6 py-10 text-login-brand-foreground sm:px-10 sm:py-14 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0 max-w-lg space-y-2">
           <h2 className="text-balance font-display text-2xl font-semibold tracking-tight sm:text-3xl">
-            Sign in with your institutional credentials
+            Secure Institutional Access
           </h2>
           <p className="text-sm leading-relaxed text-login-brand-muted sm:text-base">
             Access is provisioned per clinician by your hospital's
@@ -281,8 +389,11 @@ export default function LandingPage() {
       <SiteHeader />
       <main>
         <Hero />
+        <DifferentiationStatement />
         <FeatureGrid />
+        <ProductPreview />
         <CapabilityStrip />
+        <SecurityStrip />
         <ClosingCta />
       </main>
       <SiteFooter />
