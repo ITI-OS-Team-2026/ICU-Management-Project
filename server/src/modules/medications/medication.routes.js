@@ -6,6 +6,7 @@ const medicationController = require("./medication.controller");
 const {
   createMedicationSchema,
   updateMedicationSchema,
+  discontinueMedicationSchema,
   createAdministrationSchema,
   updateAdministrationSchema,
 } = require("./medication.schema");
@@ -34,6 +35,14 @@ admissionMedicationsRouter.get(
   medicationController.getMedications
 );
 
+// The day's dose schedule for every active order — what the nurse works from.
+admissionMedicationsRouter.get(
+  "/:id/mar",
+  verifyToken,
+  restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  medicationController.getMar
+);
+
 // Nested under /medications/:id
 medicationsRouter.patch(
   "/:id",
@@ -43,10 +52,13 @@ medicationsRouter.patch(
   medicationController.updateMedication
 );
 
+// Discontinue rather than delete: the order stays in the record, marked
+// inactive with the reason it was stopped.
 medicationsRouter.delete(
   "/:id",
   verifyToken,
   restrictTo(["MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  validate({ body: discontinueMedicationSchema }),
   medicationController.deleteMedication
 );
 

@@ -116,13 +116,10 @@ export const router = createBrowserRouter([
         element: page(Pages.VitalsEntryPage),
         loader: roleGuardLoader(['ICU_NURSE']),
       },
-      { 
-        path: 'medications', 
-        element: page(Pages.MedicationsPage),
-        loader: roleGuardLoader(['MEDICAL_RESIDENT', 'ICU_SPECIALIST']),
-      },
-      { 
-        path: 'medications/administration', 
+      {
+        // Prescribing lives in the patient's own Medications tab
+        // (/patients/:id/medications), not on a standalone ward-wide page.
+        path: 'medications/administration',
         element: page(Pages.MedAdministrationPage),
         loader: roleGuardLoader(['ICU_NURSE']),
       },

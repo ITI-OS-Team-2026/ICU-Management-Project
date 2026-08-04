@@ -200,15 +200,37 @@ const admissionSchema = z
       )
       .default([]),
 
+    // Dates here are the raw datetime-local strings the inputs produce; they
+    // are converted to ISO when the payload is built.
     medications: z
       .array(
-        z.object({
-          drug_name: z.string().min(1, "Drug name is required"),
-          dosage: z.string().min(1, "Dosage is required"),
-          frequency: z.string().min(1, "Frequency is required"),
-          start_date: z.date().optional(),
-          end_date: z.date().optional(),
-        })
+        z
+          .object({
+            drug_name: z.string().min(1, "Drug name is required"),
+            dosage: z.string().min(1, "Dosage is required"),
+            frequency: z.string().min(1, "Frequency is required"),
+            frequency_text: z.string().optional(),
+            route: z.string().min(1, "Route is required"),
+            instructions: z.string().optional(),
+            start_date: z.string().optional(),
+            end_date: z.string().optional(),
+          })
+          .superRefine((med, ctx) => {
+            if (med.frequency === "OTHER" && !med.frequency_text?.trim()) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["frequency_text"],
+                message: "Describe the dosing schedule",
+              });
+            }
+            if (med.start_date && med.end_date && new Date(med.end_date) < new Date(med.start_date)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["end_date"],
+                message: "End date cannot be before the start date",
+              });
+            }
+          })
       )
       .default([]),
   })
@@ -385,13 +407,7 @@ function loadDraft() {
         order_date: inv.order_date ? new Date(inv.order_date) : undefined,
       }));
     }
-    if (Array.isArray(values.medications)) {
-      values.medications = values.medications.map((med) => ({
-        ...med,
-        start_date: med.start_date ? new Date(med.start_date) : undefined,
-        end_date: med.end_date ? new Date(med.end_date) : undefined,
-      }));
-    }
+    // Medication dates stay as datetime-local strings, so they need no reviving.
 
     return {
       values: { ...defaultValues, ...values },
@@ -589,6 +605,22 @@ export default function AdmitPatientPage() {
                 : undefined,
             }
           : undefined,
+        // Sent with the admission itself so the drug list is written in the
+        // same transaction — a failure here rolls the whole admission back
+        // instead of leaving a patient with half a treatment plan.
+        medications: (data.medications || [])
+          .filter((med) => med.drug_name?.trim())
+          .map((med) => ({
+            drug_name: med.drug_name.trim(),
+            dosage: med.dosage.trim(),
+            frequency: med.frequency,
+            frequency_text:
+              med.frequency === "OTHER" ? emptyToUndefined(med.frequency_text) : undefined,
+            route: med.route,
+            instructions: emptyToUndefined(med.instructions),
+            start_date: med.start_date ? new Date(med.start_date).toISOString() : undefined,
+            end_date: med.end_date ? new Date(med.end_date).toISOString() : undefined,
+          })),
       };
 
       const admissionRes = await api.post("/admissions/full", fullPayload);
@@ -617,16 +649,7 @@ export default function AdmitPatientPage() {
         });
       }
 
-      const validMedications = data.medications?.filter((med) => med.drug_name?.trim()) || [];
-      for (const med of validMedications) {
-        await api.post(`/admissions/${admissionId}/medications`, {
-          drug_name: med.drug_name,
-          dosage: med.dosage || "As prescribed",
-          frequency: med.frequency || "Once",
-          start_date: med.start_date ? med.start_date.toISOString() : undefined,
-          end_date: med.end_date ? med.end_date.toISOString() : undefined,
-        });
-      }
+      // Medications were created with the admission above.
 
       clearDraft();
       navigate(`/patients`);
