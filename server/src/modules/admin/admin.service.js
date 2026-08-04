@@ -330,7 +330,10 @@ const getBeds = async ({ status, page, limit }) => {
             }
           },
           diagnoses: {
-            where: { status: "ACTIVE" },
+            // The condition being treated: confirmed first, and only fall back
+            // to a suspected one when nothing has been proven yet.
+            where: { status: { in: ["CONFIRMED", "SUSPECTED"] }, isArchived: false },
+            orderBy: [{ status: "asc" }, { diagnosedAt: "desc" }],
             take: 1,
             select: {
               conditionName: true

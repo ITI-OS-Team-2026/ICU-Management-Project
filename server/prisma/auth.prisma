@@ -40,6 +40,11 @@ model User {
   admissionsAsDoctor      Admission[]                @relation("AdmissionDoctor")
   nurseAssignments        AdmissionNurse[]           @relation("AdmissionNurseAssignments")
   diagnoses               Diagnosis[]
+  originalDiagnoses       Diagnosis[]                @relation("DiagnosisOriginalAuthor")
+  diagnosisStatusChanges  Diagnosis[]                @relation("DiagnosisStatusChangedBy")
+  diagnosisAcknowledgements DiagnosisAcknowledgement[] @relation("DiagnosisAcknowledgedBy")
+  diagnosisConcernsRaised    DiagnosisConcern[]      @relation("DiagnosisConcernRaisedBy")
+  diagnosisConcernsResponded DiagnosisConcern[]      @relation("DiagnosisConcernRespondedBy")
   vitalSigns              VitalSign[]
   prescribedMedications   Medication[]               @relation("MedicationPrescriber")
   administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")

@@ -201,6 +201,12 @@ export default function PatientOverviewPage() {
     isLoading: true,
   });
 
+  // Everything still in the differential — confirmed conditions plus the ones
+  // being worked up. Ruled-out and resolved entries belong to the closed record.
+  const activeDiagnoses = extraData.diagnoses.filter((d) =>
+    ['CONFIRMED', 'SUSPECTED'].includes(d.status)
+  );
+
   const [showAllDiagnoses, setShowAllDiagnoses] = useState(false);
   const [showAllMeds, setShowAllMeds] = useState(false);
   const [showAllLabs, setShowAllLabs] = useState(false);
@@ -498,23 +504,23 @@ export default function PatientOverviewPage() {
                 <>
                   <div className="space-y-2">
                     <SectionLabel>Active Diagnoses</SectionLabel>
-                    {extraData.diagnoses.filter(d => d.status === 'ACTIVE').length > 0 ? (
+                    {activeDiagnoses.length > 0 ? (
                       <ul className="font-sans text-sm text-foreground space-y-1.5">
-                        {extraData.diagnoses.filter(d => d.status === 'ACTIVE').slice(0, showAllDiagnoses ? undefined : 5).map(d => (
+                        {activeDiagnoses.slice(0, showAllDiagnoses ? undefined : 5).map(d => (
                           <li key={d.id} className="flex items-start gap-2">
                             <Stethoscope size={14} className="text-muted-foreground mt-0.5 shrink-0" />
                             <span>{d.conditionName}</span>
                           </li>
                         ))}
-                        {extraData.diagnoses.filter(d => d.status === 'ACTIVE').length > 5 && !showAllDiagnoses && (
+                        {activeDiagnoses.length > 5 && !showAllDiagnoses && (
                           <li 
                             className="text-xs text-primary font-medium pl-6 cursor-pointer hover:underline"
                             onClick={() => setShowAllDiagnoses(true)}
                           >
-                            + {extraData.diagnoses.filter(d => d.status === 'ACTIVE').length - 5} more
+                            + {activeDiagnoses.length - 5} more
                           </li>
                         )}
-                        {showAllDiagnoses && extraData.diagnoses.filter(d => d.status === 'ACTIVE').length > 5 && (
+                        {showAllDiagnoses && activeDiagnoses.length > 5 && (
                           <li 
                             className="text-xs text-muted-foreground font-medium pl-6 cursor-pointer hover:underline"
                             onClick={() => setShowAllDiagnoses(false)}

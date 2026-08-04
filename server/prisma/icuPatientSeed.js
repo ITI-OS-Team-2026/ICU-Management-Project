@@ -1536,13 +1536,18 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
     // 7. Seed Diagnoses
     const existingDiagCount = await prisma.diagnosis.count({ where: { admissionId: admission.id } });
     if (existingDiagCount === 0) {
-      for (const diag of p.diagnoses) {
+      for (const [diagIndex, diag] of p.diagnoses.entries()) {
         await prisma.diagnosis.create({
           data: {
             admissionId: admission.id,
             diagnosedById: diag.doctorId,
+            originalDiagnosedById: diag.doctorId,
             conditionName: diag.conditionName,
-            status: diag.status,
+            // Seed data predates the differential statuses; every entry was
+            // written as a working diagnosis, so it seeds as CONFIRMED.
+            status: diag.status === "ACTIVE" ? "CONFIRMED" : diag.status,
+            // The first condition listed is the reason for admission.
+            type: diagIndex === 0 ? "PRIMARY" : "SECONDARY",
             diagnosedAt: admission.admittedAt,
           },
         });

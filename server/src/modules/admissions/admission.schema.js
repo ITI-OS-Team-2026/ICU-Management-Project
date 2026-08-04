@@ -41,6 +41,7 @@ const nurseAssignSchema = Joi.object({
 const { patientCreateSchema, medicalHistoryCreateSchema } = require("../patients/patient.schema");
 const { createVitalSignSchema } = require("../vitalSigns/vitalSign.schema");
 const { createMedicationSchema } = require("../medications/medication.schema");
+const { diagnosisCreateSchema } = require("../diagnoses/diagnosis.schema");
 
 const fullAdmissionCreateSchema = Joi.object({
   patient: patientCreateSchema.required(),
@@ -67,6 +68,10 @@ const fullAdmissionCreateSchema = Joi.object({
   // medication rules so an order written here is validated exactly like one
   // written later from the patient's medication tab.
   medications: Joi.array().items(createMedicationSchema).optional().default([]),
+  // Step 6 — the provisional diagnoses. These become real Diagnosis rows so the
+  // problem list is populated from admission onwards, rather than the free-text
+  // `provisional_diagnosis` narrative being the only record.
+  diagnoses: Joi.array().items(diagnosisCreateSchema).optional().default([]),
 });
 
 module.exports = {

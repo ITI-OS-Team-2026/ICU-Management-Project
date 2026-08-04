@@ -191,6 +191,26 @@ const admissionSchema = z
 
     provisional_diagnosis: z.string().optional(),
 
+    // Step 6's structured problem list. The narrative above is the reasoning;
+    // these become real Diagnosis rows.
+    diagnoses: z
+      .array(
+        z.object({
+          condition_name: z.string().min(1, "Condition is required"),
+          icd_code: z
+            .string()
+            .optional()
+            .refine(
+              (v) => !v?.trim() || /^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/.test(v.trim().toUpperCase()),
+              "Codes look like J44.1 or A41"
+            ),
+          type: z.string().min(1, "Classification is required"),
+          status: z.string().min(1, "Certainty is required"),
+          clinical_notes: z.string().optional(),
+        })
+      )
+      .default([]),
+
     investigations: z
       .array(
         z.object({
@@ -346,6 +366,7 @@ const defaultValues = {
     auscultation: "",
   },
   provisional_diagnosis: "",
+  diagnoses: [],
   investigations: [],
   medications: [],
 };
@@ -596,6 +617,17 @@ export default function AdmitPatientPage() {
           previous_treatments: emptyToUndefined(data.previous_treatments),
           provisional_diagnosis: emptyToUndefined(data.provisional_diagnosis),
         },
+        // Written in the admission's own transaction so the problem list can
+        // never be half-created alongside a live admission.
+        diagnoses: (data.diagnoses || [])
+          .filter((diag) => diag.condition_name?.trim())
+          .map((diag) => ({
+            condition_name: diag.condition_name.trim(),
+            icd_code: diag.icd_code?.trim() ? diag.icd_code.trim().toUpperCase() : undefined,
+            type: diag.type,
+            status: diag.status,
+            clinical_notes: emptyToUndefined(diag.clinical_notes),
+          })),
         vital_signs: hasVitals
           ? {
               ...vitalPayload,

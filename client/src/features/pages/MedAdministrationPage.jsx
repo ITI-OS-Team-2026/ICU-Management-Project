@@ -29,6 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { patientsService } from '../services/patientsService';
 import { medicationsService, formatFrequency } from '../services/medicationsService';
+import DiagnosisContextStrip from '../components/diagnoses/DiagnosisContextStrip';
 
 // One visual language for dose state, shared by the slot pill and its card.
 const SLOT_STYLES = {
@@ -380,6 +381,12 @@ export default function MedAdministrationPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Why these drugs are being given — the problem list lives on another
+          screen the nurse is not looking at while charting doses. */}
+      {activeAdmission && (
+        <DiagnosisContextStrip admissionId={activeAdmission.id} className="mb-6" />
       )}
 
       {/* ── Medication Schedule ──────────────────────────────────────────────── */}
