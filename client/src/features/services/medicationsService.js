@@ -7,12 +7,12 @@ export const FREQUENCY_OPTIONS = [
   { value: 'BD', label: 'BD — twice daily', doses: '08:00, 20:00' },
   { value: 'TDS', label: 'TDS — three times daily', doses: '08:00, 14:00, 20:00' },
   { value: 'QDS', label: 'QDS — four times daily', doses: '08:00, 12:00, 16:00, 20:00' },
-  { value: 'Q4H', label: 'Q4H — every 4 hours', doses: 'every 4h from start' },
-  { value: 'Q6H', label: 'Q6H — every 6 hours', doses: 'every 6h from start' },
-  { value: 'Q8H', label: 'Q8H — every 8 hours', doses: 'every 8h from start' },
-  { value: 'Q12H', label: 'Q12H — every 12 hours', doses: 'every 12h from start' },
+  { value: 'Q4H', label: 'Q4H — every 4 hours', doses: '00:00, 04:00, 08:00, 12:00, 16:00, 20:00' },
+  { value: 'Q6H', label: 'Q6H — every 6 hours', doses: '00:00, 06:00, 12:00, 18:00' },
+  { value: 'Q8H', label: 'Q8H — every 8 hours', doses: '00:00, 08:00, 16:00' },
+  { value: 'Q12H', label: 'Q12H — every 12 hours', doses: '00:00, 12:00' },
   { value: 'PRN', label: 'PRN — as needed', doses: 'no fixed schedule' },
-  { value: 'STAT', label: 'STAT — immediately, once', doses: 'single dose' },
+  { value: 'STAT', label: 'STAT — immediately, once', doses: 'a single dose' },
   { value: 'CONTINUOUS', label: 'Continuous infusion', doses: 'no fixed schedule' },
   { value: 'OTHER', label: 'Other (describe)', doses: 'no fixed schedule' },
 ];
@@ -35,6 +35,28 @@ export const UNSCHEDULED_FREQUENCIES = ['PRN', 'CONTINUOUS', 'OTHER'];
 export function formatFrequency(medication) {
   if (medication?.frequency === 'OTHER') return medication.frequencyText || 'Other';
   return medication?.frequency || '—';
+}
+
+/** "2026-08-04" for a <input type="date">; empty when there is no date. */
+export function toDateInput(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * A "YYYY-MM-DD" input value as an ISO instant at local midnight.
+ *
+ * `new Date("2026-08-04")` parses as UTC midnight, which lands on the previous
+ * day for anyone west of Greenwich — the order would start a day early.
+ */
+export function dateInputToIso(value) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day).toISOString();
 }
 
 export const medicationsService = {

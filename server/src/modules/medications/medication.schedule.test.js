@@ -29,21 +29,29 @@ describe("generateSlots", () => {
     expect(generateSlots(order({ frequency: "TDS" }), DAY)).toHaveLength(3);
   });
 
-  it("spaces Q6H four times a day from the order's start time", () => {
+  it("spaces Q6H four times a day on a fixed grid from midnight", () => {
     const slots = generateSlots(
       order({ frequency: "Q6H", startDate: new Date("2026-08-01T02:00:00") }),
       DAY
     );
     expect(slots).toHaveLength(4);
-    expect(slots.map((s) => s.getHours())).toEqual([2, 8, 14, 20]);
+    expect(slots.map((s) => s.getHours())).toEqual([0, 6, 12, 18]);
   });
 
-  it("keeps interval slots anchored to an odd start time", () => {
+  it("ignores the order's start time — orders carry a start date only", () => {
     const slots = generateSlots(
       order({ frequency: "Q12H", startDate: new Date("2026-08-01T14:20:00") }),
       DAY
     );
-    expect(slots.map((s) => `${s.getHours()}:${s.getMinutes()}`)).toEqual(["2:20", "14:20"]);
+    expect(slots.map((s) => `${s.getHours()}:${s.getMinutes()}`)).toEqual(["0:0", "12:0"]);
+  });
+
+  it("gives every day of an interval order the same dose times", () => {
+    const med = order({ frequency: "Q8H", startDate: new Date("2026-08-01T00:00:00") });
+    const monday = generateSlots(med, new Date("2026-08-04T09:00:00")).map((s) => s.getHours());
+    const tuesday = generateSlots(med, new Date("2026-08-05T09:00:00")).map((s) => s.getHours());
+    expect(monday).toEqual([0, 8, 16]);
+    expect(tuesday).toEqual(monday);
   });
 
   it("produces nothing before the order starts", () => {
@@ -62,13 +70,14 @@ describe("generateSlots", () => {
     expect(slots).toHaveLength(0);
   });
 
-  it("stops part-way through the final day", () => {
+  it("covers the whole of the final day", () => {
     const slots = generateSlots(
       order({ frequency: "TDS", endDate: new Date("2026-08-04T15:00:00") }),
       DAY
     );
-    // 08:00 and 14:00 fall inside the order; 20:00 does not.
-    expect(slots.map((s) => s.getHours())).toEqual([8, 14]);
+    // The end date means "through the end of that day", so the 20:00 dose still
+    // counts even though the stored instant is mid-afternoon.
+    expect(slots.map((s) => s.getHours())).toEqual([8, 14, 20]);
   });
 
   it("gives STAT a single slot on its start day only", () => {

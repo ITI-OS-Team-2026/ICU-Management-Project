@@ -334,11 +334,6 @@ export default function PatientDiagnosesPage() {
                           <h3 className="font-sans text-lg font-bold text-foreground leading-tight">
                             {diagnosis.conditionName}
                           </h3>
-                          {diagnosis.icdCode && (
-                            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                              {diagnosis.icdCode}
-                            </span>
-                          )}
                           <Badge
                             variant="outline"
                             className={`font-sans text-[10px] font-semibold ${
@@ -354,9 +349,7 @@ export default function PatientDiagnosesPage() {
                         <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-sans text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <Clock size={12} className="opacity-70" />
-                            {diagnosis.onsetDate
-                              ? `Onset: ${formatDate(diagnosis.onsetDate, 'MMM d, yyyy')}`
-                              : `Recorded: ${formatDate(diagnosis.diagnosedAt, 'MMM d, yyyy')}`}
+                            Recorded: {formatDate(diagnosis.diagnosedAt, 'MMM d, yyyy')}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <User size={12} className="opacity-70" />

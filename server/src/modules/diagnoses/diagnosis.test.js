@@ -113,7 +113,6 @@ describe("Diagnoses API", () => {
           condition_name: "COVID-19",
           status: "CONFIRMED",
           type: "PRIMARY",
-          icd_code: "U07.1",
         });
 
       expect(res.status).toBe(201);
@@ -121,7 +120,6 @@ describe("Diagnoses API", () => {
       expect(res.body.conditionName).toBe("COVID-19");
       expect(res.body.status).toBe("CONFIRMED");
       expect(res.body.type).toBe("PRIMARY");
-      expect(res.body.icdCode).toBe("U07.1");
       expect(res.body.diagnosedById).toBe(residentUser.id);
     });
 
@@ -365,15 +363,6 @@ describe("Diagnoses API", () => {
       expect(res.body.duplicateWarning).toHaveLength(1);
     });
 
-    it("should reject a malformed ICD-10 code", async () => {
-      const res = await request(app)
-        .post(`/api/admissions/${testAdmissionId}/diagnoses`)
-        .set("Cookie", residentCookie)
-        .send({ condition_name: "Sepsis", icd_code: "not-a-code" });
-
-      expect(res.status).toBe(400);
-      expect(res.body.message).toMatch(/ICD-10/);
-    });
   });
 
   describe("Nurse participation", () => {

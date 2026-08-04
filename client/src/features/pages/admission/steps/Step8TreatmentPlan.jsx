@@ -19,8 +19,8 @@ import {
   UNSCHEDULED_FREQUENCIES,
 } from "../../../services/medicationsService";
 
-// <input type="datetime-local"> works in local wall-clock time, which is how the
-// ward reads a dose chart. The value is converted to ISO on submit.
+// Orders run for whole days, so these are day-only. The value is converted to
+// an ISO instant at local midnight on submit.
 const DATE_INPUT_CLASS =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs";
 
@@ -113,7 +113,7 @@ export default function Step8TreatmentPlan({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select route" />
                             </SelectTrigger>
                           </FormControl>
@@ -140,7 +140,7 @@ export default function Step8TreatmentPlan({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select frequency" />
                             </SelectTrigger>
                           </FormControl>
@@ -190,13 +190,13 @@ export default function Step8TreatmentPlan({ form }) {
                         <FormLabel>Start</FormLabel>
                         <FormControl>
                           <input
-                            type="datetime-local"
+                            type="date"
                             className={DATE_INPUT_CLASS}
                             value={field.value || ""}
                             onChange={(e) => field.onChange(e.target.value)}
                           />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">Defaults to admission time.</p>
+                        <p className="text-xs text-muted-foreground">Defaults to the admission date.</p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -210,7 +210,7 @@ export default function Step8TreatmentPlan({ form }) {
                         <FormLabel>End</FormLabel>
                         <FormControl>
                           <input
-                            type="datetime-local"
+                            type="date"
                             className={DATE_INPUT_CLASS}
                             value={field.value || ""}
                             onChange={(e) => field.onChange(e.target.value)}

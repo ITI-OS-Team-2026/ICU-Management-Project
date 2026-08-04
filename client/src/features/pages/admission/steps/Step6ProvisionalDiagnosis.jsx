@@ -75,8 +75,8 @@ export default function Step6ProvisionalDiagnosis({ form }) {
           {fields.map((field, index) => {
             const query = diagnoses[index]?.condition_name?.trim().toLowerCase() || "";
             const suggestions =
-              query.length >= 2 && !COMMON_DIAGNOSES.some((d) => d.name.toLowerCase() === query)
-                ? COMMON_DIAGNOSES.filter((d) => d.name.toLowerCase().includes(query)).slice(0, 5)
+              query.length >= 2 && !COMMON_DIAGNOSES.some((name) => name.toLowerCase() === query)
+                ? COMMON_DIAGNOSES.filter((name) => name.toLowerCase().includes(query)).slice(0, 5)
                 : [];
 
             return (
@@ -89,7 +89,7 @@ export default function Step6ProvisionalDiagnosis({ form }) {
                     control={form.control}
                     name={`diagnoses.${index}.condition_name`}
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <FormItem className="md:col-span-3">
                         <FormLabel>
                           Condition <span className="text-destructive">*</span>
                         </FormLabel>
@@ -102,38 +102,22 @@ export default function Step6ProvisionalDiagnosis({ form }) {
                         </FormControl>
                         {suggestions.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 pt-1">
-                            {suggestions.map((s) => (
+                            {suggestions.map((name) => (
                               <button
-                                key={s.name}
+                                key={name}
                                 type="button"
-                                onClick={() => {
-                                  form.setValue(`diagnoses.${index}.condition_name`, s.name, {
+                                onClick={() =>
+                                  form.setValue(`diagnoses.${index}.condition_name`, name, {
                                     shouldValidate: true,
-                                  });
-                                  form.setValue(`diagnoses.${index}.icd_code`, s.icd);
-                                }}
+                                  })
+                                }
                                 className="rounded-md border border-border bg-card px-2 py-1 font-sans text-xs text-foreground transition-colors hover:bg-muted"
                               >
-                                {s.name}{" "}
-                                <span className="font-mono text-muted-foreground">{s.icd}</span>
+                                {name}
                               </button>
                             ))}
                           </div>
                         )}
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name={`diagnoses.${index}.icd_code`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ICD-10 code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. J18.9" {...field} value={field.value || ""} />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -149,7 +133,7 @@ export default function Step6ProvisionalDiagnosis({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                           </FormControl>
@@ -176,7 +160,7 @@ export default function Step6ProvisionalDiagnosis({ form }) {
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ""}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select" />
                             </SelectTrigger>
                           </FormControl>
@@ -234,7 +218,6 @@ export default function Step6ProvisionalDiagnosis({ form }) {
             onClick={() =>
               append({
                 condition_name: "",
-                icd_code: "",
                 // The first condition entered is almost always the reason for
                 // admission; anything after it defaults to secondary.
                 type: fields.length === 0 ? "PRIMARY" : "SECONDARY",

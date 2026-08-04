@@ -259,11 +259,9 @@ const createFullAdmission = async (req, data) => {
           return {
             admissionId: admission.id,
             conditionName: diag.condition_name,
-            icdCode: diag.icd_code || null,
             type: isPrimary ? "PRIMARY" : diag.type === "PRIMARY" ? "SECONDARY" : diag.type,
             status: diag.status || "SUSPECTED",
             clinicalNotes: diag.clinical_notes || null,
-            onsetDate: diag.onset_date ? new Date(diag.onset_date) : null,
             diagnosedById: req.user.id,
             originalDiagnosedById: req.user.id,
           };

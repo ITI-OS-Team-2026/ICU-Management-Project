@@ -25,7 +25,9 @@ import {
   FREQUENCY_OPTIONS,
   ROUTE_OPTIONS,
   UNSCHEDULED_FREQUENCIES,
+  dateInputToIso,
   medicationsService,
+  toDateInput,
 } from '../../services/medicationsService';
 
 const EMPTY = {
@@ -38,16 +40,6 @@ const EMPTY = {
   start_date: '',
   end_date: '',
 };
-
-// <input type="datetime-local"> wants local wall-clock time with no zone, which
-// is also how the ward thinks about dose times.
-function toLocalInput(value) {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /**
  * Prescribe a new medication or amend an existing order.
@@ -75,8 +67,8 @@ export default function MedicationFormDialog({
           frequency_text: medication.frequencyText || '',
           route: medication.route || '',
           instructions: medication.instructions || '',
-          start_date: toLocalInput(medication.startDate),
-          end_date: toLocalInput(medication.endDate),
+          start_date: toDateInput(medication.startDate),
+          end_date: toDateInput(medication.endDate),
         }
       : EMPTY
   );
@@ -119,8 +111,8 @@ export default function MedicationFormDialog({
     };
     if (values.frequency === 'OTHER') payload.frequency_text = values.frequency_text.trim();
     if (values.instructions.trim()) payload.instructions = values.instructions.trim();
-    if (values.start_date) payload.start_date = new Date(values.start_date).toISOString();
-    if (values.end_date) payload.end_date = new Date(values.end_date).toISOString();
+    if (values.start_date) payload.start_date = dateInputToIso(values.start_date);
+    if (values.end_date) payload.end_date = dateInputToIso(values.end_date);
     if (acknowledgeAllergy) payload.acknowledge_allergy = true;
     return payload;
   };
@@ -239,7 +231,7 @@ export default function MedicationFormDialog({
               Route <span className="text-destructive">*</span>
             </Label>
             <Select value={values.route} onValueChange={(v) => setField('route', v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select route" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +250,7 @@ export default function MedicationFormDialog({
               Frequency <span className="text-destructive">*</span>
             </Label>
             <Select value={values.frequency} onValueChange={(v) => setField('frequency', v)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select frequency" />
               </SelectTrigger>
               <SelectContent>
@@ -300,18 +292,18 @@ export default function MedicationFormDialog({
             <Label htmlFor="start_date">Start</Label>
             <Input
               id="start_date"
-              type="datetime-local"
+              type="date"
               value={values.start_date}
               onChange={(e) => setField('start_date', e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Defaults to now if left empty.</p>
+            <p className="text-xs text-muted-foreground">Defaults to today if left empty.</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="end_date">End</Label>
             <Input
               id="end_date"
-              type="datetime-local"
+              type="date"
               value={values.end_date}
               onChange={(e) => setField('end_date', e.target.value)}
             />

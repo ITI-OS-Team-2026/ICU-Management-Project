@@ -23,6 +23,7 @@ import Step5LocalExamination from "./admission/steps/Step5LocalExamination";
 import Step6ProvisionalDiagnosis from "./admission/steps/Step6ProvisionalDiagnosis";
 import Step7Investigations from "./admission/steps/Step7Investigations";
 import Step8TreatmentPlan from "./admission/steps/Step8TreatmentPlan";
+import { dateInputToIso } from "../services/medicationsService";
 
 const optionalEnum = (values) =>
   z.union([z.literal(""), z.enum(values)]).optional();
@@ -207,13 +208,6 @@ const admissionSchema = z
       .array(
         z.object({
           condition_name: z.string().min(1, "Condition is required"),
-          icd_code: z
-            .string()
-            .optional()
-            .refine(
-              (v) => !v?.trim() || /^[A-Z][0-9]{2}(\.[0-9A-Z]{1,4})?$/.test(v.trim().toUpperCase()),
-              "Codes look like J44.1 or A41"
-            ),
           type: z.string().min(1, "Classification is required"),
           status: z.string().min(1, "Certainty is required"),
           clinical_notes: z.string().optional(),
@@ -229,8 +223,8 @@ const admissionSchema = z
       )
       .default([]),
 
-    // Dates here are the raw datetime-local strings the inputs produce; they
-    // are converted to ISO when the payload is built.
+    // Dates here are the raw "YYYY-MM-DD" strings the day inputs produce; they
+    // are converted to ISO instants at local midnight when the payload is built.
     medications: z
       .array(
         z
@@ -743,7 +737,6 @@ export default function AdmitPatientPage() {
           .filter((diag) => diag.condition_name?.trim())
           .map((diag) => ({
             condition_name: diag.condition_name.trim(),
-            icd_code: diag.icd_code?.trim() ? diag.icd_code.trim().toUpperCase() : undefined,
             type: diag.type,
             status: diag.status,
             clinical_notes: emptyToUndefined(diag.clinical_notes),
@@ -792,8 +785,8 @@ export default function AdmitPatientPage() {
               med.frequency === "OTHER" ? emptyToUndefined(med.frequency_text) : undefined,
             route: med.route,
             instructions: emptyToUndefined(med.instructions),
-            start_date: med.start_date ? new Date(med.start_date).toISOString() : undefined,
-            end_date: med.end_date ? new Date(med.end_date).toISOString() : undefined,
+            start_date: dateInputToIso(med.start_date),
+            end_date: dateInputToIso(med.end_date),
           })),
       };
 

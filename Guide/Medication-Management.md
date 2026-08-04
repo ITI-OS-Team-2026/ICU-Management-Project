@@ -29,7 +29,7 @@ Every order carries a structured **frequency**, which the server expands into co
 | frequencyText          | String(100) (nullable)     | Free text, only when `frequency = OTHER`                      |
 | route                  | `MedicationRoute` (nullable) | IV / PO / IM / SC / INH / TOPICAL / PR / NG                 |
 | instructions           | Text (nullable)            | Nurse-facing note, e.g. "Hold if SBP < 100"                   |
-| startDate / endDate    | DateTime (nullable)        | Order validity window; empty end = ongoing                    |
+| startDate / endDate    | DateTime (nullable)        | Day-granular validity window; empty end = ongoing             |
 | isActive               | Boolean                    | `false` once discontinued                                     |
 | allergyAcknowledged    | Boolean                    | `true` if written despite a documented allergy                |
 | discontinuedById       | UUID (nullable)            | Who stopped the order                                         |
@@ -55,7 +55,7 @@ Every order carries a structured **frequency**, which the server expands into co
 
 ## Frequency and the dose schedule
 
-`frequency` is an enum so a schedule can be derived from it. Ward convention: fixed daily times, interval frequencies anchored to the order's own start time.
+`frequency` is an enum so a schedule can be derived from it. Ward convention: fixed daily times for the named frequencies, and a fixed midnight grid for the interval ones, so every day of an order looks identical.
 
 | Frequency    | Dose slots per day                        |
 | ------------ | ----------------------------------------- |
@@ -63,16 +63,16 @@ Every order carries a structured **frequency**, which the server expands into co
 | `BD`         | 08:00, 20:00                              |
 | `TDS`        | 08:00, 14:00, 20:00                       |
 | `QDS`        | 08:00, 12:00, 16:00, 20:00                |
-| `Q4H`        | every 4h from the order's start time      |
-| `Q6H`        | every 6h from the order's start time      |
-| `Q8H`        | every 8h from the order's start time      |
-| `Q12H`       | every 12h from the order's start time     |
-| `STAT`       | a single slot at the order's start time   |
+| `Q4H`        | 00:00, 04:00, 08:00, 12:00, 16:00, 20:00  |
+| `Q6H`        | 00:00, 06:00, 12:00, 18:00                |
+| `Q8H`        | 00:00, 08:00, 16:00                       |
+| `Q12H`       | 00:00, 12:00                              |
+| `STAT`       | a single slot on the start date           |
 | `PRN`        | none — recorded ad hoc                    |
 | `CONTINUOUS` | none — recorded ad hoc                    |
 | `OTHER`      | none — `frequencyText` describes it       |
 
-An order only produces slots between `startDate` (defaulting to `prescribedAt`) and `endDate`.
+Orders carry a start and end **date**, not a time. An order produces slots from `startDate` (defaulting to `prescribedAt`) through the **end of** `endDate` — taking the end date literally as midnight would drop the final day's doses.
 
 ### Slot status
 
@@ -184,7 +184,7 @@ Amending is append-only. The current order row is archived and a **new order wit
   "frequency": "QDS",
   "route": "PO",
   "instructions": "Hold if the patient is nil by mouth",
-  "start_date": "2026-08-04T08:00:00.000Z",
+  "start_date": "2026-08-04T00:00:00.000Z",
   "end_date": null,
   "acknowledge_allergy": false
 }

@@ -25,14 +25,11 @@ model Diagnosis {
   id            String          @id @default(uuid())
   admissionId   String          @map("admission_id")
   conditionName String          @map("condition_name") @db.VarChar(255)
-  icdCode       String?         @map("icd_code") @db.VarChar(20)
   type          DiagnosisType   @default(SECONDARY)
   status        DiagnosisStatus @default(SUSPECTED)
   // Why the clinician believes this — the reasoning a condition name alone
   // cannot carry.
   clinicalNotes String?         @map("clinical_notes") @db.Text
-  // When the condition began, as distinct from when it was typed in.
-  onsetDate     DateTime?       @map("onset_date")
   diagnosedById String          @map("diagnosed_by")
   // Survives the archive-and-recreate amendment cycle.
   originalDiagnosedById String? @map("original_diagnosed_by")
