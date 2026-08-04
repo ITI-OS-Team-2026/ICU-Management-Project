@@ -18,6 +18,7 @@ import {
   Wind,
 } from 'lucide-react';
 import api from '@/lib/api';
+import DiagnosisContextStrip from '../components/diagnoses/DiagnosisContextStrip';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -457,6 +458,12 @@ export default function VitalsEntryPage() {
           </div>
         )}
       </div>
+
+      {/* What is being treated, and what is still only suspected — context for
+          interpreting the numbers being charted. */}
+      {activeAdmission && (
+        <DiagnosisContextStrip admissionId={activeAdmission.id} className="mb-6" />
+      )}
 
       {errorMsg && (
         <Alert variant="destructive" className="mb-6">

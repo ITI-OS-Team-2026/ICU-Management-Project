@@ -197,7 +197,32 @@ const createFullAdmission = async (req, data) => {
       });
     }
 
-    // 6. Create initial medication orders (Step 8 of the admission form).
+    // 6. Create the provisional diagnoses (Step 6 of the admission form).
+    // Only one condition can be PRIMARY; the client marks it, and anything
+    // beyond the first is demoted so the problem list stays unambiguous.
+    if (Array.isArray(data.diagnoses) && data.diagnoses.length > 0) {
+      let primaryTaken = false;
+      await tx.diagnosis.createMany({
+        data: data.diagnoses.map((diag) => {
+          const isPrimary = diag.type === "PRIMARY" && !primaryTaken;
+          if (isPrimary) primaryTaken = true;
+
+          return {
+            admissionId: admission.id,
+            conditionName: diag.condition_name,
+            icdCode: diag.icd_code || null,
+            type: isPrimary ? "PRIMARY" : diag.type === "PRIMARY" ? "SECONDARY" : diag.type,
+            status: diag.status || "SUSPECTED",
+            clinicalNotes: diag.clinical_notes || null,
+            onsetDate: diag.onset_date ? new Date(diag.onset_date) : null,
+            diagnosedById: req.user.id,
+            originalDiagnosedById: req.user.id,
+          };
+        }),
+      });
+    }
+
+    // 7. Create initial medication orders (Step 8 of the admission form).
     // Written inside this transaction so an admission can never end up with a
     // partial drug list — either every order lands or the admission rolls back.
     if (Array.isArray(data.medications) && data.medications.length > 0) {
@@ -218,7 +243,7 @@ const createFullAdmission = async (req, data) => {
       });
     }
 
-    // 7. Update Bed Status
+    // 8. Update Bed Status
     await tx.bed.update({
       where: { id: data.admission.bed_id },
       data: { status: "OCCUPIED" },

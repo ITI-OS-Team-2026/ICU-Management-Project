@@ -294,11 +294,12 @@ async function main() {
         };
 
         const diags = diagsTemplate[p.mrn] || [];
-        for (const diag of diags) {
+        for (const [diagIndex, diag] of diags.entries()) {
           await tx.diagnosis.create({
             data: {
-              admissionId: admission.id, conditionName: diag, status: "ACTIVE",
-              diagnosedById: specialist.id,
+              admissionId: admission.id, conditionName: diag, status: "CONFIRMED",
+              type: diagIndex === 0 ? "PRIMARY" : "SECONDARY",
+              diagnosedById: specialist.id, originalDiagnosedById: specialist.id,
             },
           });
         }

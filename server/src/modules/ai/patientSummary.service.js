@@ -356,9 +356,11 @@ const formatPatientDataForPrompt = (data) => {
       seenDiagnosisNames.add(nameNorm);
 
       const doctorName = d.diagnosedBy ? ` (by Dr. ${d.diagnosedBy.firstName} ${d.diagnosedBy.lastName})` : "";
-      const line = `- ${d.conditionName} [Status: ${d.status || "ACTIVE"}]${doctorName}`;
+      const line = `- ${d.conditionName} [Status: ${d.status || "CONFIRMED"}]${doctorName}`;
 
-      if (d.status === "ACTIVE" || d.status === "CONFIRMED" || !d.status) {
+      // Suspected conditions are still being worked up, so they belong on the
+      // active problem list rather than in the closed record.
+      if (d.status === "CONFIRMED" || d.status === "SUSPECTED" || !d.status) {
         activeDiagnoses.push(line);
       } else {
         resolvedDiagnoses.push(line);
