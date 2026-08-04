@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import DashboardRagAssistant from '../../components/rag/DashboardRagAssistant';
+import { useShortcuts } from '../../hooks/useShortcuts';
 
 export default function DoctorDashboard({ user, greetingName, currentFormattedDate }) {
   const navigate = useNavigate();
@@ -24,6 +25,33 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
   const handlePatientSelect = (val) => {
     setSearchParams({ admissionId: val });
   };
+
+  const activeIndex = admissions.findIndex(a => a.id === activeAdmissionId);
+
+  const handleNextPatient = () => {
+    if (!admissions || admissions.length === 0) return;
+    const nextIndex = activeIndex < admissions.length - 1 ? activeIndex + 1 : activeIndex;
+    setSearchParams({ admissionId: admissions[nextIndex].id });
+  };
+
+  const handlePrevPatient = () => {
+    if (!admissions || admissions.length === 0) return;
+    const prevIndex = activeIndex > 0 ? activeIndex - 1 : activeIndex;
+    setSearchParams({ admissionId: admissions[prevIndex].id });
+  };
+
+  const handleOpenPatient = () => {
+    if (activeAdmissionId) {
+      navigate(`/patients/${activeAdmissionId}/overview`);
+    }
+  };
+
+  useShortcuts('dashboard', {
+    nextPatient: handleNextPatient,
+    prevPatient: handlePrevPatient,
+    openPatient: handleOpenPatient,
+    admitPatient: () => navigate('/patients/admit'),
+  });
 
   return (
     <div className="flex flex-col gap-6 w-full">

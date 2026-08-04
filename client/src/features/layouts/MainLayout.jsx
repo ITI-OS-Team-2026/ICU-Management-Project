@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
+import { useShortcuts } from '../hooks/useShortcuts';
 
 export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const navigate = useNavigate();
+
+  useShortcuts('global', {
+    goToDashboard: () => navigate('/dashboard'),
+    goToSettings: () => navigate('/settings'),
+    focusSearch: () => document.querySelector('input[type="search"]')?.focus(),
+  });
 
   return (
     <TooltipProvider>
