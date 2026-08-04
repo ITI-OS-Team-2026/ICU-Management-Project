@@ -248,6 +248,17 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+
+  /* Native controls — the date picker's calendar icon, its dropdown panel and
+     the spinners — are painted by the browser, not by our tokens. Without this
+     they stay in their light-mode palette, which renders the calendar icon
+     near-black on a dark field and effectively invisible. */
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
 }
 
 @layer utilities {
