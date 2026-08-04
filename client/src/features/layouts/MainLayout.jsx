@@ -5,15 +5,21 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Sidebar } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { useShortcuts } from '../hooks/useShortcuts';
+import { useShortcutStore } from '../store/shortcutStore';
+import KeyboardShortcutsDialog from '../components/shortcuts/KeyboardShortcutsDialog';
 
 export default function MainLayout() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
+  const toggleShortcutHelp = useShortcutStore((state) => state.toggleShortcutHelp);
 
   useShortcuts('global', {
+    showShortcuts: toggleShortcutHelp,
     goToDashboard: () => navigate('/dashboard'),
     goToSettings: () => navigate('/settings'),
-    focusSearch: () => document.querySelector('input[type="search"]')?.focus(),
+    // Screens opt in by tagging their search box, rather than relying on
+    // input[type="search"] — which no input in this app actually uses.
+    focusSearch: () => document.querySelector('[data-shortcut="search"]')?.focus(),
   });
 
   return (
@@ -38,6 +44,9 @@ export default function MainLayout() {
         </div>
 
       </div>
+
+      {/* Reachable from every screen with `?`. */}
+      <KeyboardShortcutsDialog />
     </TooltipProvider>
   );
 }

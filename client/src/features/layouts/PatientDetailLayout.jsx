@@ -128,15 +128,22 @@ export default function PatientDetailLayout() {
   const riskScore = getRiskScore(vitals, acuity);
   const basePath  = `/patients/${admissionId}`;
 
+  // Every destination here must match a child route in router.jsx. Three of
+  // these used to point at paths that do not exist — `/overview` (the tab is
+  // the index route), `/labs` (no such tab) and `/ai` (it is `ai-assistant`) —
+  // so those keys silently did nothing.
   useShortcuts('patientDetails', {
     closePatient: () => navigate('/dashboard'),
-    openOverview: () => navigate(`${basePath}/overview`),
+    openOverview: () => navigate(basePath),
     openVitals: () => navigate(`${basePath}/vitals`),
-    openLabs: () => navigate(`${basePath}/labs`),
+    openDiagnoses: () => navigate(`${basePath}/diagnoses`),
     openMedications: () => navigate(`${basePath}/medications`),
-    openAiAssistant: () => navigate(`${basePath}/ai`),
     openNotes: () => navigate(`${basePath}/notes`),
     openDocuments: () => navigate(`${basePath}/documents`),
+    openFollowUps: () => navigate(`${basePath}/follow-ups`),
+    openApprovals: () => navigate(`${basePath}/treatment-approvals`),
+    openAlerts: () => navigate(`${basePath}/alerts`),
+    openAiAssistant: () => navigate(`${basePath}/ai-assistant`),
   });
 
   // ─ Loading ──────────────────────────────────────────────────────────────────

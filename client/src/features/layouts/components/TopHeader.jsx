@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle, Keyboard } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 import { MobileSidebar } from './MobileSidebar';
+import { useShortcutStore } from '../../store/shortcutStore';
 
 const ROUTE_TITLES = {
   '/': 'Dashboard',
@@ -27,6 +28,7 @@ const ROUTE_TITLES = {
 export function TopHeader({ isCollapsed, setIsCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const openShortcutHelp = useShortcutStore((state) => state.openShortcutHelp);
   const pageTitle = ROUTE_TITLES[location.pathname] || 'SmartCare ICU';
 
   return (
@@ -51,6 +53,19 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
       </h1>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        {/* Shortcuts are worthless if nobody knows they exist; `?` alone is not
+            discoverable, so it gets a button on every screen size — tablets and
+            docked phones have keyboards too. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={openShortcutHelp}
+          className="text-muted-foreground hover:text-foreground h-8 w-8"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          <Keyboard className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"

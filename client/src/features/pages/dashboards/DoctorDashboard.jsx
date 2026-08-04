@@ -42,7 +42,8 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
   const handleOpenPatient = () => {
     if (activeAdmissionId) {
-      navigate(`/patients/${activeAdmissionId}/overview`);
+      // The overview tab is the index route — `/overview` matches nothing.
+      navigate(`/patients/${activeAdmissionId}`);
     }
   };
 
