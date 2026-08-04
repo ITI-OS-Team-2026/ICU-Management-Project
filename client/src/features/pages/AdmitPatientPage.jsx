@@ -51,6 +51,10 @@ const admissionSchema = z
       .string()
       .min(1, "Attending specialist is required")
       .uuid("Select a valid attending specialist"),
+    nurse_id: z
+      .string()
+      .min(1, "Nurse assignment is required")
+      .uuid("Select a valid nurse"),
 
     national_id: z
       .string()
@@ -282,6 +286,7 @@ const admissionSchema = z
 const defaultValues = {
   bed_id: "",
   doctor_id: "",
+  nurse_id: "",
   national_id: "",
   name: "",
   place_of_transfer: "",
@@ -394,8 +399,8 @@ const steps = [
   {
     title: "Setup",
     component: Step0Setup,
-    fields: ["bed_id", "doctor_id"],
-    owns: ["bed_id", "doctor_id"],
+    fields: ["bed_id", "doctor_id", "nurse_id"],
+    owns: ["bed_id", "doctor_id", "nurse_id"],
   },
   {
     title: "Admission Info",
@@ -717,6 +722,7 @@ export default function AdmitPatientPage() {
         admission: {
           bed_id: data.bed_id,
           doctor_id: data.doctor_id,
+          nurse_id: data.nurse_id,
           transfer_reason: emptyToUndefined(data.transfer_reason),
           place_of_transfer: emptyToUndefined(data.place_of_transfer),
           transfer_doctor_name: emptyToUndefined(data.transfer_doctor_name),
