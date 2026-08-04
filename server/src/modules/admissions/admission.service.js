@@ -107,6 +107,8 @@ const createFullAdmission = async (req, data) => {
       occupation: data.patient.occupation || null,
       maritalStatus: data.patient.marital_status || null,
       handedness: data.patient.handedness || null,
+      childrenCount: data.patient.children_count ?? null,
+      youngestChildAge: data.patient.youngest_child_age || null,
     };
 
     const patient = await tx.patient.upsert({
@@ -114,6 +116,20 @@ const createFullAdmission = async (req, data) => {
       update: patientData,
       create: patientData,
     });
+
+    // A patient can only occupy one ICU bed. Without this the same MRN could be
+    // admitted to two beds at once, splitting their vitals and drug chart
+    // across two records.
+    const patientAlreadyAdmitted = await tx.admission.findFirst({
+      where: { patientId: patient.id, status: "ACTIVE" },
+      include: { bed: { select: { bedNumber: true } } },
+    });
+    if (patientAlreadyAdmitted) {
+      throw new APIError(
+        `${patient.name} already has an active admission in bed ${patientAlreadyAdmitted.bed?.bedNumber || "unknown"}. Discharge that admission first.`,
+        409
+      );
+    }
 
     // 3. Upsert Medical History (if provided)
     if (data.medical_history) {
@@ -130,6 +146,14 @@ const createFullAdmission = async (req, data) => {
         inheritedDiseases: data.medical_history.inherited_diseases || null,
         freeText: data.medical_history.free_text || null,
         customFields: data.medical_history.custom_fields || null,
+        // Previously dropped on the floor: the client has always sent these,
+        // the Joi schema has always accepted them, and the columns exist — but
+        // they were never written, so Step 2's personal and female history was
+        // silently lost on every admission.
+        specialHabits: data.medical_history.special_habits || null,
+        bloodTransfusion: data.medical_history.blood_transfusion ?? false,
+        menstrualHistory: data.medical_history.menstrual_history || null,
+        obstetricHistory: data.medical_history.obstetric_history || null,
       };
 
       await tx.medicalHistory.upsert({
@@ -140,6 +164,31 @@ const createFullAdmission = async (req, data) => {
           ...mhData
         },
       });
+    }
+
+    // 3b. Record the patient's allergies. These drive the prescribing safety
+    // check, so an allergy captured here is what blocks a conflicting drug
+    // order later.
+    if (Array.isArray(data.allergies) && data.allergies.length > 0) {
+      const existing = await tx.allergy.findMany({
+        where: { patientId: patient.id, isArchived: false },
+        select: { allergen: true },
+      });
+      const known = new Set(existing.map((a) => a.allergen.trim().toLowerCase()));
+
+      const fresh = data.allergies.filter(
+        (a) => !known.has(a.allergen.trim().toLowerCase())
+      );
+
+      if (fresh.length > 0) {
+        await tx.allergy.createMany({
+          data: fresh.map((a) => ({
+            patientId: patient.id,
+            allergen: a.allergen.trim(),
+            severity: a.severity || null,
+          })),
+        });
+      }
     }
 
     // 4. Create Admission
@@ -243,7 +292,36 @@ const createFullAdmission = async (req, data) => {
       });
     }
 
-    // 8. Update Bed Status
+    // 8. Create the investigation orders (Step 7). Previously these were POSTed
+    // one at a time after the admission had already committed, so a failure
+    // part-way left a live admission with an incomplete work-up.
+    if (Array.isArray(data.investigations) && data.investigations.length > 0) {
+      await tx.investigationOrder.createMany({
+        data: data.investigations.map((inv) => ({
+          admissionId: admission.id,
+          orderedById: req.user.id,
+          orderName: inv.order_name,
+          type: inv.type || "Lab",
+          ...(inv.order_date ? { orderDate: new Date(inv.order_date) } : {}),
+        })),
+      });
+    }
+
+    // 9. Record the admission examination (Steps 4 and 5). This used to be a
+    // fire-and-forget POST whose failure was swallowed by a console.warn, so
+    // both examinations could vanish without the clinician ever being told.
+    if (data.examination) {
+      await tx.clinicalExamination.create({
+        data: {
+          admissionId: admission.id,
+          examinerId: req.user.id,
+          generalExams: data.examination.general_exams,
+          localExams: data.examination.local_exams,
+        },
+      });
+    }
+
+    // 10. Update Bed Status
     await tx.bed.update({
       where: { id: data.admission.bed_id },
       data: { status: "OCCUPIED" },

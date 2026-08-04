@@ -38,10 +38,11 @@ const nurseAssignSchema = Joi.object({
   nurse_id: Joi.string().uuid().required(),
 });
 
-const { patientCreateSchema, medicalHistoryCreateSchema } = require("../patients/patient.schema");
+const { patientCreateSchema, medicalHistoryCreateSchema, allergyCreateSchema } = require("../patients/patient.schema");
 const { createVitalSignSchema } = require("../vitalSigns/vitalSign.schema");
 const { createMedicationSchema } = require("../medications/medication.schema");
 const { diagnosisCreateSchema } = require("../diagnoses/diagnosis.schema");
+const { createInvestigationOrderSchema } = require("../investigationOrders/investigationOrder.schema");
 
 const fullAdmissionCreateSchema = Joi.object({
   patient: patientCreateSchema.required(),
@@ -72,6 +73,20 @@ const fullAdmissionCreateSchema = Joi.object({
   // problem list is populated from admission onwards, rather than the free-text
   // `provisional_diagnosis` narrative being the only record.
   diagnoses: Joi.array().items(diagnosisCreateSchema).optional().default([]),
+  // Step 2 — the allergens themselves, not just the yes/no flag. These are what
+  // the prescribing safety check reads.
+  allergies: Joi.array().items(allergyCreateSchema).optional().default([]),
+  // Step 7 — investigation orders, written with the admission rather than
+  // POSTed one at a time afterwards.
+  investigations: Joi.array()
+    .items(createInvestigationOrderSchema)
+    .optional()
+    .default([]),
+  // Steps 4 and 5 — the admission examination.
+  examination: Joi.object({
+    general_exams: Joi.object().required(),
+    local_exams: Joi.object().required(),
+  }).optional(),
 });
 
 module.exports = {

@@ -99,6 +99,16 @@ const admissionSchema = z
     has_allergies: z.boolean().default(false),
     traveled_abroad: z.boolean().default(false),
     custom_fields: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+    // The allergens behind the has_allergies switch. Blank rows are dropped on
+    // submit, so an empty row the user added and abandoned is not an error.
+    allergies: z
+      .array(
+        z.object({
+          allergen: z.string().optional(),
+          severity: z.string().optional(),
+        })
+      )
+      .default([]),
     consanguinity: z.boolean().default(false),
     family_similar_conditions: z.string().optional(),
     inherited_diseases: z.string().optional(),
@@ -215,7 +225,6 @@ const admissionSchema = z
       .array(
         z.object({
           type: z.string().min(1, "Type is required"),
-          order_date: z.date().optional(),
         })
       )
       .default([]),
@@ -310,6 +319,7 @@ const defaultValues = {
   has_allergies: false,
   traveled_abroad: false,
   custom_fields: [],
+  allergies: [],
   consanguinity: false,
   family_similar_conditions: "",
   inherited_diseases: "",
@@ -382,17 +392,98 @@ const VITAL_FIELDS = [
   "override_reason",
 ];
 
+// `fields` gates the Next button. `owns` is every field the step renders, and
+// exists so a validation error raised at submit time can be traced back to the
+// step that can actually display it — otherwise Submit fails with the message
+// rendered on a step the user is not looking at, and nothing appears to happen.
 const steps = [
-  { title: "Setup", component: Step0Setup, fields: ["bed_id", "doctor_id"] },
-  { title: "Admission Info", component: Step1AdmissionInfo, fields: ["national_id", "name"] },
-  { title: "History Taking", component: Step2HistoryTaking, fields: ["age", "chief_complaint"] },
-  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS },
-  { title: "General Examination", component: Step4GeneralExamination, fields: [] },
-  { title: "Local Examination", component: Step5LocalExamination, fields: [] },
-  { title: "Provisional Diagnosis", component: Step6ProvisionalDiagnosis, fields: [] },
-  { title: "Investigations", component: Step7Investigations, fields: [] },
-  { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [] },
+  {
+    title: "Setup",
+    component: Step0Setup,
+    fields: ["bed_id", "doctor_id"],
+    owns: ["bed_id", "doctor_id"],
+  },
+  {
+    title: "Admission Info",
+    component: Step1AdmissionInfo,
+    fields: ["national_id", "name"],
+    owns: [
+      "national_id",
+      "name",
+      "place_of_transfer",
+      "transfer_doctor_name",
+      "transfer_reason",
+    ],
+  },
+  {
+    title: "History Taking",
+    component: Step2HistoryTaking,
+    fields: ["age", "chief_complaint"],
+    owns: [
+      "age",
+      "gender",
+      "residence",
+      "occupation",
+      "marital_status",
+      "handedness",
+      "children_count",
+      "youngest_child_age",
+      "chief_complaint",
+      "complaint_analysis",
+      "related_system_symptoms",
+      "other_system_symptoms",
+      "previous_investigations",
+      "previous_treatments",
+      "special_habits",
+      "blood_transfusion",
+      "dm",
+      "htn",
+      "past_history_paragraph",
+      "similar_conditions",
+      "similar_conditions_detail",
+      "past_diseases",
+      "previous_operations",
+      "has_allergies",
+      "allergies",
+      "traveled_abroad",
+      "custom_fields",
+      "consanguinity",
+      "family_similar_conditions",
+      "inherited_diseases",
+      "menstrual_history",
+      "obstetric_history",
+    ],
+  },
+  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS, owns: VITAL_FIELDS },
+  {
+    title: "General Examination",
+    component: Step4GeneralExamination,
+    fields: [],
+    owns: ["general_exam"],
+  },
+  {
+    title: "Local Examination",
+    component: Step5LocalExamination,
+    fields: [],
+    owns: ["local_exam"],
+  },
+  {
+    title: "Provisional Diagnosis",
+    component: Step6ProvisionalDiagnosis,
+    fields: [],
+    owns: ["provisional_diagnosis", "diagnoses"],
+  },
+  { title: "Investigations", component: Step7Investigations, fields: [], owns: ["investigations"] },
+  { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [], owns: ["medications"] },
 ];
+
+/** The earliest step that renders any of the errored fields, or null. */
+function findStepForFields(fieldNames) {
+  for (let i = 0; i < steps.length; i += 1) {
+    if (fieldNames.some((name) => steps[i].owns.includes(name))) return i;
+  }
+  return null;
+}
 
 function parseOptionalInt(value) {
   if (value === undefined || value === null || String(value).trim() === "") return undefined;
@@ -412,6 +503,17 @@ function emptyToUndefined(value) {
 }
 
 const DRAFT_KEY = "smartcare:admit-patient-draft";
+// Long enough to survive a shift interruption, short enough that yesterday's
+// abandoned form never resurfaces under a new patient.
+const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 function loadDraft() {
   try {
@@ -420,15 +522,17 @@ function loadDraft() {
     const parsed = JSON.parse(raw);
     if (!parsed?.values || typeof parsed.values !== "object") return null;
 
-    // Revive Date fields in investigations / medications
-    const values = { ...parsed.values };
-    if (Array.isArray(values.investigations)) {
-      values.investigations = values.investigations.map((inv) => ({
-        ...inv,
-        order_date: inv.order_date ? new Date(inv.order_date) : undefined,
-      }));
+    // A stale draft belongs to a patient who was admitted (or abandoned) hours
+    // ago. Silently repopulating it into a new admission risks carrying one
+    // patient's history into another's record.
+    if (parsed.savedAt && Date.now() - parsed.savedAt > DRAFT_MAX_AGE_MS) {
+      clearDraft();
+      return null;
     }
-    // Medication dates stay as datetime-local strings, so they need no reviving.
+
+    // Every field is stored in the shape its input uses — investigation and
+    // medication dates are plain strings — so nothing needs reviving.
+    const values = { ...parsed.values };
 
     return {
       values: { ...defaultValues, ...values },
@@ -444,14 +548,6 @@ function saveDraft(values, step) {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values, step, savedAt: Date.now() }));
   } catch {
     // ignore quota / private mode
-  }
-}
-
-function clearDraft() {
-  try {
-    sessionStorage.removeItem(DRAFT_KEY);
-  } catch {
-    // ignore
   }
 }
 
@@ -489,6 +585,30 @@ export default function AdmitPatientPage() {
       const el = document.querySelector("[data-slot=form-message], [aria-invalid=true]");
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+  };
+
+  // react-hook-form hands us the full error map on a failed submit. Without
+  // this, an error on an earlier step leaves the user on Step 8 clicking a
+  // button that appears to do nothing.
+  const handleInvalidSubmit = (errors) => {
+    const errored = Object.keys(errors || {});
+    const targetStep = findStepForFields(errored);
+
+    if (targetStep !== null && targetStep !== currentStep) {
+      setCurrentStep(targetStep);
+      window.scrollTo(0, 0);
+      setSubmitError(
+        `Please fix the highlighted problem in "${steps[targetStep].title}" before submitting.`
+      );
+    } else if (targetStep === null && errored.length > 0) {
+      // A cross-field rule (the critical-vitals override) that belongs to no
+      // single step — say so rather than failing silently.
+      setSubmitError(
+        Object.values(errors)[0]?.message || "Please review the form before submitting."
+      );
+    }
+
+    scrollToFirstError();
   };
 
   const handleNext = async () => {
@@ -637,6 +757,28 @@ export default function AdmitPatientPage() {
                 : undefined,
             }
           : undefined,
+        // Allergens, not just the yes/no flag — these are what block a
+        // conflicting drug order at prescribing time.
+        allergies: (data.allergies || [])
+          .filter((a) => a.allergen?.trim())
+          .map((a) => ({
+            allergen: a.allergen.trim(),
+            severity: emptyToUndefined(a.severity?.trim()),
+          })),
+        // Steps 4 and 5. Sent with the admission so a failure can no longer
+        // lose both examinations behind a console warning.
+        examination: {
+          general_exams: data.general_exam,
+          local_exams: data.local_exam,
+        },
+        // Step 7. Written in the same transaction rather than POSTed one at a
+        // time after the admission has already committed.
+        investigations: (data.investigations || [])
+          .filter((inv) => inv.type?.trim())
+          .map((inv) => ({
+            order_name: inv.type.trim(),
+            type: "Lab",
+          })),
         // Sent with the admission itself so the drug list is written in the
         // same transaction — a failure here rolls the whole admission back
         // instead of leaving a patient with half a treatment plan.
@@ -663,25 +805,9 @@ export default function AdmitPatientPage() {
         throw new Error("Failed to extract admission ID from response");
       }
 
-      try {
-        await api.post(`/admissions/${admissionId}/examinations`, {
-          general_exams: data.general_exam,
-          local_exams: data.local_exam,
-        });
-      } catch (err) {
-        console.warn("Examinations endpoint might not exist yet", err);
-      }
-
-      const validInvestigations = data.investigations?.filter((inv) => inv.type?.trim()) || [];
-      for (const inv of validInvestigations) {
-        await api.post(`/admissions/${admissionId}/investigation-orders`, {
-          order_name: inv.type,
-          type: "Lab",
-          order_date: inv.order_date ? inv.order_date.toISOString() : undefined,
-        });
-      }
-
-      // Medications were created with the admission above.
+      // Everything the form collects — examination, diagnoses, investigations,
+      // medications and allergies — was written in that one transaction. There
+      // is no follow-up request that can leave the record half-built.
 
       clearDraft();
       navigate(`/patients`);
@@ -775,7 +901,7 @@ export default function AdmitPatientPage() {
                     type="button"
                     className="cursor-pointer"
                     disabled={isSubmitting}
-                    onClick={() => form.handleSubmit(onSubmit, scrollToFirstError)()}
+                    onClick={() => form.handleSubmit(onSubmit, handleInvalidSubmit)()}
                   >
                     {isSubmitting ? "Submitting..." : "Submit Admission"}
                   </Button>

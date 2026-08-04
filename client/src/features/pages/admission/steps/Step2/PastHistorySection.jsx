@@ -21,6 +21,18 @@ export default function PastHistorySection({ form }) {
     name: "custom_fields"
   });
 
+  // The allergy switch on its own records nothing a prescriber can be warned
+  // about — the allergen list is what the medication safety check reads.
+  const hasAllergies = form.watch("has_allergies");
+  const {
+    fields: allergyFields,
+    append: appendAllergy,
+    remove: removeAllergy,
+  } = useFieldArray({
+    control: form.control,
+    name: "allergies",
+  });
+
   // Since past_diseases is an array of strings but react-hook-form useFieldArray works best with objects,
   // we will map them slightly differently or just store them as objects with a "value" key for the form.
   // Wait, in schema past_diseases is z.array(z.string()). useFieldArray requires objects.
@@ -115,6 +127,67 @@ export default function PastHistorySection({ form }) {
             )}
           />
         </div>
+
+        {hasAllergies && (
+          <div className="animate-in fade-in slide-in-from-top-2 space-y-3 border-t border-border pt-4">
+            <div className="flex flex-col gap-1">
+              <FormLabel>Known allergens</FormLabel>
+              <p className="text-xs text-muted-foreground">
+                Each allergen recorded here blocks a conflicting drug order later. Leaving this
+                empty means the prescribing safety check has nothing to match against.
+              </p>
+            </div>
+
+            {allergyFields.map((field, index) => (
+              <div key={field.id} className="flex items-start gap-3">
+                <FormField
+                  control={form.control}
+                  name={`allergies.${index}.allergen`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Input placeholder="e.g. Penicillin" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`allergies.${index}.severity`}
+                  render={({ field }) => (
+                    <FormItem className="w-40">
+                      <FormControl>
+                        <Input placeholder="Severity" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeAllergy(index)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => appendAllergy({ allergen: "", severity: "" })}
+              className="border-dashed"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add allergen
+            </Button>
+          </div>
+        )}
 
         <div className="pt-4 border-t border-border">
           <FormField
