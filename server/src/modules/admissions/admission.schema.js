@@ -4,6 +4,7 @@ const admissionCreateSchema = Joi.object({
   patient_id: Joi.string().uuid().required(),
   bed_id: Joi.string().uuid().required(),
   doctor_id: Joi.string().uuid().required(),
+  nurse_id: Joi.string().uuid().required(),
   transfer_reason: Joi.string().allow(null, "").optional(),
   place_of_transfer: Joi.string().allow(null, "").optional(),
   transfer_doctor_name: Joi.string().allow(null, "").optional(),
@@ -50,6 +51,7 @@ const fullAdmissionCreateSchema = Joi.object({
   admission: Joi.object({
     bed_id: Joi.string().uuid().required(),
     doctor_id: Joi.string().uuid().required(),
+    nurse_id: Joi.string().uuid().required(),
     transfer_reason: Joi.string().allow(null, "").optional(),
     place_of_transfer: Joi.string().allow(null, "").optional(),
     transfer_doctor_name: Joi.string().allow(null, "").optional(),

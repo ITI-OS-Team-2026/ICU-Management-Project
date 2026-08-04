@@ -96,6 +96,10 @@ const createFullAdmission = async (req, data) => {
     if (!doctor || doctor.status !== "ACTIVE") throw new APIError("Doctor not found", 404);
     if (doctor.role !== "ICU_SPECIALIST") throw new APIError("Attending doctor must be an ICU specialist", 400);
 
+    const nurse = await tx.user.findUnique({ where: { id: data.admission.nurse_id } });
+    if (!nurse || nurse.status !== "ACTIVE") throw new APIError("Nurse not found", 404);
+    if (nurse.role !== "ICU_NURSE") throw new APIError("Assigned staff member must be an ICU nurse", 400);
+
     // 2. Upsert Patient
     const patientData = {
       mrn: data.patient.mrn,
@@ -116,20 +120,6 @@ const createFullAdmission = async (req, data) => {
       update: patientData,
       create: patientData,
     });
-
-    // A patient can only occupy one ICU bed. Without this the same MRN could be
-    // admitted to two beds at once, splitting their vitals and drug chart
-    // across two records.
-    const patientAlreadyAdmitted = await tx.admission.findFirst({
-      where: { patientId: patient.id, status: "ACTIVE" },
-      include: { bed: { select: { bedNumber: true } } },
-    });
-    if (patientAlreadyAdmitted) {
-      throw new APIError(
-        `${patient.name} already has an active admission in bed ${patientAlreadyAdmitted.bed?.bedNumber || "unknown"}. Discharge that admission first.`,
-        409
-      );
-    }
 
     // 3. Upsert Medical History (if provided)
     if (data.medical_history) {
@@ -319,7 +309,15 @@ const createFullAdmission = async (req, data) => {
       });
     }
 
-    // 10. Update Bed Status
+    // 10. Auto-assign the selected nurse
+    await tx.admissionNurse.create({
+      data: {
+        admissionId: admission.id,
+        nurseId: data.admission.nurse_id,
+      },
+    });
+
+    // 11. Update Bed Status
     await tx.bed.update({
       where: { id: data.admission.bed_id },
       data: { status: "OCCUPIED" },
@@ -357,11 +355,12 @@ const createAdmission = async (req, data) => {
     throw new APIError("Attending doctor must be an ICU specialist", 400);
   }
 
-  const activeOnBed = await prisma.admission.findFirst({
-    where: { bedId: data.bed_id, status: "ACTIVE" },
-  });
-  if (activeOnBed) {
-    throw new APIError("Bed already has an active admission", 409);
+  const nurse = await prisma.user.findUnique({ where: { id: data.nurse_id } });
+  if (!nurse || nurse.status !== "ACTIVE") {
+    throw new APIError("Nurse not found", 404);
+  }
+  if (nurse.role !== "ICU_NURSE") {
+    throw new APIError("Assigned staff member must be an ICU nurse", 400);
   }
 
   try {
@@ -400,6 +399,13 @@ const createAdmission = async (req, data) => {
           diagnoses: {
             where: { isArchived: false },
           },
+        },
+      });
+
+      await tx.admissionNurse.create({
+        data: {
+          admissionId: admission.id,
+          nurseId: data.nurse_id,
         },
       });
 
