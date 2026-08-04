@@ -33,10 +33,31 @@ const generateTokenForRole = async (email, role) => {
   };
 };
 
+// Every delete is scoped to this suite's own ADM-TEST- patients. An unscoped
+// deleteMany({}) here empties the whole ward when tests point at a shared DB.
+const testPatientFilter = { mrn: { startsWith: "ADM-TEST-" } };
+const testAdmissionFilter = { patient: testPatientFilter };
+
 async function cleanupTestData() {
-  await prisma.admissionNurse.deleteMany({});
-  await prisma.admission.deleteMany({});
-  await prisma.patient.deleteMany({ where: { mrn: { startsWith: "ADM-TEST-" } } });
+  await prisma.medicationAdministration.deleteMany({
+    where: { medication: { admission: testAdmissionFilter } },
+  });
+  await prisma.medication.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.diagnosisConcern.deleteMany({
+    where: { diagnosis: { admission: testAdmissionFilter } },
+  });
+  await prisma.diagnosisAcknowledgement.deleteMany({
+    where: { diagnosis: { admission: testAdmissionFilter } },
+  });
+  await prisma.diagnosis.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.investigationOrder.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.clinicalExamination.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.vitalSign.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admissionNurse.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admission.deleteMany({ where: testAdmissionFilter });
+  await prisma.allergy.deleteMany({ where: { patient: testPatientFilter } });
+  await prisma.medicalHistory.deleteMany({ where: { patient: testPatientFilter } });
+  await prisma.patient.deleteMany({ where: testPatientFilter });
   await prisma.bed.deleteMany({ where: { bedNumber: { startsWith: "ZT" } } });
 }
 

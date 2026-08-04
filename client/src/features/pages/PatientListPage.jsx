@@ -334,6 +334,7 @@ export default function PatientListPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Name, patient ID, diagnosis..."
               className="pl-9 h-9 w-full font-sans"
+              data-shortcut="search"
             />
           </div>
 
