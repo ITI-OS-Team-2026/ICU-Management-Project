@@ -43,6 +43,8 @@ model User {
   vitalSigns              VitalSign[]
   prescribedMedications   Medication[]               @relation("MedicationPrescriber")
   administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")
+  originallyPrescribedMedications Medication[]       @relation("MedicationOriginalPrescriber")
+  discontinuedMedications Medication[]               @relation("MedicationDiscontinuedBy")
   orderedInvestigations   InvestigationOrder[]       @relation("InvestigationOrderedBy")
   labResults              LabResult[]
   clinicalExaminations    ClinicalExamination[]
