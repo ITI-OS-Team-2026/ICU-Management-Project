@@ -91,7 +91,7 @@ export default function AdminBedsPage() {
             Real-time ward occupancy and patient monitoring
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           <Button onClick={refetch} variant="outline" className="shrink-0" disabled={isLoading}>
             <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
