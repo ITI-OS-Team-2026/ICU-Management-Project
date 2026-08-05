@@ -3,6 +3,7 @@ require("dotenv").config();
 const { Pool } = require("pg");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
+const logger = require("./logger");
 
 /**
  * Neon pooler (-pooler) + Prisma interactive $transaction often fails with:
@@ -22,7 +23,7 @@ const pool = new Pool({
 });
 
 pool.on("error", (err) => {
-  console.error("Unexpected idle PostgreSQL pool error:", err.message);
+  logger.error(`Unexpected idle PostgreSQL pool error: ${err.message}`);
 });
 
 const adapter = new PrismaPg(pool);

@@ -1,6 +1,7 @@
+const fs = require("fs");
+const fetch = require("node-fetch");
 const documentService = require("./document.service");
 const APIError = require("../../utils/APIError");
-const fs = require("fs");
 
 const createDocument = async (req, res, next) => {
   try {
@@ -12,20 +13,12 @@ const createDocument = async (req, res, next) => {
       throw new APIError("No file uploaded", 400);
     }
 
-    try {
-      const doc = await documentService.createDocument(admissionId, uploadedBy, req.file, document_type, req);
+    const doc = await documentService.createDocument(admissionId, uploadedBy, req.file, document_type, req);
 
-      res.status(201).json({
-        status: "success",
-        data: doc,
-      });
-    } catch (err) {
-      // Clean up uploaded file on failure so no partial files are left on disk
-      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-      throw err;
-    }
+    res.status(201).json({
+      status: "success",
+      data: doc,
+    });
   } catch (error) {
     next(error);
   }
@@ -53,11 +46,34 @@ const downloadDocument = async (req, res, next) => {
 
     const doc = await documentService.getDocumentById(id);
 
-    if (!fs.existsSync(doc.filePath)) {
-      throw new APIError("Physical file not found on disk", 404);
+    const disposition = `attachment; filename="${doc.originalFilename}"`;
+    const contentType = doc.mimeType || "application/octet-stream";
+
+    if (doc.storageType === "cloudinary" && doc.cloudinaryUrl) {
+      // Proxy the file through the server to avoid cross-origin redirect issues
+      // when the frontend axios call uses responseType: 'blob' + withCredentials.
+      const upstream = await fetch(doc.cloudinaryUrl);
+      if (!upstream.ok) throw new APIError("File could not be retrieved from cloud storage", 502);
+      res.setHeader("Content-Disposition", disposition);
+      res.setHeader("Content-Type", contentType);
+      return upstream.body.pipe(res);
     }
 
-    res.download(doc.filePath, doc.originalFilename);
+    if (doc.storageType === "blob" && doc.fileContent) {
+      res.setHeader("Content-Disposition", disposition);
+      res.setHeader("Content-Type", contentType);
+      return res.send(doc.fileContent);
+    }
+
+    // Legacy: documents uploaded before cloud storage was introduced.
+    if (doc.storageType === "local" && doc.filePath) {
+      if (!fs.existsSync(doc.filePath)) {
+        throw new APIError("Physical file not found on disk", 404);
+      }
+      return res.download(doc.filePath, doc.originalFilename);
+    }
+
+    throw new APIError("File is not available", 404);
   } catch (error) {
     next(error);
   }

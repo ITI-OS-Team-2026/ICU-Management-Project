@@ -9,7 +9,8 @@ const generalExamFields = [
   { name: "complexion", label: "Complexion" },
   { name: "decubitus_attitude", label: "Decubitus and Attitude" },
   { name: "head_neck", label: "Head and Neck" },
-  { name: "upper_lower_limbs", label: "Upper and Lower Limbs" },
+  { name: "upper_limbs", label: "Upper Limbs" },
+  { name: "lower_limbs", label: "Lower Limbs" },
   { name: "skin_lymph_nodes", label: "Skin and Lymph Nodes" },
   { name: "other_systems", label: "Other Systems" },
 ];

@@ -66,9 +66,18 @@ const createBed = async (req, res, next) => {
 
 const getBeds = async (req, res, next) => {
   try {
-    const { status } = req.query;
-    const beds = await adminService.getBeds({ status });
+    const { status, page, limit } = req.query;
+    const beds = await adminService.getBeds({ status, page, limit });
     res.status(200).json(beds);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getBedStats = async (req, res, next) => {
+  try {
+    const stats = await adminService.getBedStats();
+    res.status(200).json(stats);
   } catch (error) {
     next(error);
   }
@@ -96,7 +105,7 @@ const getAuditLogs = async (req, res, next) => {
 
 const getAuditLogStats = async (req, res, next) => {
   try {
-    const stats = await adminService.getAuditLogStats();
+    const stats = await adminService.getAuditLogStats(req.query);
     res.status(200).json(stats);
   } catch (error) {
     next(error);
@@ -112,6 +121,7 @@ module.exports = {
   deleteUser,
   createBed,
   getBeds,
+  getBedStats,
   updateBed,
   getUserStats,
   getAuditLogs,

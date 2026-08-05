@@ -35,15 +35,21 @@ model User {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
-  loginAttempts      LoginAttempt[]
-  refreshTokens      RefreshToken[]
-  auditLogs          AuditLog[]
-  admissionsAsDoctor Admission[]      @relation("AdmissionDoctor")
-  nurseAssignments   AdmissionNurse[] @relation("AdmissionNurseAssignments")
+  loginAttempts           LoginAttempt[]
+  auditLogs               AuditLog[]
+  admissionsAsDoctor      Admission[]                @relation("AdmissionDoctor")
+  nurseAssignments        AdmissionNurse[]           @relation("AdmissionNurseAssignments")
   diagnoses               Diagnosis[]
+  originalDiagnoses       Diagnosis[]                @relation("DiagnosisOriginalAuthor")
+  diagnosisStatusChanges  Diagnosis[]                @relation("DiagnosisStatusChangedBy")
+  diagnosisAcknowledgements DiagnosisAcknowledgement[] @relation("DiagnosisAcknowledgedBy")
+  diagnosisConcernsRaised    DiagnosisConcern[]      @relation("DiagnosisConcernRaisedBy")
+  diagnosisConcernsResponded DiagnosisConcern[]      @relation("DiagnosisConcernRespondedBy")
   vitalSigns              VitalSign[]
   prescribedMedications   Medication[]               @relation("MedicationPrescriber")
   administeredMedications MedicationAdministration[] @relation("MedicationAdministeredBy")
+  originallyPrescribedMedications Medication[]       @relation("MedicationOriginalPrescriber")
+  discontinuedMedications Medication[]               @relation("MedicationDiscontinuedBy")
   orderedInvestigations   InvestigationOrder[]       @relation("InvestigationOrderedBy")
   labResults              LabResult[]
   clinicalExaminations    ClinicalExamination[]
@@ -51,10 +57,17 @@ model User {
   nursingNotes            NursingNote[]
   followUps               FollowUp[]
   uploadedDocuments       MedicalDocument[]
-  aiSummariesRequested    AiSummary[]  @relation("AiSummaryRequester")
-  aiQueriesAsked          AiQueryLog[] @relation("AiQueryAsker")
-  passwordResetRequests   PasswordResetRequest[] @relation("PasswordResetRequests")
-  resolvedPasswordResets  PasswordResetRequest[] @relation("PasswordResetResolutions")
+  aiSummariesRequested    AiSummary[]                @relation("AiSummaryRequester")
+  aiQueriesAsked          AiQueryLog[]               @relation("AiQueryAsker")
+  aiChatSessions          AiChatSession[]            @relation("AiChatSessionOwner")
+  passwordResetRequests   PasswordResetRequest[]     @relation("PasswordResetRequests")
+  resolvedPasswordResets  PasswordResetRequest[]     @relation("PasswordResetResolutions")
+  notifications           Notification[]             @relation("UserNotifications")
+  treatmentApprovalsAsked TreatmentApproval[]        @relation("TreatmentApprovalRequester")
+  treatmentApprovalsMade  TreatmentApproval[]        @relation("TreatmentApprovalApprover")
+  treatmentsStarted       TreatmentApproval[]        @relation("TreatmentApprovalStarter")
+  treatmentsCompleted     TreatmentApproval[]        @relation("TreatmentApprovalCompleter")
+  alertReviews            AlertReview[]              @relation("AlertReviewer")
 
   @@index([role])
   @@index([status])
@@ -76,14 +89,3 @@ model LoginAttempt {
   @@index([success])
 }
 
-model RefreshToken {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime  @default(now())
-}

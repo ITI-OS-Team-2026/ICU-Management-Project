@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -13,10 +13,13 @@ import {
   Grid,
   List,
   RefreshCcw,
+  BellRing,
 } from 'lucide-react';
 
-import { usePatients } from '../hooks/usePatients';
+import { usePatientCensus } from '../hooks/usePatientCensus';
+import { patientsService } from '../services/patientsService';
 import { useAuthStore } from '../store/authStore';
+import { SummonDoctorModal } from '@/components/notifications/SummonDoctorModal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,19 +123,22 @@ const formatDate = (dateString) => {
 
 export default function PatientListPage() {
   const navigate = useNavigate();
-  const { patients, isLoading, error, refetch } = usePatients();
+  const pageSize = 12;
+
+  // Pagination, search and filtering are all server-side — see usePatientCensus.
+  const {
+    patients, meta, stats, units, isLoading, error, refetch,
+    search: searchQuery, setSearch: setSearchQuery,
+    acuityFilter, setAcuityFilter,
+    unitFilter, setUnitFilter,
+    page: currentPage, setPage: setCurrentPage,
+  } = usePatientCensus({ pageSize });
+
   const user = useAuthStore((s) => s.user);
   const isNurse = user?.role === 'ICU_NURSE';
 
-  // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [acuityFilter, setAcuityFilter] = useState('All');
-  const [unitFilter, setUnitFilter] = useState('All');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
-
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  const [summonTarget, setSummonTarget] = useState(null);
 
   // Pre-calculate derived acuity and risk for all patients
   const processedPatients = useMemo(() => {
@@ -165,64 +171,43 @@ export default function PatientListPage() {
     });
   }, [patients]);
 
-  // Census counts
-  const stats = useMemo(() => {
-    return processedPatients.reduce(
-      (acc, p) => {
-        acc.total++;
-        if (p.acuity === 'Critical') acc.critical++;
-        else if (p.acuity === 'Watchful') acc.watchful++;
-        else if (p.acuity === 'Stable') acc.stable++;
-        return acc;
-      },
-      { total: 0, critical: 0, watchful: 0, stable: 0 }
-    );
-  }, [processedPatients]);
+  // Ward-wide census counts come from the server — they must reflect every
+  // admission, not just the page on screen.
+  const availableUnits = useMemo(() => ['All', ...units], [units]);
 
-  // Dynamic bed units list derived from current patient census
-  const availableUnits = useMemo(() => {
-    const units = new Set(['All']);
-    processedPatients.forEach((p) => {
-      if (p.bedUnit && p.bedUnit !== 'Unknown') {
-        units.add(p.bedUnit);
-      }
-    });
-    return Array.from(units);
-  }, [processedPatients]);
+  // The server already applied search, acuity, unit and paging.
+  const paginatedPatients = processedPatients;
+  const totalPages = meta.totalPages || 1;
+  const totalMatching = meta.total || 0;
 
-  // Filtered patients
-  const filteredPatients = useMemo(() => {
-    return processedPatients.filter((p) => {
-      // 1. Text Search
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
-        p.patient?.name?.toLowerCase().includes(searchLower) ||
-        p.patient?.mrn?.toLowerCase().includes(searchLower) ||
-        p.primaryDiagnosis?.toLowerCase().includes(searchLower);
+  const [isExporting, setIsExporting] = useState(false);
 
-      // 2. Acuity Filter
-      const matchesAcuity = acuityFilter === 'All' || p.acuity === acuityFilter;
+  const handleCensusPdf = async () => {
+    // The grid only holds one page, so pull every row matching the current
+    // filters before building the report.
+    setIsExporting(true);
+    let filteredPatients;
+    try {
+      const res = await patientsService.getActiveAdmissionsPaginated({
+        status: 'ACTIVE',
+        page: 1,
+        limit: 100,
+        ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
+        ...(acuityFilter !== 'All' ? { acuity: acuityFilter } : {}),
+        ...(unitFilter !== 'All' ? { unit: unitFilter } : {}),
+      });
+      filteredPatients = (res?.data || []).map((p) => ({
+        ...p,
+        ...calculateAcuityAndRisk(p.latestVitals),
+        primaryDiagnosis: p.diagnosesList?.[0]?.conditionName || p.provisional_diagnosis || 'No Diagnosis',
+      }));
+    } catch (err) {
+      console.error('Failed to build census export:', err);
+      setIsExporting(false);
+      return;
+    }
+    setIsExporting(false);
 
-      // 3. Unit Filter
-      const matchesUnit = unitFilter === 'All' || p.bedUnit === unitFilter;
-
-      return matchesSearch && matchesAcuity && matchesUnit;
-    });
-  }, [processedPatients, searchQuery, acuityFilter, unitFilter]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, acuityFilter, unitFilter]);
-
-  // Paginated slice
-  const totalPages = Math.ceil(filteredPatients.length / pageSize) || 1;
-  const paginatedPatients = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredPatients.slice(startIndex, startIndex + pageSize);
-  }, [filteredPatients, currentPage, pageSize]);
-
-  const handleCensusPdf = () => {
     const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const rows = filteredPatients.map(p => `
       <tr>
@@ -303,7 +288,7 @@ export default function PatientListPage() {
           <Button onClick={refetch} variant="outline" size="icon" disabled={isLoading} className="h-9 w-9">
             <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={handleCensusPdf} variant="outline" disabled={isLoading} className="gap-2 h-9">
+          <Button onClick={handleCensusPdf} variant="outline" disabled={isLoading || isExporting} className="gap-2 h-9">
             <Download className="h-4 w-4" />
             Census PDF
           </Button>
@@ -349,6 +334,7 @@ export default function PatientListPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Name, patient ID, diagnosis..."
               className="pl-9 h-9 w-full font-sans"
+              data-shortcut="search"
             />
           </div>
 
@@ -415,7 +401,7 @@ export default function PatientListPage() {
         <div className="flex h-48 items-center justify-center p-6 bg-card border border-border rounded-xl">
           <p className="text-destructive font-sans font-medium">Error loading patient census: {error}</p>
         </div>
-      ) : filteredPatients.length === 0 ? (
+      ) : totalMatching === 0 ? (
         <div className="flex flex-col h-48 items-center justify-center p-6 bg-card border border-border rounded-xl">
           <Users className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-muted-foreground font-sans font-medium">No matching patients found in this census.</p>
@@ -432,7 +418,7 @@ export default function PatientListPage() {
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Vitals</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">AI Risk</TableHead>
                 <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Care Team</TableHead>
-                {!isNurse && <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>}
+                <TableHead className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider pr-6 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -531,9 +517,21 @@ export default function PatientListPage() {
                       </div>
                     </TableCell>
 
-                    {/* Open action button */}
-                    {!isNurse && (
-                      <TableCell className="pr-6 text-right">
+                    {/* Open / Summon action buttons — nurses get both, so they
+                        can reach the chart to record treatment execution. */}
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isNurse && (
+                          <Button
+                            onClick={() => setSummonTarget(p)}
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                          >
+                            Summon
+                            <BellRing className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           onClick={() => navigate(`/patients/${p.id}`)}
                           variant="secondary"
@@ -543,8 +541,8 @@ export default function PatientListPage() {
                           Open
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
-                      </TableCell>
-                    )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -620,12 +618,23 @@ export default function PatientListPage() {
                   <div className="h-px bg-border/50" />
 
                   {/* Care Team & Action */}
-                  <div className="flex justify-between items-center gap-4">
+                    <div className="flex justify-between items-center gap-4">
                     <div className="flex flex-col">
                       <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
                       <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    {!isNurse && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isNurse && (
+                        <Button
+                          onClick={() => setSummonTarget(p)}
+                          variant="destructive"
+                          size="sm"
+                          className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                        >
+                          Summon
+                          <BellRing className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         onClick={() => navigate(`/patients/${p.id}`)}
                         variant="secondary"
@@ -635,7 +644,7 @@ export default function PatientListPage() {
                         Open
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -645,10 +654,10 @@ export default function PatientListPage() {
       )}
 
       {/* Pagination Controls */}
-      {!isLoading && !error && filteredPatients.length > 0 && totalPages > 1 && (
+      {!isLoading && !error && totalMatching > 0 && totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between pt-2 gap-4">
           <p className="text-sm font-sans text-muted-foreground">
-            Showing <span className="font-bold text-foreground">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-foreground">{Math.min(currentPage * pageSize, filteredPatients.length)}</span> of <span className="font-bold text-foreground">{filteredPatients.length}</span> patients
+            Showing <span className="font-bold text-foreground">{(currentPage - 1) * pageSize + 1}</span> to <span className="font-bold text-foreground">{Math.min(currentPage * pageSize, totalMatching)}</span> of <span className="font-bold text-foreground">{totalMatching}</span> patients
           </p>
           <div className="flex gap-2">
             <Button
@@ -675,6 +684,13 @@ export default function PatientListPage() {
           </div>
         </div>
       )}
+
+      {/* ── Modals ──────────────────────────────────────────────────────── */}
+      <SummonDoctorModal 
+        open={!!summonTarget} 
+        onClose={() => setSummonTarget(null)} 
+        admission={summonTarget} 
+      />
     </div>
   );
 }

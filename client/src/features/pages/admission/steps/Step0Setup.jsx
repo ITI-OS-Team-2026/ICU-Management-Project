@@ -19,6 +19,7 @@ export default function Step0Setup({ form }) {
 
   const [beds, setBeds] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [nurses, setNurses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -27,20 +28,22 @@ export default function Step0Setup({ form }) {
     async function fetchData() {
       setLoadError(null);
       try {
-        const [bedsRes, docsRes] = await Promise.all([
+        const [bedsRes, docsRes, nursesRes] = await Promise.all([
           api.get("/admin/beds", { params: { status: "AVAILABLE" } }),
           isResident
             ? api.get("/admin/users", { params: { role: "specialist", status: "ACTIVE", limit: 100 } })
             : Promise.resolve({ data: { data: [] } }),
+          api.get("/admin/users", { params: { role: "nurse", status: "ACTIVE", limit: 100 } }),
         ]);
 
         if (cancelled) return;
         setBeds(unwrapList(bedsRes.data));
         setDoctors(unwrapList(docsRes.data));
+        setNurses(unwrapList(nursesRes.data));
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to fetch setup data:", error);
-        setLoadError(error?.response?.data?.message || "Failed to load beds or specialists.");
+        setLoadError(error?.response?.data?.message || "Failed to load beds, specialists or nurses.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -64,7 +67,7 @@ export default function Step0Setup({ form }) {
     <Card>
       <CardHeader>
         <CardTitle>Setup Admission</CardTitle>
-        <CardDescription>Select the bed and attending physician before proceeding.</CardDescription>
+        <CardDescription>Select the bed, attending physician, and assigned nurse before proceeding.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative">
         {loading && (
@@ -89,7 +92,12 @@ export default function Step0Setup({ form }) {
               >
                 <FormControl>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an available bed" />
+                    <SelectValue placeholder="Select an available bed">
+                      {(value) => {
+                        const bed = beds.find((b) => b.id === value);
+                        return bed ? `Bed ${bed.bed_number}` : null;
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -124,7 +132,12 @@ export default function Step0Setup({ form }) {
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select attending specialist" />
+                      <SelectValue placeholder="Select attending specialist">
+                        {(value) => {
+                          const doc = doctors.find((d) => d.id === value);
+                          return doc ? `Dr. ${doc.first_name} ${doc.last_name}` : null;
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -165,6 +178,45 @@ export default function Step0Setup({ form }) {
             />
           </div>
         )}
+
+        <FormField
+          control={form.control}
+          name="nurse_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Assign Nurse <span className="text-destructive">*</span></FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={(val) => field.onChange(val ?? "")}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select an available nurse">
+                      {(value) => {
+                        const nurse = nurses.find((n) => n.id === value);
+                        return nurse ? `${nurse.first_name} ${nurse.last_name}, RN` : null;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {nurses.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      {loading ? "Loading nurses..." : "No nurses available"}
+                    </div>
+                  ) : (
+                    nurses.map((nurse) => (
+                      <SelectItem key={nurse.id} value={nurse.id}>
+                        {nurse.first_name} {nurse.last_name}, RN
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </CardContent>
     </Card>
   );

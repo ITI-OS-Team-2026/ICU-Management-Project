@@ -7,7 +7,9 @@ const {
   userCreateSchema,
   userUpdateSchema,
   bedCreateSchema,
-  bedUpdateSchema
+  bedUpdateSchema,
+  auditLogQuerySchema,
+  auditLogStatsQuerySchema
 } = require("./admin.schema");
 
 const router = express.Router();
@@ -32,7 +34,7 @@ router.get(
 router.get(
   "/users",
   verifyToken,
-  restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT"]),
+  restrictTo(["SYSTEM_ADMIN", "ICU_SPECIALIST", "MEDICAL_RESIDENT", "ICU_NURSE"]),
   adminController.getUsers
 );
 
@@ -67,6 +69,14 @@ router.post(
   adminController.createBed
 );
 
+// Ward-wide counts for the bed grid, which is paged and can't total its own rows.
+router.get(
+  "/beds/stats",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN", "ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  adminController.getBedStats
+);
+
 router.get(
   "/beds",
   verifyToken,
@@ -87,6 +97,7 @@ router.get(
   "/audit-logs/stats",
   verifyToken,
   restrictTo(["SYSTEM_ADMIN"]),
+  validate({ query: auditLogStatsQuerySchema }),
   adminController.getAuditLogStats
 );
 
@@ -94,6 +105,7 @@ router.get(
   "/audit-logs",
   verifyToken,
   restrictTo(["SYSTEM_ADMIN"]),
+  validate({ query: auditLogQuerySchema }),
   adminController.getAuditLogs
 );
 

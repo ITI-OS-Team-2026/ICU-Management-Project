@@ -27,23 +27,25 @@ model Admission {
   createdAt              DateTime        @default(now()) @map("created_at")
   updatedAt              DateTime        @updatedAt @map("updated_at")
 
-  patient   Patient          @relation(fields: [patientId], references: [id])
-  bed       Bed              @relation(fields: [bedId], references: [id])
-  doctor    User             @relation("AdmissionDoctor", fields: [doctorId], references: [id])
-  nurses    AdmissionNurse[]
-  diagnoses Diagnosis[]
-  vitalSigns     VitalSign[]
-  medications    Medication[]
-  investigationOrders InvestigationOrder[]
-  labResults          LabResult[]
+  patient              Patient               @relation(fields: [patientId], references: [id])
+  bed                  Bed                   @relation(fields: [bedId], references: [id])
+  doctor               User                  @relation("AdmissionDoctor", fields: [doctorId], references: [id])
+  nurses               AdmissionNurse[]
+  diagnoses            Diagnosis[]
+  vitalSigns           VitalSign[]
+  medications          Medication[]
+  investigationOrders  InvestigationOrder[]
+  labResults           LabResult[]
   clinicalExaminations ClinicalExamination[]
-  clinicalNotes       ClinicalNote[]
-  nursingNotes        NursingNote[]
-  followUps           FollowUp[]
-  documents           MedicalDocument[]
-  documentEmbeddings  DocumentEmbedding[]
-  aiSummaries         AiSummary[]
-  aiQueryLogs         AiQueryLog[]
+  clinicalNotes        ClinicalNote[]
+  nursingNotes         NursingNote[]
+  followUps            FollowUp[]
+  documents            MedicalDocument[]
+  documentEmbeddings   DocumentEmbedding[]
+  aiSummaries          AiSummary[]
+  aiQueryLogs          AiQueryLog[]
+  treatmentApprovals   TreatmentApproval[]
+  alerts               Alert[]
 
   @@index([patientId])
   @@index([status])

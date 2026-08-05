@@ -11,7 +11,7 @@ export function useVitals(admissionId, limit = 50) {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await vitalsService.getVitalsHistory(admissionId, limit);
+      const data = await vitalsService.getVitalsHistory(admissionId, { limit });
       setVitals(data);
     } catch (err) {
       console.error('Failed to fetch vitals:', err);

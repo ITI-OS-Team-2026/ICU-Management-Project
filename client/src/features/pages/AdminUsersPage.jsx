@@ -98,7 +98,7 @@ export default function AdminUsersPage() {
   // Handle search submit (e.g. on enter or blur)
   const handleSearch = (e) => {
     if (e.key === 'Enter') {
-      setFilters(prev => ({ ...prev, search: searchInput }));
+      setFilters(prev => ({ ...prev, search: searchInput, page: 1 }));
     }
   };
 
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleSearch}
-            onBlur={() => setFilters(prev => ({ ...prev, search: searchInput }))}
+            onBlur={() => setFilters(prev => ({ ...prev, search: searchInput, page: 1 }))}
           />
         </div>
 
@@ -268,7 +268,7 @@ export default function AdminUsersPage() {
               key={r.label}
               variant={filters.role === r.value ? "default" : "ghost"}
               className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors ${filters.role === r.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              onClick={() => setFilters(prev => ({ ...prev, role: r.value }))}
+              onClick={() => setFilters(prev => ({ ...prev, role: r.value, page: 1 }))}
             >
               {r.label}
             </Button>
@@ -282,7 +282,7 @@ export default function AdminUsersPage() {
               key={s.label}
               variant={filters.status === s.value ? "default" : "ghost"}
               className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors ${filters.status === s.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              onClick={() => setFilters(prev => ({ ...prev, status: s.value }))}
+              onClick={() => setFilters(prev => ({ ...prev, status: s.value, page: 1 }))}
             >
               {s.label}
             </Button>

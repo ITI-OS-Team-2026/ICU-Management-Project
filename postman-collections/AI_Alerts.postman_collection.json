@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "ICU Management - AI Alerts & Clinical Reasoning",
+    "description": "Dynamic, fully reusable Postman collection for the Automated ICU Patient Alerts and Bedrock AI Clinical Reasoning System. All resource IDs are automatically extracted and stored from API responses — no manual editing required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api" },
+    { "key": "specialist_email", "value": "specialist@smartcare.icu" },
+    { "key": "shared_password", "value": "SuperSecurePassword2026!" },
+    { "key": "admission_id", "value": "" },
+    { "key": "alert_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Alerts",
+      "description": "Complete AI Alerts workflow: Login → Get Alerts → View Admission Alerts → Review Alert → Audit Trail.",
+      "item": [
+        {
+          "name": "Login Specialist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticates an ICU Specialist. Postman automatically captures the HttpOnly session cookie from Set-Cookie header.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{specialist_email}}\",\n  \"password\": \"{{shared_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response contains user role', () => {",
+                  "    const res = pm.response.json();",
+                  "    pm.expect(res.role).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Ward-Wide Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["alerts"]
+            },
+            "description": "Retrieves all ward-wide patient alerts including NEWS2 triggering metrics and Bedrock AI clinical reasoning. Test script automatically extracts alert_id and admission_id from the first alert."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const res = pm.response.json();",
+                  "const alerts = res.data?.alerts || res.data || [];",
+                  "",
+                  "pm.test('Returns an array of alerts', () => pm.expect(alerts).to.be.an('array'));",
+                  "",
+                  "if (alerts.length > 0) {",
+                  "    pm.collectionVariables.set('alert_id', alerts[0].id);",
+                  "    pm.collectionVariables.set('admission_id', alerts[0].admissionId);",
+                  "    console.log('Saved alert_id:', alerts[0].id);",
+                  "    console.log('Saved admission_id:', alerts[0].admissionId);",
+                  "",
+                  "    pm.test('First alert has clinicalReasoning field', () => {",
+                  "        pm.expect(alerts[0]).to.have.property('clinicalReasoning');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Admission Alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admissions/{{admission_id}}/alerts",
+              "host": ["{{base_url}}"],
+              "path": ["admissions", "{{admission_id}}", "alerts"]
+            },
+            "description": "Fetches all alerts for a specific patient admission. Uses dynamically saved {{admission_id}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Returns an array', () => pm.expect(res.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Submit Alert Review (Doctors Only)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/alerts/{{alert_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["alerts", "{{alert_id}}", "reviews"]
+            },
+            "description": "Submits a clinical review for dynamically populated {{alert_id}}. Accessible by Resident and Specialist roles only. Flips alert status from OPEN to REVIEWED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewNotes\": \"Patient evaluated at bedside. Supplemental oxygen therapy initiated. Reassessing in 15 mins.\",\n  \"accepted\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Review has id', () => pm.expect(res.data).to.have.property('id'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Alert Reviews (Audit Trail)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/alerts/{{alert_id}}/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["alerts", "{{alert_id}}", "reviews"]
+            },
+            "description": "Reads the complete audit trail of clinician reviews for {{alert_id}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "",
+                  "const res = pm.response.json();",
+                  "pm.test('Reviews is an array', () => pm.expect(res.data).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

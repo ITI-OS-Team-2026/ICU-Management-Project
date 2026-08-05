@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { AUDIT_CATEGORIES } = require("./auditCategories");
 
 const userCreateSchema = Joi.object({
   first_name: Joi.string().required(),
@@ -28,10 +29,35 @@ const userResetPasswordSchema = Joi.object({
   }),
 });
 
+// Must match AUDIT_RANGES in admin.service.js — an unlisted value there falls
+// back to the default rather than erroring, but rejecting it here means a
+// typo'd range surfaces as a 400 instead of silently returning the wrong window.
+const AUDIT_RANGE_VALUES = ["24h", "today", "7d", "30d", "all"];
+
+const auditLogQuerySchema = Joi.object({
+  search: Joi.string().trim().max(100).allow("").optional(),
+  eventLevel: Joi.string().valid("All", "Info", "Warning", "Critical").optional(),
+  // Derived, not repeated: adding a category in auditCategories.js must not
+  // require remembering to widen this list too.
+  category: Joi.string()
+    .valid("All", ...AUDIT_CATEGORIES)
+    .optional(),
+  range: Joi.string().valid(...AUDIT_RANGE_VALUES).optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});
+
+/** The stats cards share the list's window, and take no other filter. */
+const auditLogStatsQuerySchema = Joi.object({
+  range: Joi.string().valid(...AUDIT_RANGE_VALUES).optional(),
+});
+
 module.exports = {
   userCreateSchema,
   userUpdateSchema,
   userResetPasswordSchema,
   bedCreateSchema,
   bedUpdateSchema,
+  auditLogQuerySchema,
+  auditLogStatsQuerySchema,
 };

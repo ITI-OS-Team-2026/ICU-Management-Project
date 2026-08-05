@@ -3,7 +3,7 @@ const authRoutes = require("../modules/auth/auth.routes");
 const adminRoutes = require("../modules/admin/admin.routes");
 const patientRoutes = require("../modules/patients/patient.routes");
 const admissionRoutes = require("../modules/admissions/admission.routes");
-const { admissionDiagnosisRouter, diagnosisRouter } = require("../modules/diagnoses/diagnosis.routes");
+const { admissionDiagnosisRouter, diagnosisRouter, concernRouter } = require("../modules/diagnoses/diagnosis.routes");
 const { admissionVitalsRouter, vitalsRouter } = require("../modules/vitalSigns/vitalSign.routes");
 const { admissionMedicationsRouter, medicationsRouter, administrationsRouter } = require("../modules/medications/medication.routes");
 const { admissionInvestigationRouter, investigationRouter } = require("../modules/investigationOrders/investigationOrder.routes");
@@ -13,7 +13,12 @@ const { admissionNotesRouter, baseNotesRouter } = require("../modules/notes/note
 const { admissionFollowUpRouter, followUpRouter } = require("../modules/followUps/followUp.routes");
 const { admissionDocumentsRouter, baseDocumentsRouter } = require("../modules/medicalDocuments/document.routes");
 const { aiRouter, admissionAiRouter } = require("../modules/ai/ai.routes");
+const { ragRouter } = require("../modules/rag/rag.routes");
 const { userRouter: passwordResetUserRouter, adminRouter: passwordResetAdminRouter } = require("../modules/passwordResetRequests/passwordReset.routes");
+const notificationRoutes = require("../modules/notifications/notification.routes");
+const { admissionTreatmentApprovalRouter, treatmentApprovalRouter } = require("../modules/treatmentApprovals/treatmentApproval.routes");
+
+const { alertRouter, admissionAlertsRouter } = require("../modules/alerts/alert.routes");
 
 const router = express.Router();
 
@@ -30,7 +35,10 @@ router.use("/admissions", admissionInvestigationRouter);
 router.use("/admissions", admissionLabsRouter);
 router.use("/admissions", admissionExaminationsRouter);
 router.use("/admissions", admissionNotesRouter);
+router.use("/admissions", admissionAlertsRouter);
+router.use("/alerts", alertRouter);
 router.use("/diagnoses", diagnosisRouter);
+router.use("/diagnosis-concerns", concernRouter);
 router.use("/vitals", vitalsRouter);
 router.use("/medications", medicationsRouter);
 router.use("/medication-administrations", administrationsRouter);
@@ -43,5 +51,9 @@ router.use("/admissions", admissionDocumentsRouter);
 router.use("/documents", baseDocumentsRouter);
 router.use("/ai", aiRouter);
 router.use("/admissions", admissionAiRouter);
+router.use("/rag", ragRouter);
+router.use("/admissions", admissionTreatmentApprovalRouter);
+router.use("/treatment-approvals", treatmentApprovalRouter);
+router.use("/notifications", notificationRoutes);
 
 module.exports = router;

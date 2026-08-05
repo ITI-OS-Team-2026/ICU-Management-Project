@@ -12,19 +12,33 @@ import {
   AlertCircle,
   FolderOpen,
   X,
+  RefreshCcw,
+  Eye,
+  Database,
+  CheckCircle2,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
-import api from '@/lib/api';
+
+import {
+  documentsService,
+  formatFileSize,
+  validateUploadFile,
+} from '../../services/documentsService';
+import { ragService, describeRagError, getEmbeddingStatusMeta } from '../../services/ragService';
+import EmbeddingStatusBadge from '../../components/rag/EmbeddingStatusBadge';
 import { useAuthStore } from '../../store/authStore';
 
 /* ================================================================
@@ -65,75 +79,122 @@ function DocIcon({ filename }) {
   return <File size={18} />;
 }
 
-// Icon color based on type
-function getDocIconColor(type) {
-  return getDocTypeMeta(type).color;
-}
-
-
+// Statuses that mean the RAG pipeline is still working on a document.
+const IN_FLIGHT_STATUSES = ['PENDING', 'PROCESSING'];
+const POLL_INTERVAL_MS = 3000;
 
 /* ================================================================
    Document Row
    ================================================================ */
-function DocumentRow({ doc, canDelete, onDelete, onDownload, isDeleting }) {
+function DocumentRow({
+  doc,
+  canManage,
+  onDelete,
+  onDownload,
+  onReindex,
+  onInspect,
+  isDeleting,
+  isReindexing,
+  isDownloading,
+}) {
   const meta = getDocTypeMeta(doc.documentType);
   const uploaderName = [doc.uploader?.firstName, doc.uploader?.lastName].filter(Boolean).join(' ') || 'Unknown';
+  const statusMeta = getEmbeddingStatusMeta(doc.embeddingStatus);
+  const canRetry = canManage && ['FAILED', 'PENDING'].includes(doc.embeddingStatus);
+  const canInspect = doc.embeddingStatus === 'COMPLETED' && doc.chunkCount > 0;
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3.5 border-b border-border/60 last:border-0 hover:bg-muted/30 transition-colors group">
-      {/* File icon */}
-      <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-        style={{ backgroundColor: meta.bg, color: meta.color }}
-      >
-        <DocIcon filename={doc.originalFilename} />
-      </div>
-
-      {/* Name + meta */}
-      <div className="flex-1 min-w-0">
-        <p className="font-sans text-sm font-semibold text-foreground leading-tight truncate">
-          {doc.originalFilename}
-        </p>
-        <p className="font-sans text-[11px] text-muted-foreground mt-0.5">
-          {uploaderName} · {formatDocDate(doc.createdAt)}
-        </p>
-      </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-3 shrink-0">
-        {/* Type badge */}
-        <span
-          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
-          style={{ color: meta.color, backgroundColor: meta.bg }}
+    <div className="border-b border-border/60 last:border-0 hover:bg-muted/30 transition-colors group">
+      <div className="flex items-center gap-4 px-4 py-3.5">
+        {/* File icon */}
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: meta.bg, color: meta.color }}
         >
-          {meta.label}
-        </span>
+          <DocIcon filename={doc.originalFilename} />
+        </div>
 
-        {/* Download */}
-        <Button
-          variant="ghost" size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onDownload(doc)}
-          title="Download"
-        >
-          <Download size={15} />
-        </Button>
+        {/* Name + meta */}
+        <div className="flex-1 min-w-0">
+          <p className="font-sans text-sm font-semibold text-foreground leading-tight truncate">
+            {doc.originalFilename}
+          </p>
+          <p className="font-sans text-[11px] text-muted-foreground mt-0.5">
+            {uploaderName} · {formatDocDate(doc.createdAt)}
+            {doc.fileSize ? ` · ${formatFileSize(doc.fileSize)}` : ''}
+          </p>
+        </div>
 
-        {/* Delete */}
-        {canDelete && (
+        {/* Right side */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* AI indexing state */}
+          <EmbeddingStatusBadge status={doc.embeddingStatus} chunkCount={doc.chunkCount} />
+
+          {/* Type badge */}
+          <span
+            className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+            style={{ color: meta.color, backgroundColor: meta.bg }}
+          >
+            {meta.label}
+          </span>
+
+          {canInspect && (
+            <Button
+              variant="ghost" size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+              onClick={() => onInspect(doc)}
+              title="View the indexed passages the AI can cite"
+              aria-label={`View indexed passages for ${doc.originalFilename}`}
+            >
+              <Eye size={15} />
+            </Button>
+          )}
+
+          {canRetry && (
+            <Button
+              variant="ghost" size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => onReindex(doc)}
+              disabled={isReindexing}
+              title="Retry AI indexing"
+              aria-label={`Retry AI indexing for ${doc.originalFilename}`}
+            >
+              {isReindexing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={15} />}
+            </Button>
+          )}
+
           <Button
             variant="ghost" size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => onDelete(doc.id)}
-            disabled={isDeleting}
-            title="Delete"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+            onClick={() => onDownload(doc)}
+            disabled={isDownloading}
+            title="Download"
+            aria-label={`Download ${doc.originalFilename}`}
           >
-            {isDeleting
-              ? <Loader2 size={14} className="animate-spin" />
-              : <Trash2 size={15} />}
+            {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={15} />}
           </Button>
-        )}
+
+          {canManage && (
+            <Button
+              variant="ghost" size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+              onClick={() => onDelete(doc)}
+              disabled={isDeleting}
+              title="Delete"
+              aria-label={`Delete ${doc.originalFilename}`}
+            >
+              {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={15} />}
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Why a document is not searchable */}
+      {doc.embeddingError && doc.embeddingStatus !== 'COMPLETED' && (
+        <p className="px-4 pb-3 -mt-1 pl-[68px] font-sans text-[11px] text-muted-foreground">
+          <span className="font-semibold">{statusMeta.label}:</span> {doc.embeddingError}
+        </p>
+      )}
     </div>
   );
 }
@@ -170,62 +231,92 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
   const [file, setFile] = useState(null);
   const [docType, setDocType] = useState('Clinical');
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
+  const reset = () => {
+    setFile(null);
+    setDocType('Clinical');
+    setError('');
+    setProgress(0);
+  };
+
   const handleClose = () => {
-    setFile(null); setDocType('Clinical'); setError('');
+    if (isUploading) return;
+    reset();
     onClose();
   };
 
-  const handleFileChange = (e) => {
-    const selected = e.target.files?.[0];
+  const selectFile = (selected) => {
     if (!selected) return;
+    const validationError = validateUploadFile(selected);
+    if (validationError) {
+      setError(validationError);
+      setFile(null);
+      return;
+    }
     setFile(selected);
     setError('');
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) { setFile(dropped); setError(''); }
+    selectFile(e.dataTransfer.files?.[0]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) { setError('Please select a file to upload.'); return; }
+
     try {
       setIsUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('document_type', docType.toLowerCase());
-      await api.post(`/admissions/${admissionId}/documents`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+      setError('');
+      setProgress(0);
+
+      await documentsService.uploadDocument(admissionId, file, docType.toLowerCase(), {
+        onProgress: setProgress,
       });
+
       onUploaded();
-      handleClose();
+      reset();
+      onClose();
     } catch (err) {
-      setError(err.response?.data?.message || 'Upload failed. Please try again.');
+      console.error('Document upload failed:', err);
+      const status = err?.response?.status;
+      if (status === 413) {
+        setError('That file exceeds the 10 MB limit.');
+      } else if (status === 415) {
+        setError('Unsupported file type. Upload a PDF, JPEG, PNG, or TXT file.');
+      } else if (status === 409) {
+        setError('Documents can only be added to an active admission.');
+      } else {
+        setError(err?.response?.data?.message || 'Upload failed. Please try again.');
+      }
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
       <DialogContent className="sm:max-w-md w-full">
         <DialogHeader>
           <DialogTitle className="font-display text-lg font-bold text-foreground flex items-center gap-2">
             <Upload size={18} className="text-primary" />
             Upload Document
           </DialogTitle>
+          <DialogDescription className="font-sans text-xs text-muted-foreground">
+            PDFs and text files are indexed automatically so the AI assistant can cite them. Images
+            are stored but need OCR before they can be searched.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {/* Drop zone */}
           <div
             className="relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/30 px-6 py-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !isUploading && fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
           >
@@ -234,17 +325,18 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <FileText size={20} />
                 </div>
-                <p className="font-sans text-sm font-semibold text-foreground">{file.name}</p>
-                <p className="font-sans text-xs text-muted-foreground">
-                  {(file.size / 1024).toFixed(0)} KB
-                </p>
-                <Button
-                  type="button" variant="ghost" size="icon"
-                  className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => { e.stopPropagation(); setFile(null); }}
-                >
-                  <X size={12} />
-                </Button>
+                <p className="font-sans text-sm font-semibold text-foreground break-all">{file.name}</p>
+                <p className="font-sans text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                {!isUploading && (
+                  <Button
+                    type="button" variant="ghost" size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); reset(); }}
+                    aria-label="Remove selected file"
+                  >
+                    <X size={12} />
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -262,7 +354,8 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.txt"
               className="hidden"
-              onChange={handleFileChange}
+              disabled={isUploading}
+              onChange={(e) => selectFile(e.target.files?.[0])}
             />
           </div>
 
@@ -279,8 +372,9 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
                   <button
                     key={type}
                     type="button"
+                    disabled={isUploading}
                     onClick={() => setDocType(type)}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border transition-all"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border transition-all disabled:opacity-60"
                     style={{
                       color: isSelected ? '#fff' : meta.color,
                       backgroundColor: isSelected ? meta.color : meta.bg,
@@ -293,6 +387,16 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
               })}
             </div>
           </div>
+
+          {isUploading && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between font-sans text-[11px] text-muted-foreground">
+                <span>{progress < 100 ? 'Uploading…' : 'Queuing for AI indexing…'}</span>
+                <span className="font-tnum">{progress}%</span>
+              </div>
+              <Progress value={progress} className="h-1.5" />
+            </div>
+          )}
 
           {error && (
             <Alert variant="destructive" className="py-2">
@@ -317,6 +421,83 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
 }
 
 /* ================================================================
+   Indexed passages dialog
+   ================================================================ */
+function ChunkInspectorDialog({ doc, onClose }) {
+  const [state, setState] = useState({ isLoading: true, chunks: [], error: null });
+
+  useEffect(() => {
+    if (!doc) return undefined;
+
+    let cancelled = false;
+    setState({ isLoading: true, chunks: [], error: null });
+
+    ragService
+      .getDocumentChunks(doc.id)
+      .then((data) => {
+        if (!cancelled) setState({ isLoading: false, chunks: data?.chunks || [], error: null });
+      })
+      .catch((err) => {
+        console.error('Failed to load document chunks:', err);
+        if (!cancelled) setState({ isLoading: false, chunks: [], error: describeRagError(err) });
+      });
+
+    return () => { cancelled = true; };
+  }, [doc]);
+
+  return (
+    <Dialog open={!!doc} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl w-full">
+        <DialogHeader>
+          <DialogTitle className="font-display text-base font-bold flex items-center gap-2">
+            <Database size={15} className="text-primary" />
+            Indexed passages
+          </DialogTitle>
+          <DialogDescription className="font-sans text-xs break-all">
+            Exactly what the AI assistant can retrieve and cite from{' '}
+            <span className="font-semibold">{doc?.originalFilename}</span>.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[55vh] overflow-y-auto space-y-2.5 pr-1">
+          {state.isLoading ? (
+            <>
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+            </>
+          ) : state.error ? (
+            <Alert variant="destructive" className="py-2">
+              <AlertCircle size={14} />
+              <AlertDescription className="text-xs">{state.error}</AlertDescription>
+            </Alert>
+          ) : state.chunks.length === 0 ? (
+            <p className="py-6 text-center font-sans text-xs text-muted-foreground">
+              No indexed passages for this document.
+            </p>
+          ) : (
+            state.chunks.map((chunk) => (
+              <div key={chunk.id} className="rounded-lg border border-border bg-muted/20 p-3">
+                <div className="mb-1.5 flex items-center justify-between font-sans text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <span>Passage {chunk.chunk_index + 1}</span>
+                  <span className="font-tnum">{chunk.char_count} chars</span>
+                </div>
+                <p className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-foreground">
+                  {chunk.chunk_text}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ================================================================
    Main Page
    ================================================================ */
 export default function PatientDocumentsPage() {
@@ -326,38 +507,78 @@ export default function PatientDocumentsPage() {
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [notice, setNotice] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [filter, setFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
+  const [reindexingId, setReindexingId] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [docToDelete, setDocToDelete] = useState(null);
+  const [inspectingDoc, setInspectingDoc] = useState(null);
 
-  const canDelete = user?.role === 'ICU_SPECIALIST' || user?.role === 'MEDICAL_RESIDENT';
+  const pollRef = useRef(null);
 
-  const fetchDocuments = useCallback(async () => {
-    if (!admission?.id) return;
+  const canManage = user?.role === 'ICU_SPECIALIST' || user?.role === 'MEDICAL_RESIDENT';
+
+  const fetchDocuments = useCallback(async ({ silent = false } = {}) => {
+    if (!admission?.id) return [];
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       setError(null);
-      const { data } = await api.get(`/admissions/${admission.id}/documents`);
-      setDocuments(data?.data || data || []);
+      const data = await documentsService.getDocuments(admission.id);
+      setDocuments(data);
+      return data;
     } catch (err) {
       console.error('Failed to fetch documents:', err);
       setError('Failed to load documents. Please try again.');
+      return [];
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [admission?.id]);
 
   useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
-  const handleDelete = async (docId) => {
-    if (deletingId) return;                      // already deleting something
-    if (!window.confirm('Delete this document? This action cannot be undone.')) return;
+  // Poll only while at least one document is still being indexed, so a freshly
+  // uploaded file flips to "Searchable" without a manual refresh.
+  useEffect(() => {
+    clearTimeout(pollRef.current);
+
+    const isBusy = documents.some((doc) => IN_FLIGHT_STATUSES.includes(doc.embeddingStatus));
+    if (!isBusy) return undefined;
+
+    pollRef.current = setTimeout(() => fetchDocuments({ silent: true }), POLL_INTERVAL_MS);
+    return () => clearTimeout(pollRef.current);
+  }, [documents, fetchDocuments]);
+
+  useEffect(() => () => clearTimeout(pollRef.current), []);
+
+  const flashNotice = (message) => {
+    setNotice(message);
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!docToDelete || deletingId) return;
+    const target = docToDelete;
+
     try {
-      setDeletingId(docId);
-      await api.delete(`/documents/${docId}`);
-      setDocuments(prev => prev.filter(d => d.id !== docId));
+      setDeletingId(target.id);
+      setActionError(null);
+      await documentsService.deleteDocument(target.id);
+      setDocuments(prev => prev.filter(d => d.id !== target.id));
+      setDocToDelete(null);
+      flashNotice(`"${target.originalFilename}" was deleted.`);
     } catch (err) {
       console.error('Failed to delete document:', err);
+      if (err?.response?.status === 404) {
+        setDocuments(prev => prev.filter(d => d.id !== target.id));
+        setDocToDelete(null);
+        flashNotice(`"${target.originalFilename}" was already deleted.`);
+      } else {
+        setActionError(err?.response?.data?.message || 'Failed to delete the document. Please try again.');
+      }
     } finally {
       setDeletingId(null);
     }
@@ -365,15 +586,38 @@ export default function PatientDocumentsPage() {
 
   const handleDownload = async (doc) => {
     try {
-      const response = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = doc.originalFilename;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      setDownloadingId(doc.id);
+      setActionError(null);
+      await documentsService.downloadDocument(doc.id, doc.originalFilename);
     } catch (err) {
       console.error('Download failed:', err);
+      setActionError(
+        err?.response?.status === 404
+          ? 'The file is no longer available on the server.'
+          : 'Download failed. Please try again.'
+      );
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleReindex = async (doc) => {
+    if (reindexingId) return;
+    try {
+      setReindexingId(doc.id);
+      setActionError(null);
+      const updated = await ragService.reindexDocument(doc.id);
+      await fetchDocuments({ silent: true });
+      flashNotice(
+        updated?.embedding_status === 'COMPLETED'
+          ? `"${doc.originalFilename}" is now searchable (${updated.chunk_count} passages).`
+          : updated?.embedding_error || 'Indexing finished.'
+      );
+    } catch (err) {
+      console.error('Re-index failed:', err);
+      setActionError(describeRagError(err));
+    } finally {
+      setReindexingId(null);
     }
   };
 
@@ -381,25 +625,73 @@ export default function PatientDocumentsPage() {
   const allTypes = ['all', ...new Set(documents.map(d => d.documentType?.toLowerCase()))].filter(Boolean);
   const filtered = filter === 'all' ? documents : documents.filter(d => d.documentType?.toLowerCase() === filter);
 
+  const searchableCount = documents.filter(d => d.embeddingStatus === 'COMPLETED').length;
+  const indexingCount = documents.filter(d => IN_FLIGHT_STATUSES.includes(d.embeddingStatus)).length;
+
   return (
-    <div className="space-y-5 pb-8">
+    <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-5 pb-8">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-display text-xl font-bold text-foreground">Patient Documents</h2>
           <p className="font-sans text-sm text-muted-foreground mt-0.5">
-            {documents.length > 0 ? `${documents.length} document${documents.length !== 1 ? 's' : ''}` : 'No documents uploaded yet'}
+            {documents.length > 0
+              ? `${documents.length} document${documents.length !== 1 ? 's' : ''} · ${searchableCount} searchable by the AI assistant`
+              : 'No documents uploaded yet'}
           </p>
         </div>
-        <Button
-          size="sm"
-          className="gap-1.5 font-sans text-xs"
-          onClick={() => setShowUpload(true)}
-        >
-          <Upload size={14} />
-          Upload
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5 font-sans text-xs"
+            onClick={() => fetchDocuments()}
+            disabled={isLoading}
+            title="Refresh"
+          >
+            <RefreshCcw size={13} className={isLoading ? 'animate-spin' : ''} />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 font-sans text-xs"
+            onClick={() => setShowUpload(true)}
+          >
+            <Upload size={14} />
+            Upload
+          </Button>
+        </div>
       </div>
+
+      {/* ── Indexing banner ─────────────────────────────────────────── */}
+      {indexingCount > 0 && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3.5 py-2.5">
+          <Loader2 size={14} className="animate-spin text-sky-600 dark:text-sky-400 shrink-0" />
+          <p className="font-sans text-xs text-foreground">
+            Indexing {indexingCount} document{indexingCount === 1 ? '' : 's'} for AI search — this
+            page updates automatically when they become searchable.
+          </p>
+        </div>
+      )}
+
+      {notice && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3.5 py-2.5">
+          <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <p className="font-sans text-xs text-foreground">{notice}</p>
+        </div>
+      )}
+
+      {actionError && (
+        <Alert variant="destructive" className="py-2">
+          <AlertCircle size={14} />
+          <AlertDescription className="flex items-center justify-between gap-2 text-xs">
+            <span>{actionError}</span>
+            <button type="button" onClick={() => setActionError(null)} className="shrink-0 underline underline-offset-2">
+              Dismiss
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* ── Type Filter Tabs ────────────────────────────────────────── */}
       {documents.length > 0 && (
@@ -439,7 +731,7 @@ export default function PatientDocumentsPage() {
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
           <AlertCircle className="h-8 w-8 text-destructive opacity-60" />
           <p className="font-sans text-sm font-medium text-foreground">{error}</p>
-          <Button variant="outline" size="sm" onClick={fetchDocuments}>Try Again</Button>
+          <Button variant="outline" size="sm" onClick={() => fetchDocuments()}>Try Again</Button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-center rounded-xl border border-dashed border-border bg-muted/20">
@@ -451,7 +743,8 @@ export default function PatientDocumentsPage() {
               {filter === 'all' ? 'No documents uploaded yet' : `No ${getDocTypeMeta(filter).label} documents`}
             </p>
             <p className="font-sans text-xs text-muted-foreground mt-1">
-              Upload clinical reports, imaging, consent forms, and more.
+              Upload clinical reports, imaging, consent forms, and more — text documents become
+              searchable by the AI assistant automatically.
             </p>
           </div>
           <Button size="sm" className="gap-1.5 font-sans text-xs mt-1" onClick={() => setShowUpload(true)}>
@@ -464,10 +757,14 @@ export default function PatientDocumentsPage() {
             <DocumentRow
               key={doc.id}
               doc={doc}
-              canDelete={canDelete}
-              onDelete={handleDelete}
+              canManage={canManage}
+              onDelete={setDocToDelete}
               onDownload={handleDownload}
+              onReindex={handleReindex}
+              onInspect={setInspectingDoc}
               isDeleting={deletingId === doc.id}
+              isReindexing={reindexingId === doc.id}
+              isDownloading={downloadingId === doc.id}
             />
           ))}
         </div>
@@ -477,9 +774,43 @@ export default function PatientDocumentsPage() {
       <UploadDialog
         open={showUpload}
         onClose={() => setShowUpload(false)}
-        onUploaded={fetchDocuments}
+        onUploaded={() => fetchDocuments({ silent: true })}
         admissionId={admission?.id}
       />
+
+      {/* ── Indexed passages ─────────────────────────────────────────── */}
+      <ChunkInspectorDialog doc={inspectingDoc} onClose={() => setInspectingDoc(null)} />
+
+      {/* ── Delete confirmation ──────────────────────────────────────── */}
+      <Dialog open={!!docToDelete} onOpenChange={(open) => !open && !deletingId && setDocToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-display text-base font-bold">
+              <Trash2 size={15} className="text-destructive" />
+              Delete document
+            </DialogTitle>
+            <DialogDescription className="pt-1 font-sans text-xs leading-relaxed break-all">
+              "{docToDelete?.originalFilename}" will be archived and removed from the AI assistant's
+              searchable knowledge base. Clinical records are never permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" size="sm" onClick={() => setDocToDelete(null)} disabled={!!deletingId}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDelete}
+              disabled={!!deletingId}
+              className="gap-1.5"
+            >
+              {deletingId ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

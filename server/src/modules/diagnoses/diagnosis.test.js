@@ -33,11 +33,22 @@ const generateTokenForRole = async (email, role) => {
   };
 };
 
+// Every delete is scoped to this suite's own DIAG-TEST- patients. An unscoped
+// deleteMany({}) here empties the whole ward when tests point at a shared DB.
+const testPatientFilter = { mrn: { startsWith: "DIAG-TEST-" } };
+const testAdmissionFilter = { patient: testPatientFilter };
+
 async function cleanupTestData() {
-  await prisma.diagnosis.deleteMany({});
-  await prisma.admissionNurse.deleteMany({});
-  await prisma.admission.deleteMany({});
-  await prisma.patient.deleteMany({ where: { mrn: { startsWith: "DIAG-TEST-" } } });
+  await prisma.diagnosisConcern.deleteMany({
+    where: { diagnosis: { admission: testAdmissionFilter } },
+  });
+  await prisma.diagnosisAcknowledgement.deleteMany({
+    where: { diagnosis: { admission: testAdmissionFilter } },
+  });
+  await prisma.diagnosis.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admissionNurse.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admission.deleteMany({ where: testAdmissionFilter });
+  await prisma.patient.deleteMany({ where: testPatientFilter });
   await prisma.bed.deleteMany({ where: { bedNumber: { startsWith: "DIAG-" } } });
 }
 
@@ -100,13 +111,15 @@ describe("Diagnoses API", () => {
         .set("Cookie", residentCookie)
         .send({
           condition_name: "COVID-19",
-          status: "ACTIVE",
+          status: "CONFIRMED",
+          type: "PRIMARY",
         });
 
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty("id");
       expect(res.body.conditionName).toBe("COVID-19");
-      expect(res.body.status).toBe("ACTIVE");
+      expect(res.body.status).toBe("CONFIRMED");
+      expect(res.body.type).toBe("PRIMARY");
       expect(res.body.diagnosedById).toBe(residentUser.id);
     });
 
@@ -126,7 +139,7 @@ describe("Diagnoses API", () => {
         data: {
           admissionId: testAdmissionId,
           conditionName: "Hypertension",
-          status: "ACTIVE",
+          status: "CONFIRMED",
           diagnosedById: residentUser.id,
         },
       });
@@ -153,7 +166,7 @@ describe("Diagnoses API", () => {
         data: {
           admissionId: testAdmissionId,
           conditionName: "Pneumonia",
-          status: "ACTIVE",
+          status: "CONFIRMED",
           diagnosedById: residentUser.id,
         },
       });
@@ -183,7 +196,7 @@ describe("Diagnoses API", () => {
         data: {
           admissionId: testAdmissionId,
           conditionName: "Asthma",
-          status: "ACTIVE",
+          status: "CONFIRMED",
           diagnosedById: residentUser.id,
         },
       });
@@ -194,10 +207,12 @@ describe("Diagnoses API", () => {
       const res = await request(app)
         .patch(`/api/diagnoses/${testDiagnosisId}`)
         .set("Cookie", residentCookie)
-        .send({ status: "RESOLVED" });
+        .send({ condition_name: "Severe persistent asthma" });
 
       expect(res.status).toBe(200);
-      expect(res.body.status).toBe("RESOLVED");
+      expect(res.body.conditionName).toBe("Severe persistent asthma");
+      // Authorship of the original entry survives the amendment.
+      expect(res.body.originalDiagnosedBy.id).toBe(residentUser.id);
       
       // The newly created diagnosis should have a DIFFERENT ID from the old one
       const newDiagnosisId = res.body.id;
@@ -209,6 +224,246 @@ describe("Diagnoses API", () => {
       });
       expect(oldDiag.isArchived).toBe(true);
       expect(oldDiag.archivedAt).not.toBeNull();
+    });
+  });
+  describe("PATCH /diagnoses/:id/status — working the differential", () => {
+    let suspectedId;
+
+    beforeEach(async () => {
+      const diagnosis = await prisma.diagnosis.create({
+        data: {
+          admissionId: testAdmissionId,
+          conditionName: "Pulmonary embolism",
+          status: "SUSPECTED",
+          diagnosedById: residentUser.id,
+          originalDiagnosedById: residentUser.id,
+        },
+      });
+      suspectedId = diagnosis.id;
+    });
+
+    it("should confirm a suspected diagnosis with a reason", async () => {
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "CONFIRMED", reason: "CTPA shows a segmental filling defect." });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("CONFIRMED");
+      expect(res.body.clinicalNotes).toMatch(/CTPA/);
+      expect(res.body.statusChangedBy.id).toBe(residentUser.id);
+    });
+
+    it("should rule out a suspected diagnosis and record why", async () => {
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "RULED_OUT", reason: "CTPA negative; D-dimer explained by sepsis." });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("RULED_OUT");
+      expect(res.body.ruledOutReason).toMatch(/CTPA negative/);
+    });
+
+    it("should require a clinical reason", async () => {
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "CONFIRMED" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/clinical reason is required/);
+    });
+
+    it("should refuse to resolve something never confirmed", async () => {
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "RESOLVED", reason: "Patient improved" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toMatch(/Cannot move a SUSPECTED diagnosis to RESOLVED/);
+    });
+
+    it("should treat RULED_OUT as terminal", async () => {
+      await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "RULED_OUT", reason: "Imaging negative" });
+
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "CONFIRMED", reason: "Changed my mind" });
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toMatch(/cannot change status/);
+    });
+
+    it("should record resolution date and reason", async () => {
+      await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "CONFIRMED", reason: "CTPA positive" });
+
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", residentCookie)
+        .send({ status: "RESOLVED", reason: "Completed anticoagulation, asymptomatic." });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("RESOLVED");
+      expect(res.body.resolvedAt).not.toBeNull();
+      expect(res.body.resolutionReason).toMatch(/anticoagulation/);
+      // A resolved episode must not inherit a rule-out reason.
+      expect(res.body.ruledOutReason).toBeNull();
+    });
+
+    it("should deny a nurse from changing status", async () => {
+      const res = await request(app)
+        .patch(`/api/diagnoses/${suspectedId}/status`)
+        .set("Cookie", nurseCookie)
+        .send({ status: "CONFIRMED", reason: "Looks like it" });
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe("Primary diagnosis", () => {
+    it("should demote the previous primary when a new one is set", async () => {
+      const first = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/diagnoses`)
+        .set("Cookie", residentCookie)
+        .send({ condition_name: "Sepsis", type: "PRIMARY" });
+
+      const second = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/diagnoses`)
+        .set("Cookie", residentCookie)
+        .send({ condition_name: "Septic shock", type: "PRIMARY" });
+
+      expect(second.status).toBe(201);
+
+      const demoted = await prisma.diagnosis.findUnique({ where: { id: first.body.id } });
+      expect(demoted.type).toBe("SECONDARY");
+      expect(second.body.type).toBe("PRIMARY");
+    });
+
+    it("should warn about a duplicate open condition", async () => {
+      await request(app)
+        .post(`/api/admissions/${testAdmissionId}/diagnoses`)
+        .set("Cookie", residentCookie)
+        .send({ condition_name: "Sepsis" });
+
+      const res = await request(app)
+        .post(`/api/admissions/${testAdmissionId}/diagnoses`)
+        .set("Cookie", residentCookie)
+        .send({ condition_name: "sepsis" });
+
+      expect(res.status).toBe(201);
+      expect(res.body.duplicateWarning).toHaveLength(1);
+    });
+
+  });
+
+  describe("Nurse participation", () => {
+    let diagnosisId;
+
+    beforeEach(async () => {
+      const diagnosis = await prisma.diagnosis.create({
+        data: {
+          admissionId: testAdmissionId,
+          conditionName: "Aspiration pneumonia",
+          status: "CONFIRMED",
+          diagnosedById: residentUser.id,
+          originalDiagnosedById: residentUser.id,
+        },
+      });
+      diagnosisId = diagnosis.id;
+    });
+
+    it("should let a nurse acknowledge a diagnosis", async () => {
+      const res = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/acknowledge`)
+        .set("Cookie", nurseCookie);
+
+      expect(res.status).toBe(201);
+      expect(res.body.diagnosisId).toBe(diagnosisId);
+    });
+
+    it("should be idempotent when acknowledged twice", async () => {
+      const first = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/acknowledge`)
+        .set("Cookie", nurseCookie);
+      const second = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/acknowledge`)
+        .set("Cookie", nurseCookie);
+
+      expect(second.status).toBe(201);
+      expect(second.body.id).toBe(first.body.id);
+
+      const count = await prisma.diagnosisAcknowledgement.count({ where: { diagnosisId } });
+      expect(count).toBe(1);
+    });
+
+    it("should deny a doctor from acknowledging", async () => {
+      const res = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/acknowledge`)
+        .set("Cookie", residentCookie);
+
+      expect(res.status).toBe(403);
+    });
+
+    it("should let a nurse raise a concern and a doctor answer it", async () => {
+      const raised = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/concerns`)
+        .set("Cookie", nurseCookie)
+        .send({ note: "No cough, no crackles, and the patient is afebrile since admission." });
+
+      expect(raised.status).toBe(201);
+      expect(raised.body.status).toBe("OPEN");
+
+      const open = await request(app)
+        .get(`/api/admissions/${testAdmissionId}/diagnosis-concerns`)
+        .set("Cookie", residentCookie);
+      expect(open.body).toHaveLength(1);
+
+      const answered = await request(app)
+        .patch(`/api/diagnosis-concerns/${raised.body.id}`)
+        .set("Cookie", residentCookie)
+        .send({ status: "ADDRESSED", response_note: "Agreed — repeat CXR ordered." });
+
+      expect(answered.status).toBe(200);
+      expect(answered.body.status).toBe("ADDRESSED");
+      expect(answered.body.respondedBy.id).toBe(residentUser.id);
+    });
+
+    it("should require an answer, not just a status", async () => {
+      const raised = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/concerns`)
+        .set("Cookie", nurseCookie)
+        .send({ note: "Presentation does not fit." });
+
+      const res = await request(app)
+        .patch(`/api/diagnosis-concerns/${raised.body.id}`)
+        .set("Cookie", residentCookie)
+        .send({ status: "DISMISSED" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/needs an answer/);
+    });
+
+    it("should deny a nurse from answering a concern", async () => {
+      const raised = await request(app)
+        .post(`/api/diagnoses/${diagnosisId}/concerns`)
+        .set("Cookie", nurseCookie)
+        .send({ note: "Presentation does not fit." });
+
+      const res = await request(app)
+        .patch(`/api/diagnosis-concerns/${raised.body.id}`)
+        .set("Cookie", nurseCookie)
+        .send({ status: "ADDRESSED", response_note: "self-answer" });
+
+      expect(res.status).toBe(403);
     });
   });
 });

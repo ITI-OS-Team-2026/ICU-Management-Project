@@ -1,6 +1,8 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 const { auditedTransaction } = require("../../middlewares/auditLog");
+const { queueIndexing } = require("../rag/indexing.service");
+const { uploadToCloudinary, isConfigured: cloudinaryConfigured } = require("../../utils/cloudinaryClient");
 
 const createDocument = async (admissionId, uploadedBy, file, documentType, req) => {
   const admission = await prisma.admission.findUnique({
@@ -15,6 +17,22 @@ const createDocument = async (admissionId, uploadedBy, file, documentType, req) 
     throw new APIError("Cannot add document to non-active admission", 409);
   }
 
+  // Upload to Cloudinary when configured; otherwise fall back to DB blob storage.
+  let storageFields;
+  if (cloudinaryConfigured()) {
+    const result = await uploadToCloudinary(file.buffer, file.originalname);
+    storageFields = {
+      storageType: "cloudinary",
+      cloudinaryUrl: result.secure_url,
+      cloudinaryPublicId: result.public_id,
+    };
+  } else {
+    storageFields = {
+      storageType: "blob",
+      fileContent: file.buffer,
+    };
+  }
+
   const document = await auditedTransaction(req, { action: "CREATE", targetTable: "MedicalDocument" }, async (tx) => {
     const doc = await tx.medicalDocument.create({
       data: {
@@ -22,8 +40,10 @@ const createDocument = async (admissionId, uploadedBy, file, documentType, req) 
         uploadedBy,
         documentType,
         originalFilename: file.originalname,
-        filePath: file.path,
+        mimeType: file.mimetype || null,
+        fileSize: Number.isFinite(file.size) ? file.size : null,
         embeddingStatus: "PENDING",
+        ...storageFields,
       },
     });
 
@@ -33,6 +53,10 @@ const createDocument = async (admissionId, uploadedBy, file, documentType, req) 
       result: doc,
     };
   });
+
+  // RAG indexing runs out of band so a slow embedding provider never delays the
+  // upload response. Progress is polled through GET /rag/documents/:id/status.
+  queueIndexing(document.id);
 
   return document;
 };
@@ -89,6 +113,9 @@ const deleteDocument = async (id, req) => {
   }
 
   await auditedTransaction(req, { action: "ARCHIVE", targetTable: "MedicalDocument" }, async (tx) => {
+    // Chunks are kept so an archived document can be restored without
+    // re-embedding; retrieval joins medical_documents and filters on
+    // is_archived, so archived content can never reach an AI answer.
     const archived = await tx.medicalDocument.update({
       where: { id },
       data: {

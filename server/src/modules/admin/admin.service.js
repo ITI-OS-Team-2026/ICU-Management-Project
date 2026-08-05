@@ -133,6 +133,19 @@ const getUserStats = async () => {
   };
 };
 
+// Ward-wide bed counts. The bed grid is paged now, so it can no longer add
+// these up from the rows it has on screen.
+const getBedStats = async () => {
+  const [total, occupied, available, maintenance] = await Promise.all([
+    prisma.bed.count(),
+    prisma.bed.count({ where: { status: "OCCUPIED" } }),
+    prisma.bed.count({ where: { status: "AVAILABLE" } }),
+    prisma.bed.count({ where: { status: "MAINTENANCE" } }),
+  ]);
+
+  return { total, occupied, available, maintenance };
+};
+
 const getUserById = async (id) => {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -282,12 +295,20 @@ const createBed = async (data) => {
   };
 };
 
-const getBeds = async ({ status }) => {
+// Pagination is opt-in: callers that pass `page` get { data, meta }, while
+// bed-picker dropdowns that need every bed keep receiving a plain array.
+const getBeds = async ({ status, page, limit }) => {
   const where = {};
   if (status) where.status = status;
 
+  const paginated = page !== undefined && page !== null && page !== "";
+  const currentPage = Math.max(1, Number(page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(limit) || 12));
+
   const beds = await prisma.bed.findMany({
     where,
+    orderBy: { bedNumber: "asc" },
+    ...(paginated ? { skip: (currentPage - 1) * pageSize, take: pageSize } : {}),
     select: {
       id: true,
       bedNumber: true,
@@ -309,7 +330,10 @@ const getBeds = async ({ status }) => {
             }
           },
           diagnoses: {
-            where: { status: "ACTIVE" },
+            // The condition being treated: confirmed first, and only fall back
+            // to a suspected one when nothing has been proven yet.
+            where: { status: { in: ["CONFIRMED", "SUSPECTED"] }, isArchived: false },
+            orderBy: [{ status: "asc" }, { diagnosedAt: "desc" }],
             take: 1,
             select: {
               conditionName: true
@@ -320,10 +344,10 @@ const getBeds = async ({ status }) => {
     }
   });
 
-  return beds.map(b => {
+  const rows = beds.map(b => {
     const activeAdmission = b.admissions?.[0] || null;
-    const patientName = activeAdmission?.patient 
-      ? activeAdmission.patient.name 
+    const patientName = activeAdmission?.patient
+      ? activeAdmission.patient.name
       : null;
     const latestVitals = activeAdmission?.vitalSigns?.[0] || null;
     const primaryDiagnosis = activeAdmission?.diagnoses?.[0]?.conditionName || null;
@@ -339,6 +363,20 @@ const getBeds = async ({ status }) => {
       spo2: latestVitals?.spo2 || null,
     };
   });
+
+  if (!paginated) return rows;
+
+  const total = await prisma.bed.count({ where });
+
+  return {
+    data: rows,
+    meta: {
+      total,
+      page: currentPage,
+      limit: pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    },
+  };
 };
 
 const updateBed = async (req, id, data) => {
@@ -386,12 +424,60 @@ const updateBed = async (req, id, data) => {
 
 
 
+// Classification lives in ./auditCategories.js, guarded by the coverage test
+// beside it: a table that is audited but uncategorised is written to the log
+// and then unreachable by every filter in the UI.
+const { AUDIT_LEVEL_ACTIONS, AUDIT_CATEGORY_TABLES } = require('./auditCategories');
+
+/**
+ * Time windows the audit log can be narrowed to.
+ *
+ * `24h` is the default rather than `today` on purpose. "Since local midnight"
+ * makes the page read zero for the first hours of every day no matter how busy
+ * the night was — and an ICU night shift straddles midnight, so the window
+ * would reset in the middle of the very shift an auditor is looking at.
+ */
+const AUDIT_RANGES = ['24h', 'today', '7d', '30d', 'all'];
+const DEFAULT_AUDIT_RANGE = '24h';
+
+/**
+ * Resolve a range key into a `createdAt` filter.
+ *
+ * Both the list and the stat cards run through this, which is what stops them
+ * from answering different questions: previously the cards counted "today"
+ * while the list was unfiltered, so a critical event from minutes ago could sit
+ * directly beneath a card reading zero.
+ *
+ * @returns {{ createdAt?: { gte: Date } }} — spreadable into a Prisma `where`
+ */
+const resolveAuditRange = (range = DEFAULT_AUDIT_RANGE) => {
+  const key = AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE;
+  if (key === 'all') return {};
+
+  const since = new Date();
+
+  if (key === 'today') {
+    since.setHours(0, 0, 0, 0);
+  } else {
+    const days = { '24h': 1, '7d': 7, '30d': 30 }[key];
+    since.setDate(since.getDate() - days);
+  }
+
+  return { createdAt: { gte: since } };
+};
+
 const getAuditLogs = async (query = {}) => {
-  const { search, page = 1, limit = 10, eventLevel, category } = query;
-  
-  const where = {};
-  
+  const { search, page = 1, limit = 10, eventLevel, category, range } = query;
+
+  const where = { ...resolveAuditRange(range) };
+
   if (search) {
+    // `action` is an enum, so `contains` cannot be used on it — match whole
+    // action names instead so searching "LOGIN" or "archive" finds those events.
+    const matchedActions = Object.values(AUDIT_LEVEL_ACTIONS)
+      .flat()
+      .filter((action) => action.includes(search.trim().toUpperCase().replace(/\s+/g, "_")));
+
     where.OR = [
       { targetTable: { contains: search, mode: "insensitive" } },
       {
@@ -403,30 +489,20 @@ const getAuditLogs = async (query = {}) => {
         }
       }
     ];
-  }
 
-  if (eventLevel && eventLevel !== 'All') {
-    if (eventLevel === 'Critical') {
-      where.action = { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] };
-    } else if (eventLevel === 'Warning') {
-      where.action = { in: ['UPDATE'] };
-    } else if (eventLevel === 'Info') {
-      where.action = { in: ['LOGIN', 'LOGOUT', 'CREATE', 'VIEW'] };
+    if (matchedActions.length > 0) {
+      where.OR.push({ action: { in: matchedActions } });
     }
   }
 
-  if (category && category !== 'All') {
-    if (category === 'Patients') {
-      where.targetTable = { in: ['Patient', 'Allergy', 'MedicalHistory'] };
-    } else if (category === 'Admissions') {
-      where.targetTable = { in: ['Admission', 'AdmissionNurse'] };
-    } else if (category === 'Documents') {
-      where.targetTable = { in: ['MedicalDocument'] };
-    } else if (category === 'Admin') {
-      where.targetTable = { in: ['User', 'Bed'] };
-    }
+  if (eventLevel && eventLevel !== 'All' && AUDIT_LEVEL_ACTIONS[eventLevel]) {
+    where.action = { in: AUDIT_LEVEL_ACTIONS[eventLevel] };
   }
-  
+
+  if (category && category !== 'All' && AUDIT_CATEGORY_TABLES[category]) {
+    where.targetTable = { in: AUDIT_CATEGORY_TABLES[category] };
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
 
   const [totalCount, logs] = await Promise.all([
@@ -475,40 +551,36 @@ const getAuditLogs = async (query = {}) => {
   };
 };
 
-const getAuditLogStats = async () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+const getAuditLogStats = async (query = {}) => {
+  const { range } = query;
+  // The same window the list uses, so a card can never contradict a row
+  // sitting directly beneath it.
+  const window = resolveAuditRange(range);
 
-  const totalEventsToday = await prisma.auditLog.count({
-    where: { createdAt: { gte: today } }
-  });
-
-  const criticalEvents = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      action: { in: ['ARCHIVE', 'ACCOUNT_LOCKED'] }
-    }
-  });
-
-  const warningEvents = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      action: { in: ['UPDATE'] }
-    }
-  });
-
-  const adminActions = await prisma.auditLog.count({
-    where: { 
-      createdAt: { gte: today },
-      user: { role: 'SYSTEM_ADMIN' }
-    }
-  });
+  // Counted in one round trip instead of four sequential ones, and reusing the
+  // same level map as the list filter so the cards can't disagree with the rows.
+  const [totalEvents, criticalEvents, warningEvents, adminActions] = await Promise.all([
+    prisma.auditLog.count({ where: { ...window } }),
+    prisma.auditLog.count({
+      where: { ...window, action: { in: AUDIT_LEVEL_ACTIONS.Critical } }
+    }),
+    prisma.auditLog.count({
+      where: { ...window, action: { in: AUDIT_LEVEL_ACTIONS.Warning } }
+    }),
+    prisma.auditLog.count({
+      where: { ...window, user: { role: 'SYSTEM_ADMIN' } }
+    }),
+  ]);
 
   return {
-    totalEventsToday,
+    range: AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE,
+    totalEvents,
     criticalEvents,
     warningEvents,
-    adminActions
+    adminActions,
+    // Kept so an older client reading `totalEventsToday` does not render a
+    // blank card against a newer server.
+    totalEventsToday: totalEvents,
   };
 };
 
@@ -523,6 +595,7 @@ module.exports = {
   getBeds,
   updateBed,
   getUserStats,
+  getBedStats,
   getAuditLogs,
   getAuditLogStats
 };

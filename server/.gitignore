@@ -27,3 +27,7 @@ Thumbs.db
 /generated/prisma
 .zcode/
 uploads/documents/* 
+
+# Archived rows from the log-retention job (src/jobs/logRetention.job.js) —
+# ship these to real cold storage on your retention cadence, don't commit them.
+storage/audit-archive/

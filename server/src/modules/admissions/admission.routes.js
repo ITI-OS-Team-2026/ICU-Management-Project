@@ -6,9 +6,11 @@ const admissionController = require("./admission.controller");
 const {
   admissionCreateSchema,
   admissionQuerySchema,
+  admissionCensusQuerySchema,
   nurseAssignSchema,
   fullAdmissionCreateSchema,
 } = require("./admission.schema");
+const notificationController = require("../notifications/notification.controller");
 
 const router = express.Router();
 
@@ -37,6 +39,15 @@ router.get(
   restrictTo(clinicalRoles),
   validate({ query: admissionQuerySchema }),
   admissionController.getAdmissions
+);
+
+// Must stay above "/:id" so "census" isn't parsed as an admission id.
+router.get(
+  "/census",
+  verifyToken,
+  restrictTo(clinicalRoles),
+  validate({ query: admissionCensusQuerySchema }),
+  admissionController.getAdmissionCensus
 );
 
 router.get(
@@ -80,6 +91,13 @@ router.delete(
   verifyToken,
   restrictTo(nurseOrSpecialist),
   admissionController.unassignNurse
+);
+
+router.post(
+  "/:id/summon",
+  verifyToken,
+  restrictTo(["ICU_NURSE"]),
+  notificationController.summonDoctor
 );
 
 module.exports = router;

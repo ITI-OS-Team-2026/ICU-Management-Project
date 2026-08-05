@@ -23,6 +23,7 @@ import Step5LocalExamination from "./admission/steps/Step5LocalExamination";
 import Step6ProvisionalDiagnosis from "./admission/steps/Step6ProvisionalDiagnosis";
 import Step7Investigations from "./admission/steps/Step7Investigations";
 import Step8TreatmentPlan from "./admission/steps/Step8TreatmentPlan";
+import { dateInputToIso } from "../services/medicationsService";
 
 const optionalEnum = (values) =>
   z.union([z.literal(""), z.enum(values)]).optional();
@@ -50,6 +51,10 @@ const admissionSchema = z
       .string()
       .min(1, "Attending specialist is required")
       .uuid("Select a valid attending specialist"),
+    nurse_id: z
+      .string()
+      .min(1, "Nurse assignment is required")
+      .uuid("Select a valid nurse"),
 
     national_id: z
       .string()
@@ -74,6 +79,8 @@ const admissionSchema = z
     occupation: z.string().optional(),
     marital_status: optionalEnum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER"]),
     handedness: optionalEnum(["RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN"]),
+    children_count: z.string().optional(),
+    youngest_child_age: z.string().optional(),
     chief_complaint: z.string().min(1, "Chief complaint is required"),
     complaint_analysis: z.string().optional(),
     related_system_symptoms: z.string().optional(),
@@ -85,6 +92,8 @@ const admissionSchema = z
       })
       .optional(),
     previous_treatments: z.string().optional(),
+    special_habits: z.string().optional(),
+    blood_transfusion: z.boolean().default(false),
     dm: z.boolean().default(false),
     htn: z.boolean().default(false),
     past_history_paragraph: z.string().optional(),
@@ -95,9 +104,48 @@ const admissionSchema = z
     has_allergies: z.boolean().default(false),
     traveled_abroad: z.boolean().default(false),
     custom_fields: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+    // The allergens behind the has_allergies switch. Blank rows are dropped on
+    // submit, so an empty row the user added and abandoned is not an error.
+    allergies: z
+      .array(
+        z.object({
+          allergen: z.string().optional(),
+          severity: z.string().optional(),
+        })
+      )
+      .default([]),
     consanguinity: z.boolean().default(false),
     family_similar_conditions: z.string().optional(),
     inherited_diseases: z.string().optional(),
+    
+    menstrual_history: z.object({
+      menarche: z.string().optional(),
+      cycle_rhythm: z.string().optional(),
+      cycle_length: z.string().optional(),
+      duration_of_flow: z.string().optional(),
+      character_of_flow: z.string().optional(),
+      dysmenorrhea: z.boolean().default(false),
+      dysmenorrhea_details: z.string().optional(),
+      inter_menstrual_period: z.string().optional(),
+      contraception: z.string().optional(),
+      lnmp: z.string().optional(),
+    }).optional(),
+
+    obstetric_history: z.object({
+      gravidity: z.string().optional(),
+      parity: z.string().optional(),
+      full_term_normal_deliveries: z.string().optional(),
+      pre_term: z.string().optional(),
+      still_birth: z.string().optional(),
+      difficult_labors: z.string().optional(),
+      cesarean_section: z.boolean().default(false),
+      cesarean_details: z.string().optional(),
+      last_delivery_date: z.string().optional(),
+      abortions: z.boolean().default(false),
+      abortions_details: z.string().optional(),
+      previous_pregnancies_complications: z.string().optional(),
+      previous_puerperal_complications: z.string().optional(),
+    }).optional(),
 
     temperature: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.temperature.min,
@@ -143,7 +191,8 @@ const admissionSchema = z
       complexion: z.object({ result: z.string(), notes: z.string().optional() }),
       decubitus_attitude: z.object({ result: z.string(), notes: z.string().optional() }),
       head_neck: z.object({ result: z.string(), notes: z.string().optional() }),
-      upper_lower_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
+      upper_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
+      lower_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
       skin_lymph_nodes: z.object({ result: z.string(), notes: z.string().optional() }),
       other_systems: z.object({ result: z.string(), notes: z.string().optional() }),
     }),
@@ -157,24 +206,58 @@ const admissionSchema = z
 
     provisional_diagnosis: z.string().optional(),
 
-    investigations: z
+    // Step 6's structured problem list. The narrative above is the reasoning;
+    // these become real Diagnosis rows.
+    diagnoses: z
       .array(
         z.object({
-          type: z.string().min(1, "Type is required"),
-          order_date: z.date().optional(),
+          condition_name: z.string().min(1, "Condition is required"),
+          type: z.string().min(1, "Classification is required"),
+          status: z.string().min(1, "Certainty is required"),
+          clinical_notes: z.string().optional(),
         })
       )
       .default([]),
 
-    medications: z
+    investigations: z
       .array(
         z.object({
-          drug_name: z.string().min(1, "Drug name is required"),
-          dosage: z.string().min(1, "Dosage is required"),
-          frequency: z.string().min(1, "Frequency is required"),
-          start_date: z.date().optional(),
-          end_date: z.date().optional(),
+          type: z.string().min(1, "Type is required"),
         })
+      )
+      .default([]),
+
+    // Dates here are the raw "YYYY-MM-DD" strings the day inputs produce; they
+    // are converted to ISO instants at local midnight when the payload is built.
+    medications: z
+      .array(
+        z
+          .object({
+            drug_name: z.string().min(1, "Drug name is required"),
+            dosage: z.string().min(1, "Dosage is required"),
+            frequency: z.string().min(1, "Frequency is required"),
+            frequency_text: z.string().optional(),
+            route: z.string().min(1, "Route is required"),
+            instructions: z.string().optional(),
+            start_date: z.string().optional(),
+            end_date: z.string().optional(),
+          })
+          .superRefine((med, ctx) => {
+            if (med.frequency === "OTHER" && !med.frequency_text?.trim()) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["frequency_text"],
+                message: "Describe the dosing schedule",
+              });
+            }
+            if (med.start_date && med.end_date && new Date(med.end_date) < new Date(med.start_date)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["end_date"],
+                message: "End date cannot be before the start date",
+              });
+            }
+          })
       )
       .default([]),
   })
@@ -203,6 +286,7 @@ const admissionSchema = z
 const defaultValues = {
   bed_id: "",
   doctor_id: "",
+  nurse_id: "",
   national_id: "",
   name: "",
   place_of_transfer: "",
@@ -214,12 +298,16 @@ const defaultValues = {
   occupation: "",
   marital_status: "",
   handedness: "",
+  children_count: "",
+  youngest_child_age: "",
   chief_complaint: "",
   complaint_analysis: "",
   related_system_symptoms: "",
   other_system_symptoms: "",
   previous_investigations: { labs: "", radiology: "" },
   previous_treatments: "",
+  special_habits: "",
+  blood_transfusion: false,
   dm: false,
   htn: false,
   past_history_paragraph: "",
@@ -230,9 +318,37 @@ const defaultValues = {
   has_allergies: false,
   traveled_abroad: false,
   custom_fields: [],
+  allergies: [],
   consanguinity: false,
   family_similar_conditions: "",
   inherited_diseases: "",
+  menstrual_history: {
+    menarche: "",
+    cycle_rhythm: "",
+    cycle_length: "",
+    duration_of_flow: "",
+    character_of_flow: "",
+    dysmenorrhea: false,
+    dysmenorrhea_details: "",
+    inter_menstrual_period: "",
+    contraception: "",
+    lnmp: "",
+  },
+  obstetric_history: {
+    gravidity: "",
+    parity: "",
+    full_term_normal_deliveries: "",
+    pre_term: "",
+    still_birth: "",
+    difficult_labors: "",
+    cesarean_section: false,
+    cesarean_details: "",
+    last_delivery_date: "",
+    abortions: false,
+    abortions_details: "",
+    previous_pregnancies_complications: "",
+    previous_puerperal_complications: "",
+  },
   temperature: "",
   pulse: "",
   systolic_bp: "",
@@ -247,7 +363,8 @@ const defaultValues = {
     complexion: { result: "negative", notes: "" },
     decubitus_attitude: { result: "negative", notes: "" },
     head_neck: { result: "negative", notes: "" },
-    upper_lower_limbs: { result: "negative", notes: "" },
+    upper_limbs: { result: "negative", notes: "" },
+    lower_limbs: { result: "negative", notes: "" },
     skin_lymph_nodes: { result: "negative", notes: "" },
     other_systems: { result: "negative", notes: "" },
   },
@@ -258,6 +375,7 @@ const defaultValues = {
     auscultation: "",
   },
   provisional_diagnosis: "",
+  diagnoses: [],
   investigations: [],
   medications: [],
 };
@@ -273,17 +391,98 @@ const VITAL_FIELDS = [
   "override_reason",
 ];
 
+// `fields` gates the Next button. `owns` is every field the step renders, and
+// exists so a validation error raised at submit time can be traced back to the
+// step that can actually display it — otherwise Submit fails with the message
+// rendered on a step the user is not looking at, and nothing appears to happen.
 const steps = [
-  { title: "Setup", component: Step0Setup, fields: ["bed_id", "doctor_id"] },
-  { title: "Admission Info", component: Step1AdmissionInfo, fields: ["national_id", "name"] },
-  { title: "History Taking", component: Step2HistoryTaking, fields: ["age", "chief_complaint"] },
-  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS },
-  { title: "General Examination", component: Step4GeneralExamination, fields: [] },
-  { title: "Local Examination", component: Step5LocalExamination, fields: [] },
-  { title: "Provisional Diagnosis", component: Step6ProvisionalDiagnosis, fields: [] },
-  { title: "Investigations", component: Step7Investigations, fields: [] },
-  { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [] },
+  {
+    title: "Setup",
+    component: Step0Setup,
+    fields: ["bed_id", "doctor_id", "nurse_id"],
+    owns: ["bed_id", "doctor_id", "nurse_id"],
+  },
+  {
+    title: "Admission Info",
+    component: Step1AdmissionInfo,
+    fields: ["national_id", "name"],
+    owns: [
+      "national_id",
+      "name",
+      "place_of_transfer",
+      "transfer_doctor_name",
+      "transfer_reason",
+    ],
+  },
+  {
+    title: "History Taking",
+    component: Step2HistoryTaking,
+    fields: ["age", "chief_complaint"],
+    owns: [
+      "age",
+      "gender",
+      "residence",
+      "occupation",
+      "marital_status",
+      "handedness",
+      "children_count",
+      "youngest_child_age",
+      "chief_complaint",
+      "complaint_analysis",
+      "related_system_symptoms",
+      "other_system_symptoms",
+      "previous_investigations",
+      "previous_treatments",
+      "special_habits",
+      "blood_transfusion",
+      "dm",
+      "htn",
+      "past_history_paragraph",
+      "similar_conditions",
+      "similar_conditions_detail",
+      "past_diseases",
+      "previous_operations",
+      "has_allergies",
+      "allergies",
+      "traveled_abroad",
+      "custom_fields",
+      "consanguinity",
+      "family_similar_conditions",
+      "inherited_diseases",
+      "menstrual_history",
+      "obstetric_history",
+    ],
+  },
+  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS, owns: VITAL_FIELDS },
+  {
+    title: "General Examination",
+    component: Step4GeneralExamination,
+    fields: [],
+    owns: ["general_exam"],
+  },
+  {
+    title: "Local Examination",
+    component: Step5LocalExamination,
+    fields: [],
+    owns: ["local_exam"],
+  },
+  {
+    title: "Provisional Diagnosis",
+    component: Step6ProvisionalDiagnosis,
+    fields: [],
+    owns: ["provisional_diagnosis", "diagnoses"],
+  },
+  { title: "Investigations", component: Step7Investigations, fields: [], owns: ["investigations"] },
+  { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [], owns: ["medications"] },
 ];
+
+/** The earliest step that renders any of the errored fields, or null. */
+function findStepForFields(fieldNames) {
+  for (let i = 0; i < steps.length; i += 1) {
+    if (fieldNames.some((name) => steps[i].owns.includes(name))) return i;
+  }
+  return null;
+}
 
 function parseOptionalInt(value) {
   if (value === undefined || value === null || String(value).trim() === "") return undefined;
@@ -303,6 +502,17 @@ function emptyToUndefined(value) {
 }
 
 const DRAFT_KEY = "smartcare:admit-patient-draft";
+// Long enough to survive a shift interruption, short enough that yesterday's
+// abandoned form never resurfaces under a new patient.
+const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 function loadDraft() {
   try {
@@ -311,21 +521,17 @@ function loadDraft() {
     const parsed = JSON.parse(raw);
     if (!parsed?.values || typeof parsed.values !== "object") return null;
 
-    // Revive Date fields in investigations / medications
+    // A stale draft belongs to a patient who was admitted (or abandoned) hours
+    // ago. Silently repopulating it into a new admission risks carrying one
+    // patient's history into another's record.
+    if (parsed.savedAt && Date.now() - parsed.savedAt > DRAFT_MAX_AGE_MS) {
+      clearDraft();
+      return null;
+    }
+
+    // Every field is stored in the shape its input uses — investigation and
+    // medication dates are plain strings — so nothing needs reviving.
     const values = { ...parsed.values };
-    if (Array.isArray(values.investigations)) {
-      values.investigations = values.investigations.map((inv) => ({
-        ...inv,
-        order_date: inv.order_date ? new Date(inv.order_date) : undefined,
-      }));
-    }
-    if (Array.isArray(values.medications)) {
-      values.medications = values.medications.map((med) => ({
-        ...med,
-        start_date: med.start_date ? new Date(med.start_date) : undefined,
-        end_date: med.end_date ? new Date(med.end_date) : undefined,
-      }));
-    }
 
     return {
       values: { ...defaultValues, ...values },
@@ -341,14 +547,6 @@ function saveDraft(values, step) {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values, step, savedAt: Date.now() }));
   } catch {
     // ignore quota / private mode
-  }
-}
-
-function clearDraft() {
-  try {
-    sessionStorage.removeItem(DRAFT_KEY);
-  } catch {
-    // ignore
   }
 }
 
@@ -386,6 +584,30 @@ export default function AdmitPatientPage() {
       const el = document.querySelector("[data-slot=form-message], [aria-invalid=true]");
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+  };
+
+  // react-hook-form hands us the full error map on a failed submit. Without
+  // this, an error on an earlier step leaves the user on Step 8 clicking a
+  // button that appears to do nothing.
+  const handleInvalidSubmit = (errors) => {
+    const errored = Object.keys(errors || {});
+    const targetStep = findStepForFields(errored);
+
+    if (targetStep !== null && targetStep !== currentStep) {
+      setCurrentStep(targetStep);
+      window.scrollTo(0, 0);
+      setSubmitError(
+        `Please fix the highlighted problem in "${steps[targetStep].title}" before submitting.`
+      );
+    } else if (targetStep === null && errored.length > 0) {
+      // A cross-field rule (the critical-vitals override) that belongs to no
+      // single step — say so rather than failing silently.
+      setSubmitError(
+        Object.values(errors)[0]?.message || "Please review the form before submitting."
+      );
+    }
+
+    scrollToFirstError();
   };
 
   const handleNext = async () => {
@@ -474,6 +696,8 @@ export default function AdmitPatientPage() {
           occupation: emptyToUndefined(data.occupation),
           marital_status: emptyToUndefined(data.marital_status),
           handedness: emptyToUndefined(data.handedness),
+          children_count: data.children_count ? parseInt(data.children_count, 10) : undefined,
+          youngest_child_age: emptyToUndefined(data.youngest_child_age),
         },
         medical_history: {
           diabetes_dm: data.dm,
@@ -490,10 +714,15 @@ export default function AdmitPatientPage() {
           inherited_diseases: data.inherited_diseases ? [data.inherited_diseases] : undefined,
           free_text: emptyToUndefined(data.past_history_paragraph),
           custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
+          special_habits: emptyToUndefined(data.special_habits),
+          blood_transfusion: !!data.blood_transfusion,
+          menstrual_history: data.gender === "FEMALE" ? data.menstrual_history : undefined,
+          obstetric_history: data.gender === "FEMALE" ? data.obstetric_history : undefined,
         },
         admission: {
           bed_id: data.bed_id,
           doctor_id: data.doctor_id,
+          nurse_id: data.nurse_id,
           transfer_reason: emptyToUndefined(data.transfer_reason),
           place_of_transfer: emptyToUndefined(data.place_of_transfer),
           transfer_doctor_name: emptyToUndefined(data.transfer_doctor_name),
@@ -508,6 +737,16 @@ export default function AdmitPatientPage() {
           previous_treatments: emptyToUndefined(data.previous_treatments),
           provisional_diagnosis: emptyToUndefined(data.provisional_diagnosis),
         },
+        // Written in the admission's own transaction so the problem list can
+        // never be half-created alongside a live admission.
+        diagnoses: (data.diagnoses || [])
+          .filter((diag) => diag.condition_name?.trim())
+          .map((diag) => ({
+            condition_name: diag.condition_name.trim(),
+            type: diag.type,
+            status: diag.status,
+            clinical_notes: emptyToUndefined(diag.clinical_notes),
+          })),
         vital_signs: hasVitals
           ? {
               ...vitalPayload,
@@ -517,6 +756,44 @@ export default function AdmitPatientPage() {
                 : undefined,
             }
           : undefined,
+        // Allergens, not just the yes/no flag — these are what block a
+        // conflicting drug order at prescribing time.
+        allergies: (data.allergies || [])
+          .filter((a) => a.allergen?.trim())
+          .map((a) => ({
+            allergen: a.allergen.trim(),
+            severity: emptyToUndefined(a.severity?.trim()),
+          })),
+        // Steps 4 and 5. Sent with the admission so a failure can no longer
+        // lose both examinations behind a console warning.
+        examination: {
+          general_exams: data.general_exam,
+          local_exams: data.local_exam,
+        },
+        // Step 7. Written in the same transaction rather than POSTed one at a
+        // time after the admission has already committed.
+        investigations: (data.investigations || [])
+          .filter((inv) => inv.type?.trim())
+          .map((inv) => ({
+            order_name: inv.type.trim(),
+            type: "Lab",
+          })),
+        // Sent with the admission itself so the drug list is written in the
+        // same transaction — a failure here rolls the whole admission back
+        // instead of leaving a patient with half a treatment plan.
+        medications: (data.medications || [])
+          .filter((med) => med.drug_name?.trim())
+          .map((med) => ({
+            drug_name: med.drug_name.trim(),
+            dosage: med.dosage.trim(),
+            frequency: med.frequency,
+            frequency_text:
+              med.frequency === "OTHER" ? emptyToUndefined(med.frequency_text) : undefined,
+            route: med.route,
+            instructions: emptyToUndefined(med.instructions),
+            start_date: dateInputToIso(med.start_date),
+            end_date: dateInputToIso(med.end_date),
+          })),
       };
 
       const admissionRes = await api.post("/admissions/full", fullPayload);
@@ -527,34 +804,9 @@ export default function AdmitPatientPage() {
         throw new Error("Failed to extract admission ID from response");
       }
 
-      try {
-        await api.post(`/admissions/${admissionId}/examinations`, {
-          general_exams: data.general_exam,
-          local_exams: data.local_exam,
-        });
-      } catch (err) {
-        console.warn("Examinations endpoint might not exist yet", err);
-      }
-
-      const validInvestigations = data.investigations?.filter((inv) => inv.type?.trim()) || [];
-      for (const inv of validInvestigations) {
-        await api.post(`/admissions/${admissionId}/investigation-orders`, {
-          order_name: inv.type,
-          type: "Lab",
-          order_date: inv.order_date ? inv.order_date.toISOString() : undefined,
-        });
-      }
-
-      const validMedications = data.medications?.filter((med) => med.drug_name?.trim()) || [];
-      for (const med of validMedications) {
-        await api.post(`/admissions/${admissionId}/medications`, {
-          drug_name: med.drug_name,
-          dosage: med.dosage || "As prescribed",
-          frequency: med.frequency || "Once",
-          start_date: med.start_date ? med.start_date.toISOString() : undefined,
-          end_date: med.end_date ? med.end_date.toISOString() : undefined,
-        });
-      }
+      // Everything the form collects — examination, diagnoses, investigations,
+      // medications and allergies — was written in that one transaction. There
+      // is no follow-up request that can leave the record half-built.
 
       clearDraft();
       navigate(`/patients`);
@@ -648,7 +900,7 @@ export default function AdmitPatientPage() {
                     type="button"
                     className="cursor-pointer"
                     disabled={isSubmitting}
-                    onClick={() => form.handleSubmit(onSubmit, scrollToFirstError)()}
+                    onClick={() => form.handleSubmit(onSubmit, handleInvalidSubmit)()}
                   >
                     {isSubmitting ? "Submitting..." : "Submit Admission"}
                   </Button>

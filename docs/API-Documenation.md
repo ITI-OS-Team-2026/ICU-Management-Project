@@ -24,6 +24,7 @@
 12. Follow-ups (SOAP)
 13. Medical Documents
 14. AI Services (Summaries & RAG Query)
+14b. RAG Assistant (`/rag`)
 15. Alerts & Alert Reviews
 16. Notifications
 17. Treatment Approvals
@@ -410,21 +411,23 @@
 
 ## `POST /admissions/:id/documents`
 - **Auth:** Nurse, Resident, Specialist
-- **Description:** Multipart upload; triggers async embedding job.
-- **Request Body (multipart):** `file`, `document_type`
-- **Responses:** `201 Created` (`embedding_status: pending`) · `413` · `415`
+- **Description:** Multipart upload. On success the document is queued for RAG indexing out of band — the response returns immediately with `embedding_status: "PENDING"`; poll `GET /rag/documents/:id/status` for progress.
+- **Request Body (multipart):** `file` (PDF, JPEG, PNG, TXT — max 10 MB), `document_type`
+- **Responses:** `201 Created` — includes `mimeType`, `fileSize`, `embeddingStatus` · `404` unknown admission · `409` admission not `ACTIVE` · `413` too large · `415` unsupported type
 
 ## `GET /admissions/:id/documents`
 - **Auth:** Nurse, Resident, Specialist
+- **Description:** Active (non-archived) documents, newest first, each with its indexing state (`embeddingStatus`, `chunkCount`, `embeddingError`).
 
 ## `GET /documents/:id/download`
 - **Auth:** Nurse, Resident, Specialist
 
 ## `DELETE /documents/:id`
 - **Auth:** Resident, Specialist
+- **Description:** Soft archive. Chunks are retained but excluded from retrieval immediately.
 - **Responses:** `204 No Content`
 
-*`document_embeddings` has no client API — written only by the embedding job.*
+*`document_embeddings` has no direct client API — it is written only by the RAG indexing pipeline and read through §14b.*
 
 ---
 
@@ -439,15 +442,181 @@
 ## `GET /admissions/:id/summaries`
 - **Auth:** Nurse, Resident, Specialist
 
+## `POST /ai/admissions/:admissionId/patient-summary`
+- **Auth:** Resident, Specialist
+- **Description:** Generates a full ICU handoff summary through Bedrock. Independent of the RAG assistant.
+- **Responses:** `201 Created` · `503`
+
+## `GET /ai/admissions/:admissionId/patient-context`
+- **Auth:** Resident, Specialist
+- **Description:** The aggregated data the summary would be built from, without invoking the LLM.
+
+## `DELETE /ai/summaries/:summaryId` · `PATCH /ai/summaries/:summaryId/restore`
+- **Auth:** Resident, Specialist
+- **Responses:** `200 OK` · `404` · `409` already in that state
+
 ## `POST /ai/query`
 - **Auth:** Resident, Specialist
+- **Description:** Legacy alias for `POST /rag/query` — same implementation, same response shape.
 - **Request Body:** `{ admission_id, question, include_history?: boolean }`
-- **Responses:** `200 OK` — `{ id, ai_response, cited_sources }` · `503`
+- **Responses:** `200 OK` · `404` · `503`
 - **Related:** SRS FR-3.1
 
 ## `GET /admissions/:id/ai-query-logs`
 - **Auth:** Resident, Specialist
 - **Query:** `limit`
+
+---
+
+# 14b. RAG Assistant (`/rag`)
+
+Retrieval-augmented question answering over a **single admission**. Every query embeds the question, runs a pgvector similarity search across that admission's indexed document chunks, joins the admission's structured clinical records, and asks the LLM to answer using only that context with inline citations. There is no code path that widens the scope beyond one admission (SRS FR-3.1).
+
+## `POST /rag/query`
+- **Auth:** Resident, Specialist
+- **Request Body:** `{ question, mode?: "patient" | "knowledge", admission_id, include_history?: boolean, chat_id?: uuid, top_k?: 1..25 }`
+  - `mode: "patient"` (default) — requires `admission_id`, rejects `chat_id`. Answers only from that admission's record and logs to `ai_query_logs`.
+  - `mode: "knowledge"` — rejects `admission_id`. General medical questions against the indexed knowledge base **plus any files attached to that chat**. Pass `chat_id` to continue a saved chat; omit it and a new chat is started, whose id comes back as `data.chat_id`.
+- **Responses:** `200 OK` · `400` invalid question · `404` unknown admission or chat · `503` AI service unavailable
+- **Response shape:**
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "uuid",
+    "admission_id": "uuid",
+    "question": "What did the echocardiogram show?",
+    "ai_response": "The echocardiogram reported an ejection fraction of 38 percent [Document: consult.pdf, part 1].",
+    "cited_sources": [
+      {
+        "type": "document_chunk",
+        "id": "uuid",
+        "document_id": "uuid",
+        "chunk_index": 0,
+        "label": "Document: consult.pdf, part 1",
+        "excerpt": "Echocardiography reports an ejection fraction of 38 percent…",
+        "score": 0.4812,
+        "cited": true
+      },
+      {
+        "type": "vital_signs",
+        "id": "uuid",
+        "label": "Vitals log, 30 Jul, 23:47",
+        "timestamp": "2026-07-30T23:47:00.000Z",
+        "excerpt": "temp 37.4°C, pulse 112 bpm, BP 96/58 mmHg, RR 22/min, SpO2 91%",
+        "cited": false
+      }
+    ],
+    "created_at": "2026-07-30T23:47:12.000Z",
+    "retrieval": {
+      "mode": "llm",
+      "embedding_model": "local:hashed-lexical-v1",
+      "document_chunks_retrieved": 1,
+      "clinical_records_retrieved": 2,
+      "clinical_records_available": 2,
+      "top_score": 0.4812,
+      "duration_ms": 8420
+    }
+  }
+}
+```
+- **`retrieval.mode`:** `llm` (generated) · `retrieval_only` (no LLM configured — the top retrieved records are returned verbatim) · `no_context` (nothing recorded for this admission; `ai_response` is the explicit "Not enough recorded data…" state and no LLM call is made).
+- **`user_message_id`** (knowledge mode): the id of the stored *question* message. Any files staged in that chat are bound to it, so a client rendering an optimistic bubble can adopt this id and resolve the message's attachments against the resource list.
+- **`cited_sources[].cited`:** `true` when the answer text references that source label, so the UI can separate referenced sources from the wider retrieval set.
+
+## `GET /rag/admissions/:admissionId/history`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–100, default 30)
+- **Description:** Conversation transcript, **oldest first** for direct chat rendering.
+
+## `DELETE /rag/admissions/:admissionId/history`
+- **Auth:** Resident, Specialist
+- **Description:** Clears `ai_query_logs` for the admission. The audit trail is unaffected.
+- **Responses:** `200 OK` — `{ status, message, deleted }`
+
+## Saved assistant chats (`/rag/chats`)
+
+Named, resumable conversations with the **Medical Knowledge Assistant** (`mode: "knowledge"`), stored in `ai_chat_sessions` / `ai_chat_messages`. Every route is scoped to the authenticated clinician — another clinician's chat returns `404`, never `403`, so ids cannot be probed. Patient-mode transcripts are **not** stored here; they stay in `ai_query_logs` as part of the admission record.
+
+### `GET /rag/chats`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–200, default 100)
+- **Description:** The caller's chats, most recently active first: `{ id, title, mode, created_at, updated_at, last_message_at, message_count }`.
+
+### `POST /rag/chats`
+- **Auth:** Resident, Specialist
+- **Request Body:** `{ title? }` — defaults to `"New chat"`, replaced by the first question asked in it.
+- **Responses:** `201 Created`. Optional: asking with no `chat_id` also creates one.
+
+### `GET /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** The chat plus `messages[]`, oldest first: `{ id, role: "user" | "assistant", content, cited_sources, retrieval, attachments, created_at }`. `attachments[]` holds the files sent with that message (same shape as a resource), which is what the transcript renders inline.
+- **Responses:** `200 OK` · `404` unknown or not owned
+
+### `PATCH /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Request Body:** `{ title }` (1–120 chars)
+
+### `DELETE /rag/chats/:chatId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Permanently deletes the chat and its messages. Audited as `ARCHIVE` on `AiChatSession`.
+- **Responses:** `200 OK` — `{ status, message, deleted, messages_deleted }`
+
+### `DELETE /rag/chats`
+- **Auth:** Resident, Specialist
+- **Description:** Deletes every chat the caller owns, and their resources.
+- **Responses:** `200 OK` — `{ status, message, deleted, resources_deleted }`
+
+## Chat resources (`/rag/chats/:chatId/resources`)
+
+Reference files a clinician attaches to one chat with the **+** button. A resource is a `medical_documents` row with `chat_session_id` set and `admission_id` null, so it reuses the same extract → chunk → embed pipeline (PDF parsing, OCR for images). Retrieval only ever surfaces a resource **inside the chat it was uploaded to** — the scope filter is in the SQL, so no other chat and no other clinician can reach it.
+
+Deleting a resource — or the chat holding it — destroys the Cloudinary original *and* the database rows (chunks cascade). Nothing is left in either store.
+
+### `GET /rag/chats/:chatId/resources`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Attached files with indexing state: `{ id, chat_id, message_id, original_filename, mime_type, file_size, storage_type, is_image, embedding_status, embedding_error, chunk_count, is_searchable, created_at }`. Poll this while `embedding_status` is `PENDING`/`PROCESSING`.
+- **`message_id`:** null while the file is still staged in the composer; set to the message it was sent with once a question goes out. The composer shows unbound files, the transcript shows bound ones.
+
+### `POST /rag/chats/:chatId/resources`
+- **Auth:** Resident, Specialist (owner only)
+- **Request:** `multipart/form-data`, field `file` — PDF, JPEG, PNG or TXT, max 10MB (same filter as patient documents).
+- **Description:** Stores the file (Cloudinary when configured, DB blob otherwise) and queues indexing out of band; the response returns immediately with `embedding_status: "PENDING"`.
+- **Responses:** `201 Created` · `404` unknown or not owned · `413` too large · `415` unsupported type
+
+### `GET /rag/chats/:chatId/resources/:documentId/file`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** The stored bytes, served `Content-Disposition: inline` with the original mime type — used for thumbnails, the full-screen image lightbox, and opening a PDF in a new tab. Proxied through the API rather than exposing the Cloudinary URL, so ownership is re-checked on every read.
+- **Responses:** `200 OK` · `401` no session · `404` unknown or not owned · `502` cloud storage unreachable
+
+### `DELETE /rag/chats/:chatId/resources/:documentId`
+- **Auth:** Resident, Specialist (owner only)
+- **Description:** Detaches and permanently deletes one resource, Cloudinary original included.
+- **Responses:** `200 OK` — `{ status, message, deleted, file_removed }` · `404`
+- **`file_removed`:** `false` means the database row is gone but cloud storage refused the delete — the failure is logged rather than blocking the clinician.
+
+## `GET /rag/admissions/:admissionId/index`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Knowledge-base status for the admission: `counts` by embedding state, `indexed_chunks`, `is_searchable`, `is_busy`, `embedding_provider`, plus per-document detail.
+
+## `POST /rag/admissions/:admissionId/reindex`
+- **Auth:** Resident, Specialist
+- **Description:** Re-queues every `PENDING` / `FAILED` document for the admission.
+- **Responses:** `202 Accepted` — `{ queued }`
+
+## `GET /rag/documents/:documentId/status`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Poll one document's indexing progress. `is_retryable` is `true` when a re-index would help.
+
+## `POST /rag/documents/:documentId/reindex`
+- **Auth:** Resident, Specialist
+- **Description:** Synchronous re-extract → re-chunk → re-embed of one document.
+- **Responses:** `200 OK` · `404` · `409` already indexing
+
+## `GET /rag/documents/:documentId/chunks`
+- **Auth:** Resident, Specialist
+- **Query:** `limit` (1–200, default 50)
+- **Description:** The exact chunks stored for a document — lets a clinician audit what the assistant can see.
 
 ---
 
@@ -487,18 +656,45 @@
 
 # 17. Treatment Approvals
 
+`approval_status` is tri-state: `null` = pending, `true` = approved, `false` = rejected.
+
 ## `POST /admissions/:id/treatment-approvals`
 - **Auth:** Resident, Specialist
 - **Request Body:** `{ treatment_name, clinical_justification }`
 - **Responses:** `201 Created` — pending until Specialist decides
+- **Errors:** `404` unknown admission · `409` admission is not `ACTIVE`
+- **Side effect:** notifies every active Specialist (except the requester)
 
 ## `PATCH /treatment-approvals/:id`
 - **Auth:** Specialist only
 - **Request Body:** `{ approval_status: boolean }`
 - **Responses:** `200 OK` — sets `approved_by`, `approved_at`
+- **Errors:** `404` unknown approval · `409` already decided (decisions are final)
+- **Side effect:** notifies the requester of the decision
+
+## `PATCH /treatment-approvals/:id/execution`
+- **Auth:** Nurse only
+- **Description:** Bedside execution log — records that an *approved* treatment was actually carried out.
+- **Request Body:** `{ execution_status: "IN_PROGRESS" | "COMPLETED", execution_notes? }`
+- **Responses:** `200 OK` — stamps `started_by`/`started_at` or `completed_by`/`completed_at`
+- **Errors:** `404` unknown approval · `409` not approved yet, rejected, or a backwards transition
+- **Notes:** execution is forward-only (`NOT_STARTED → IN_PROGRESS → COMPLETED`). Completing straight
+  from `NOT_STARTED` also stamps the start time, for short procedures.
+- **Side effect:** notifies the requester and the approving specialist
 
 ## `GET /admissions/:id/treatment-approvals`
 - **Auth:** Nurse, Resident, Specialist
+- **Query:** `status` (`PENDING` / `APPROVED` / `REJECTED`), `execution` (`NOT_STARTED` / `IN_PROGRESS` / `COMPLETED`) — omit for all
+- **Responses:** `200 OK` — newest first, each row embeds `requester`, `approver`, `starter`, `completer`
+
+## `DELETE /treatment-approvals/:id`
+- **Auth:** Resident, Specialist — requester only
+- **Description:** Withdraws a still-pending request (soft archive).
+- **Responses:** `204 No Content`
+- **Errors:** `403` not the requester · `404` unknown approval · `409` already decided
+
+> **ERD note:** the table carries a `requested_by` FK in addition to the ERD's `approved_by`, so the
+> requesting clinician can be shown without joining the audit log.
 
 ---
 
@@ -544,9 +740,10 @@
 | Follow-ups | POST/GET/DELETE | `/follow-ups` … | Clinical |
 | Documents | POST/GET/DELETE + download | `/documents` … | Clinical |
 | AI | POST/GET | `/ai/summary`, `/ai/query`, logs | Resident/Specialist (+ GET summaries Nurse) |
+| RAG | POST/GET/PATCH/DELETE | `/rag/query`, `/rag/chats`, history, index status, re-index, chunks | Resident/Specialist (+ GET index/status Nurse) |
 | Alerts | GET + reviews | `/alerts` … | Clinical |
 | Notifications | GET/PATCH | `/notifications` … | Own user |
-| Treatment | POST/PATCH/GET | `/treatment-approvals` … | Role-split |
+| Treatment | POST/GET/PATCH/DELETE | `/treatment-approvals` … | Role-split |
 | Audit | GET | `/admin/audit-logs` | Admin |
 
 **Removed vs prior API draft:** all `/fluids` endpoints.

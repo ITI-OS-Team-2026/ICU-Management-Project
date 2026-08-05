@@ -25,10 +25,24 @@ const generateTokenForRole = async (email, role) => {
   return jwt.sign({ id: user.id, role }, config.jwtSecret, { expiresIn: "12h" });
 };
 
+// Scoped to patients this file created (none of its fixtures create an
+// admission), never to every row in the table. An unconditional deleteMany
+// here has two failure modes against a seeded database: it throws outright
+// once any patient has a RESTRICT-protected admission (patient.deleteMany),
+// or it silently succeeds and destroys real demo data with no error at all
+// (allergy/medicalHistory.deleteMany — nothing FK-protects those tables, so
+// they simply vanish). A patient with zero admissions can only be one of
+// this file's own fixtures.
 async function cleanupTestData() {
-  await prisma.allergy.deleteMany({});
-  await prisma.medicalHistory.deleteMany({});
-  await prisma.patient.deleteMany({});
+  const orphanPatients = await prisma.patient.findMany({
+    where: { admissions: { none: {} } },
+    select: { id: true },
+  });
+  const orphanIds = orphanPatients.map((p) => p.id);
+
+  await prisma.allergy.deleteMany({ where: { patientId: { in: orphanIds } } });
+  await prisma.medicalHistory.deleteMany({ where: { patientId: { in: orphanIds } } });
+  await prisma.patient.deleteMany({ where: { id: { in: orphanIds } } });
 }
 
 beforeEach(async () => {
@@ -155,8 +169,11 @@ describe("Patients, Allergies & Medical History API", () => {
         .set("Cookie", nurseCookie);
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.data.length).toBe(2);
-      expect(res.body.meta.total).toBe(2);
+      // Not an exact count: this endpoint lists every patient in the
+      // database, and a seeded/demo environment has real ones beyond this
+      // test's own two fixtures. Assert presence, not an exhaustive total.
+      const ids = res.body.data.map((p) => p.id);
+      expect(ids).toEqual(expect.arrayContaining([patient1.id, patient2.id]));
     });
 
     it("should search patients by name", async () => {
@@ -180,14 +197,18 @@ describe("Patients, Allergies & Medical History API", () => {
         .get("/api/patients")
         .set("Cookie", nurseCookie);
 
-      expect(resDefault.body.data.length).toBe(1);
-      expect(resDefault.body.data[0].id).toBe(patient1.id);
+      // Presence/absence, not an exact count — the default list also holds
+      // whatever real, non-archived patients already exist in the database.
+      const defaultIds = resDefault.body.data.map((p) => p.id);
+      expect(defaultIds).toContain(patient1.id);
+      expect(defaultIds).not.toContain(patient2.id);
 
       const resArchived = await request(app)
         .get("/api/patients?include_archived=true")
         .set("Cookie", nurseCookie);
 
-      expect(resArchived.body.data.length).toBe(2);
+      const archivedIds = resArchived.body.data.map((p) => p.id);
+      expect(archivedIds).toEqual(expect.arrayContaining([patient1.id, patient2.id]));
     });
   });
 
@@ -288,7 +309,11 @@ describe("Patients, Allergies & Medical History API", () => {
       });
 
       const res = await request(app)
-        .delete(`/api/allergies/${allergy.id}`)
+        // The allergy-delete route lives inside patient.routes.js, mounted at
+        // /patients — there is no standalone /api/allergies. The frontend never
+        // calls this either way (no deleteAllergy in patientsService.js), so
+        // this wrong path had silently 404'd here with nothing to catch it.
+        .delete(`/api/patients/allergies/${allergy.id}`)
         .set("Cookie", residentCookie);
 
       expect(res.statusCode).toBe(204);
@@ -303,7 +328,11 @@ describe("Patients, Allergies & Medical History API", () => {
       });
 
       const res = await request(app)
-        .delete(`/api/allergies/${allergy.id}`)
+        // The allergy-delete route lives inside patient.routes.js, mounted at
+        // /patients — there is no standalone /api/allergies. The frontend never
+        // calls this either way (no deleteAllergy in patientsService.js), so
+        // this wrong path had silently 404'd here with nothing to catch it.
+        .delete(`/api/patients/allergies/${allergy.id}`)
         .set("Cookie", nurseCookie);
 
       expect(res.statusCode).toBe(403);

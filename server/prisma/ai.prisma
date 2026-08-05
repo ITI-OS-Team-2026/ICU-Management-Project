@@ -41,3 +41,56 @@ model AiQueryLog {
   @@index([createdAt])
   @@map("ai_query_logs")
 }
+
+// ─── Assistant chat sessions ─────────────────────────────────────────────────
+// Named, resumable conversations with the Medical Knowledge Assistant. Owned by
+// one clinician: only the author lists, resumes, renames or deletes their chats.
+// AiQueryLog stays as-is — it is the admission-scoped clinical record of every
+// patient-mode question, and is not user-deletable.
+
+enum AiChatMode {
+  KNOWLEDGE
+  PATIENT
+}
+
+enum AiChatRole {
+  USER
+  ASSISTANT
+}
+
+model AiChatSession {
+  id            String     @id @default(uuid())
+  userId        String     @map("user_id")
+  title         String     @db.VarChar(120)
+  mode          AiChatMode @default(KNOWLEDGE)
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  lastMessageAt DateTime?  @map("last_message_at")
+
+  user     User            @relation("AiChatSessionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  messages AiChatMessage[]
+  // Files the clinician attached to this chat. Deleting the chat cascades the
+  // rows away; the Cloudinary originals are removed by chatResources.service.
+  resources MedicalDocument[]
+
+  // The sidebar reads "my chats, newest activity first" on every page load.
+  @@index([userId, lastMessageAt(sort: Desc)])
+  @@map("ai_chat_sessions")
+}
+
+model AiChatMessage {
+  id           String     @id @default(uuid())
+  sessionId    String     @map("session_id")
+  role         AiChatRole
+  content      String     @db.Text
+  citedSources Json?      @map("cited_sources")
+  retrieval    Json?
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  session     AiChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  // Files sent with this message, rendered inline in the transcript.
+  attachments MedicalDocument[]
+
+  @@index([sessionId, createdAt])
+  @@map("ai_chat_messages")
+}

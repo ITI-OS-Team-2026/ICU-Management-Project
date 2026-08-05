@@ -11,6 +11,27 @@ const createRequest = async (req, res, next) => {
   }
 };
 
+// POST /password-reset-requests/public — no session required (login-page flow)
+const createPublicRequest = async (req, res, next) => {
+  try {
+    const { email, message } = req.body;
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: "An email address is required." });
+    }
+    await passwordResetService.createPublicRequest(email, message);
+    res.status(202).json({
+      message: "If an active account exists for that email, an admin has been notified.",
+    });
+  } catch (error) {
+    if (error.statusCode === 404 || error.statusCode === 409) {
+      return res.status(202).json({
+        message: "If an active account exists for that email, an admin has been notified.",
+      });
+    }
+    next(error);
+  }
+};
+
 // GET /password-reset-requests/my — user gets their own requests
 const getMyRequests = async (req, res, next) => {
   try {
@@ -82,6 +103,7 @@ const resolveRequest = async (req, res, next) => {
 
 module.exports = {
   createRequest,
+  createPublicRequest,
   getMyRequests,
   markRequestsSeen,
   countUnseenReplies,

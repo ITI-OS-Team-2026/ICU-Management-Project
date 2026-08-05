@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, HelpCircle } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, HelpCircle, Keyboard } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+import NotificationDropdown from '@/components/notifications/NotificationDropdown';
 
 import { MobileSidebar } from './MobileSidebar';
+import { useShortcutStore } from '../../store/shortcutStore';
 
 const ROUTE_TITLES = {
   '/': 'Dashboard',
@@ -26,11 +28,12 @@ const ROUTE_TITLES = {
 export function TopHeader({ isCollapsed, setIsCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const openShortcutHelp = useShortcutStore((state) => state.openShortcutHelp);
   const pageTitle = ROUTE_TITLES[location.pathname] || 'SmartCare ICU';
 
   return (
-    <header className="relative flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-6">
-      <div className="flex items-center gap-4">
+    <header className="flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background px-4 sm:px-6 gap-3">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Desktop Toggle */}
         <Button
           variant="ghost"
@@ -45,11 +48,24 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
         <MobileSidebar />
       </div>
 
-      <h1 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-lg font-semibold text-foreground">
+      <h1 className="flex-1 truncate text-center font-display text-base sm:text-lg font-semibold text-foreground">
         {pageTitle}
       </h1>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
+        {/* Shortcuts are worthless if nobody knows they exist; `?` alone is not
+            discoverable, so it gets a button on every screen size — tablets and
+            docked phones have keyboards too. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={openShortcutHelp}
+          className="text-muted-foreground hover:text-foreground h-8 w-8"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          <Keyboard className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -59,6 +75,7 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
         >
           <HelpCircle className="h-4 w-4" />
         </Button>
+        <NotificationDropdown />
         <ThemeToggle />
       </div>
     </header>

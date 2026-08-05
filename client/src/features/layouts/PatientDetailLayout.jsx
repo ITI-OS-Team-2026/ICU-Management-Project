@@ -8,27 +8,37 @@ import {
   StickyNote,
   FileText,
   ClipboardList,
+  ShieldCheck,
   Bell,
   Bot,
+  MessageSquareText,
   LayoutDashboard,
   RefreshCcw,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { patientsService } from '../services/patientsService';
+import { useShortcuts } from '../hooks/useShortcuts';
+import { useAuthStore } from '../store/authStore';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
+// `roles` restricts a tab to specific roles; omit it for tabs everyone sees.
+const CLINICIAN_ROLES = ['MEDICAL_RESIDENT', 'ICU_SPECIALIST'];
+
 const TABS = [
   { label: 'Overview',     path: '',             icon: LayoutDashboard },
   { label: 'Vitals',       path: 'vitals',       icon: Activity },
-  { label: 'Medications',  path: 'medications',  icon: Pill },
   { label: 'Diagnoses',    path: 'diagnoses',    icon: Stethoscope },
-  { label: 'Notes',        path: 'notes',        icon: StickyNote },
   { label: 'Documents',    path: 'documents',    icon: FileText },
+  { label: 'Medications',  path: 'medications',  icon: Pill },
   { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },
+  { label: 'Notes',        path: 'notes',        icon: StickyNote },
+  { label: 'Approvals',    path: 'treatment-approvals', icon: ShieldCheck },
   { label: 'Alerts',       path: 'alerts',       icon: Bell },
   { label: 'AI Summary',   path: 'ai-assistant', icon: Bot },
+  { label: 'AI Chat',      path: 'ai-chat',      icon: MessageSquareText, roles: CLINICIAN_ROLES },
 ];
 
 // ─── Acuity ───────────────────────────────────────────────────────────────────
@@ -78,6 +88,7 @@ function VitalCol({ label, value, color = 'text-foreground', unit }) {
 export default function PatientDetailLayout() {
   const { admissionId } = useParams();
   const navigate = useNavigate();
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const [admission, setAdmission] = useState(null);
   const [vitals, setVitals]       = useState(null);
@@ -116,6 +127,24 @@ export default function PatientDetailLayout() {
   const { acuity, dot, riskColor } = getAcuityMeta(vitals);
   const riskScore = getRiskScore(vitals, acuity);
   const basePath  = `/patients/${admissionId}`;
+
+  // Every destination here must match a child route in router.jsx. Three of
+  // these used to point at paths that do not exist — `/overview` (the tab is
+  // the index route), `/labs` (no such tab) and `/ai` (it is `ai-assistant`) —
+  // so those keys silently did nothing.
+  useShortcuts('patientDetails', {
+    closePatient: () => navigate('/dashboard'),
+    openOverview: () => navigate(basePath),
+    openVitals: () => navigate(`${basePath}/vitals`),
+    openDiagnoses: () => navigate(`${basePath}/diagnoses`),
+    openMedications: () => navigate(`${basePath}/medications`),
+    openNotes: () => navigate(`${basePath}/notes`),
+    openDocuments: () => navigate(`${basePath}/documents`),
+    openFollowUps: () => navigate(`${basePath}/follow-ups`),
+    openApprovals: () => navigate(`${basePath}/treatment-approvals`),
+    openAlerts: () => navigate(`${basePath}/alerts`),
+    openAiAssistant: () => navigate(`${basePath}/ai-assistant`),
+  });
 
   // ─ Loading ──────────────────────────────────────────────────────────────────
   if (isLoading) {
@@ -262,7 +291,7 @@ export default function PatientDetailLayout() {
           className="flex items-center overflow-x-auto scrollbar-none px-3 sm:px-5 border-t border-border/50"
           aria-label="Patient detail tabs"
         >
-          {TABS.map(({ label, path, icon: Icon }) => {
+          {TABS.filter(({ roles }) => !roles || roles.includes(userRole)).map(({ label, path, icon: Icon }) => {
             const to = path ? `${basePath}/${path}` : basePath;
             return (
               <NavLink

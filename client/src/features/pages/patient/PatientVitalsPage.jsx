@@ -1,19 +1,25 @@
-import { useCallback, useMemo } from 'react';
+/* ================================================================
+   Imports
+   ================================================================ */
+import { useCallback, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Activity,
   ArrowDown,
   ArrowUp,
+  ChevronDown,
   Clock,
   Heart,
   History,
   LineChart,
+  Loader2,
   RefreshCcw,
   Thermometer,
   Wind,
   AlertTriangle,
   Droplets,
   User,
+  Calendar,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -21,6 +27,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -37,6 +45,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { useVitals } from '../../hooks/useVitals';
+import { useVitalsHistory } from '../../hooks/useVitalsHistory';
 import {
   VitalTrendChart,
   BloodPressureTrendChart,
@@ -47,6 +56,13 @@ import {
   getVitalStatus,
   getVitalValue,
 } from '../../utils/vitalStatus';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 /* ================================================================
    Vital Sign Configuration
@@ -491,6 +507,161 @@ function VitalsHistoryTable({ vitals, isLoading }) {
 }
 
 /* ================================================================
+   Vitals History Section
+   ================================================================ */
+
+const RANGE_OPTIONS = [
+  { value: 'all', label: 'All Time' },
+  { value: '24h', label: 'Last 24 Hours' },
+  { value: '7d', label: 'Last 7 Days' },
+  { value: '30d', label: 'Last 30 Days' },
+  { value: 'custom', label: 'Custom Range' },
+];
+
+function DateRangeFilter({ range, setRange, customFrom, setCustomFrom, customTo, setCustomTo, disabled }) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+      <div className="flex items-center gap-2">
+        <Calendar size={13} className="text-muted-foreground shrink-0" />
+        <Select
+          value={range}
+          onValueChange={setRange}
+          disabled={disabled}
+        >
+          <SelectTrigger className="w-[160px]" size="sm">
+            <SelectValue placeholder="Select range" />
+          </SelectTrigger>
+          <SelectContent>
+            {RANGE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {range === 'custom' && (
+        <div className="flex items-center gap-2">
+          <div className="space-y-1">
+            <Label className="font-sans text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              From
+            </Label>
+            <Input
+              type="date"
+              value={customFrom}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              disabled={disabled}
+              className="h-7 text-xs px-2"
+            />
+          </div>
+          <span className="text-muted-foreground text-xs pb-3">→</span>
+          <div className="space-y-1">
+            <Label className="font-sans text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              To
+            </Label>
+            <Input
+              type="date"
+              value={customTo}
+              onChange={(e) => setCustomTo(e.target.value)}
+              disabled={disabled}
+              className="h-7 text-xs px-2"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VitalsHistorySection({ admissionId }) {
+  const {
+    vitals,
+    visibleCount,
+    totalLoaded,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    error,
+    range,
+    setRange,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    loadMore,
+  } = useVitalsHistory(admissionId);
+
+  return (
+    <section aria-label="Vitals history" className="space-y-3">
+      {/* ── Header & Filters ── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
+            <History size={14} className="text-muted-foreground" />
+            Vitals History
+          </h2>
+          <span className="font-sans text-xs text-muted-foreground">
+            {isLoading
+              ? 'Loading…'
+              : error
+              ? '—'
+              : `Showing ${visibleCount} of ${totalLoaded} record${totalLoaded !== 1 ? 's' : ''}`}
+          </span>
+        </div>
+
+        <DateRangeFilter
+          range={range}
+          setRange={setRange}
+          customFrom={customFrom}
+          setCustomFrom={setCustomFrom}
+          customTo={customTo}
+          setCustomTo={setCustomTo}
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* ── Table ── */}
+      <VitalsHistoryTable vitals={vitals} isLoading={isLoading} />
+
+      {/* ── Error ── */}
+      {error && (
+        <div className="flex items-center gap-2 text-destructive text-xs font-sans">
+          <AlertTriangle size={14} />
+          {error}
+        </div>
+      )}
+
+      {/* ── Load More ── */}
+      {hasMore && !isLoading && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="font-sans text-xs"
+            onClick={loadMore}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <>
+                <Loader2 size={13} className="mr-1.5 animate-spin" />
+                Loading…
+              </>
+            ) : (
+              <>
+                <ChevronDown size={13} className="mr-1.5" />
+                Load Older Records
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+
+/* ================================================================
    Main Page Component
    ================================================================ */
 export default function PatientVitalsPage() {
@@ -637,19 +808,8 @@ export default function PatientVitalsPage() {
 
         <Separator className="bg-border" />
 
-        {/* ── Vitals History Table ─────────────────────────────────────── */}
-        <section aria-label="Vitals history">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
-              <History size={14} className="text-muted-foreground" />
-              Vitals History
-            </h2>
-            <span className="font-sans text-xs text-muted-foreground">
-              {vitals.length} {vitals.length === 1 ? 'record' : 'records'}
-            </span>
-          </div>
-          <VitalsHistoryTable vitals={vitals} isLoading={isLoading} />
-        </section>
+        {/* ── Vitals History ─────────────────────────────────────────── */}
+        <VitalsHistorySection admissionId={admissionId} />
       </div>
     </TooltipProvider>
   );

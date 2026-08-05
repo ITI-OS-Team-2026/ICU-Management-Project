@@ -1,4 +1,5 @@
 const prisma = require("../src/utils/prismaClient");
+const { normalizeFrequency, inferRoute } = require("../src/modules/medications/medication.frequency");
 
 /**
  * Advanced ICU Patient Seeder
@@ -1535,13 +1536,18 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
     // 7. Seed Diagnoses
     const existingDiagCount = await prisma.diagnosis.count({ where: { admissionId: admission.id } });
     if (existingDiagCount === 0) {
-      for (const diag of p.diagnoses) {
+      for (const [diagIndex, diag] of p.diagnoses.entries()) {
         await prisma.diagnosis.create({
           data: {
             admissionId: admission.id,
             diagnosedById: diag.doctorId,
+            originalDiagnosedById: diag.doctorId,
             conditionName: diag.conditionName,
-            status: diag.status,
+            // Seed data predates the differential statuses; every entry was
+            // written as a working diagnosis, so it seeds as CONFIRMED.
+            status: diag.status === "ACTIVE" ? "CONFIRMED" : diag.status,
+            // The first condition listed is the reason for admission.
+            type: diagIndex === 0 ? "PRIMARY" : "SECONDARY",
             diagnosedAt: admission.admittedAt,
           },
         });
@@ -1573,13 +1579,19 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
     const existingMedsCount = await prisma.medication.count({ where: { admissionId: admission.id } });
     if (existingMedsCount === 0) {
       for (const med of p.medications) {
+        // Seed data is written in ward shorthand ("BID", "PRN for ICP >20"),
+        // so it goes through the same normaliser as the legacy-data migration.
+        const { frequency, frequencyText } = normalizeFrequency(med.frequency);
         const createdMed = await prisma.medication.create({
           data: {
             admissionId: admission.id,
             prescribedById: med.doctorId,
+            originalPrescriberId: med.doctorId,
             drugName: med.drugName,
             dosage: med.dosage,
-            frequency: med.frequency,
+            frequency,
+            frequencyText,
+            route: inferRoute(med.dosage),
             startDate: admission.admittedAt,
             isActive: true,
           },

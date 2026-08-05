@@ -7,6 +7,12 @@ export const passwordResetRequestService = {
     return data;
   },
 
+  // Guest: submit a request from the login page — no session required.
+  async createPublicRequest(email, message) {
+    const { data } = await api.post('/password-reset-requests/public', { email, message });
+    return data;
+  },
+
   // User: get own requests (with admin replies)
   async getMyRequests() {
     const { data } = await api.get('/password-reset-requests/my');

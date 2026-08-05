@@ -1,25 +1,102 @@
+// The ICU differential: a diagnosis starts SUSPECTED and is either confirmed by
+// evidence or ruled out. Only a confirmed condition can later resolve.
 enum DiagnosisStatus {
-  ACTIVE
+  SUSPECTED
+  CONFIRMED
+  RULED_OUT
   RESOLVED
+}
+
+// Separates the reason for admission from everything found alongside it.
+enum DiagnosisType {
+  PRIMARY
+  SECONDARY
+  COMORBIDITY
+  COMPLICATION
+}
+
+enum ConcernStatus {
+  OPEN
+  ADDRESSED
+  DISMISSED
 }
 
 model Diagnosis {
   id            String          @id @default(uuid())
   admissionId   String          @map("admission_id")
   conditionName String          @map("condition_name") @db.VarChar(255)
-  status        DiagnosisStatus @default(ACTIVE)
+  type          DiagnosisType   @default(SECONDARY)
+  status        DiagnosisStatus @default(SUSPECTED)
+  // Why the clinician believes this — the reasoning a condition name alone
+  // cannot carry.
+  clinicalNotes String?         @map("clinical_notes") @db.Text
   diagnosedById String          @map("diagnosed_by")
+  // Survives the archive-and-recreate amendment cycle.
+  originalDiagnosedById String? @map("original_diagnosed_by")
   diagnosedAt   DateTime        @default(now()) @map("diagnosed_at")
+
+  // Outcome trail — set when the diagnosis leaves the differential.
+  ruledOutReason   String?   @map("ruled_out_reason") @db.Text
+  resolvedAt       DateTime? @map("resolved_at")
+  resolutionReason String?   @map("resolution_reason") @db.Text
+  statusChangedById String?  @map("status_changed_by")
+
   isArchived    Boolean         @default(false) @map("is_archived")
   archivedAt    DateTime?       @map("archived_at")
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
-  admission     Admission       @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  diagnosedBy   User            @relation(fields: [diagnosedById], references: [id])
+  admission            Admission                 @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  diagnosedBy          User                      @relation(fields: [diagnosedById], references: [id])
+  originalDiagnosedBy  User?                     @relation("DiagnosisOriginalAuthor", fields: [originalDiagnosedById], references: [id])
+  statusChangedBy      User?                     @relation("DiagnosisStatusChangedBy", fields: [statusChangedById], references: [id])
+  acknowledgements     DiagnosisAcknowledgement[]
+  concerns             DiagnosisConcern[]
 
-  @@map("diagnoses")
   @@index([admissionId])
   @@index([diagnosedById])
   @@index([status])
+  @@map("diagnoses")
+}
+
+// Proof that the bedside nurse saw a new or changed diagnosis. One row per
+// nurse per diagnosis version — amendments create a new diagnosis id, so an
+// amended condition must be acknowledged again.
+model DiagnosisAcknowledgement {
+  id          String   @id @default(uuid())
+  diagnosisId String   @map("diagnosis_id")
+  nurseId     String   @map("nurse_id")
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  diagnosis Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  nurse     User      @relation("DiagnosisAcknowledgedBy", fields: [nurseId], references: [id])
+
+  @@unique([diagnosisId, nurseId])
+  @@index([diagnosisId])
+  @@map("diagnosis_acknowledgements")
+}
+
+// A nursing observation that the patient's presentation does not fit the
+// recorded diagnosis. Nurses do not diagnose, but they are at the bedside and
+// the doctor needs a structured way to hear them.
+model DiagnosisConcern {
+  id          String        @id @default(uuid())
+  diagnosisId String        @map("diagnosis_id")
+  raisedById  String        @map("raised_by")
+  note        String        @db.Text
+  status      ConcernStatus @default(OPEN)
+  responseNote String?      @map("response_note") @db.Text
+  respondedById String?     @map("responded_by")
+  respondedAt DateTime?     @map("responded_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  raisedBy    User      @relation("DiagnosisConcernRaisedBy", fields: [raisedById], references: [id])
+  respondedBy User?     @relation("DiagnosisConcernRespondedBy", fields: [respondedById], references: [id])
+
+  @@index([diagnosisId])
+  @@index([status])
+  @@map("diagnosis_concerns")
 }

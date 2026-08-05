@@ -3,6 +3,8 @@ const app = require("./app");
 const logger = require("./src/utils/logger");
 const prisma = require("./src/utils/prismaClient");
 
+const { initSocket } = require("./src/utils/socket");
+
 async function startServer() {
   try {
     await prisma.$connect();
@@ -12,6 +14,15 @@ async function startServer() {
     const server = app.listen(config.port, () => {
       logger.info(`App running on port ${config.port}`);
     });
+
+    initSocket(server);
+    logger.info("Socket.IO initialized");
+
+    const { startMonitoring } = require('./src/modules/alerts/monitoring.job');
+    startMonitoring();
+
+    const { startLogRetention } = require('./src/jobs/logRetention.job');
+    startLogRetention();
 
     process.on("unhandledRejection", (err) => {
       logger.error("UNHANDLED REJECTION! 💥 Shutting down...");

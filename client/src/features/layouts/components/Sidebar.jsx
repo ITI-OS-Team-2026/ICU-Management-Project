@@ -15,6 +15,7 @@ import {
   History,
   Settings,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,14 +31,14 @@ import { passwordResetRequestService } from '../../services/passwordResetRequest
 // ---------------------------------------------------------------------------
 const SIDEBAR_NAV = {
   SYSTEM_ADMIN: [
-    { to: '/',            label: 'Dashboard',    icon: LayoutDashboard },
+    { to: '/dashboard',            label: 'Dashboard',    icon: LayoutDashboard },
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
     { to: '/help',        label: 'Help & Docs',  icon: HelpCircle },
   ],
   ICU_NURSE: [
-    { to: '/',                          label: 'Dashboard',        icon: LayoutDashboard },
+    { to: '/dashboard',                          label: 'Dashboard',        icon: LayoutDashboard },
     { to: '/patients',                  label: 'Patient List',     icon: Users },
     { to: '/beds',                      label: 'Bed Overview',     icon: BedDouble },
     { to: '/vitals/entry',              label: 'Vitals Entry',     icon: Activity },
@@ -47,21 +48,23 @@ const SIDEBAR_NAV = {
     { to: '/help',                      label: 'Help & Docs',      icon: HelpCircle },
   ],
   MEDICAL_RESIDENT: [
-    { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
-    { to: '/patients',       label: 'Patient List',   icon: Users },
-    { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
-    { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
-    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
+    { to: '/dashboard',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/patients',       label: 'Patient List',        icon: Users },
+    { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
+    { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },
+    { to: '/medical-assistant', label: 'Medical Assistant', icon: Sparkles },
+    { to: '/nursing-notes',  label: 'Nursing Notes',       icon: FileText },
+    { to: '/help',           label: 'Help & Docs',         icon: HelpCircle },
   ],
   ICU_SPECIALIST: [
-    { to: '/',               label: 'Dashboard',      icon: LayoutDashboard },
-    { to: '/patients',       label: 'Patient List',   icon: Users },
-    { to: '/patients/admit', label: 'Admit Patient',  icon: UserPlus },
-    { to: '/beds',           label: 'Bed Overview',   icon: BedDouble },
-    { to: '/discharge',      label: 'Discharge',      icon: ClipboardList },
-    { to: '/nursing-notes',  label: 'Nursing Notes',  icon: FileText },
-    { to: '/help',           label: 'Help & Docs',    icon: HelpCircle },
+    { to: '/dashboard',               label: 'Dashboard',           icon: LayoutDashboard },
+    { to: '/patients',       label: 'Patient List',        icon: Users },
+    { to: '/patients/admit', label: 'Admit Patient',       icon: UserPlus },
+    { to: '/beds',           label: 'Bed Overview',        icon: BedDouble },
+    { to: '/medical-assistant', label: 'Medical Assistant', icon: Sparkles },
+    { to: '/discharge',      label: 'Discharge',           icon: ClipboardList },
+    { to: '/nursing-notes',  label: 'Nursing Notes',       icon: FileText },
+    { to: '/help',           label: 'Help & Docs',         icon: HelpCircle },
   ],
 };
 
@@ -148,14 +151,24 @@ export function Sidebar({ isCollapsed, isMobile = false, onNavClick }) {
   return (
     <aside className={`flex flex-shrink-0 flex-col bg-card transition-all duration-300 ease-in-out ${isMobile ? 'w-full h-full border-none' : `border-r border-border ${isCollapsed ? 'w-16' : 'w-60'}`}`}>
       {/* Brand */}
-      <div className={`flex h-16 items-center border-b border-border overflow-hidden ${isCollapsed ? 'justify-center px-0' : 'gap-2 px-5'}`}>
-        <HeartPulse size={20} className="text-primary flex-shrink-0" aria-hidden />
+      <NavLink
+        to="/dashboard"
+        className={`flex h-16 items-center border-b border-border overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-5'}`}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Activity className="size-4" aria-hidden />
+        </span>
         {!isCollapsed && (
-          <span className="font-display text-base font-bold tracking-tight text-foreground whitespace-nowrap">
-            SmartCare ICU
-          </span>
+          <div className="min-w-0">
+            <p className="font-display text-base font-semibold leading-none tracking-tight text-foreground whitespace-nowrap">
+              SmartCare ICU
+            </p>
+            <p className="mt-1.5 font-sans text-[0.6875rem] font-medium tracking-[0.08em] uppercase text-muted-foreground whitespace-nowrap">
+              AI Clinical Platform
+            </p>
+          </div>
         )}
-      </div>
+      </NavLink>
 
       {/* Nav links */}
       <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4 gap-1" aria-label="Main navigation">
