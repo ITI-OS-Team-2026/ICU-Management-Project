@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { useAuthStore } from '../features/store/authStore';
 
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const baseURL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl.replace(/\/$/, '')}/api`;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL,
   withCredentials: true, // Crucial for sending/receiving HttpOnly cookies
   headers: {
     'Content-Type': 'application/json',
