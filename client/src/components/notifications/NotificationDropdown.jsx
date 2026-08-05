@@ -139,6 +139,7 @@ const NotificationDropdown = () => {
                           size="sm"
                           className="h-auto p-0 text-primary"
                           onClick={() => handleViewDetails(notification.id)}
+                          nativeButton={false}
                           render={<Link to={href} />}
                         >
                           View Details
