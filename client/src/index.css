@@ -378,15 +378,7 @@
   box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent);
 }
 
-.login-monitor__spoke {
-  position: absolute;
-  width: 1px;
-  height: 18%;
-  top: 8%;
-  left: 50%;
-  transform-origin: bottom center;
-  background: color-mix(in oklch, var(--primary) 45%, transparent);
-}
+
 
 .login-monitor__spoke--1 { transform: translateX(-50%) rotate(0deg); }
 .login-monitor__spoke--2 { transform: translateX(-50%) rotate(72deg); }
