@@ -34,7 +34,6 @@
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
-    "newman": "^6.2.2",
     "node-cron": "^4.6.0",
     "node-fetch": "^2.7.0",
     "nodemailer": "^9.0.3",
