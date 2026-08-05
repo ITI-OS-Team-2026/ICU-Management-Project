@@ -12,6 +12,32 @@ const admissionInvestigationRouter = express.Router();
 const investigationRouter = express.Router();
 
 // Nested under /admissions/:id/investigation-orders
+/**
+ * @swagger
+ * /admissions/{id}/investigation-orders:
+ *   post:
+ *     summary: Order an investigation (doctors only)
+ *     tags: [Investigation Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       201:
+ *         description: Order created
+ *   get:
+ *     summary: List investigation orders for an admission
+ *     tags: [Investigation Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Order list
+ */
 admissionInvestigationRouter.post(
   "/:id/investigation-orders",
   verifyToken,
@@ -28,6 +54,21 @@ admissionInvestigationRouter.get(
 );
 
 // Top-level /investigation-orders/:id
+/**
+ * @swagger
+ * /investigation-orders/{id}:
+ *   patch:
+ *     summary: Update an investigation order's status or result (doctors only)
+ *     tags: [Investigation Orders]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Updated order
+ */
 investigationRouter.patch(
   "/:id",
   verifyToken,

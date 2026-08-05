@@ -25,7 +25,49 @@ const ragRouter = express.Router();
 const CLINICIAN_ROLES = ["MEDICAL_RESIDENT", "ICU_SPECIALIST"];
 const ALL_CLINICAL_ROLES = ["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"];
 
-// POST /rag/query — ask a question about one admission
+/**
+ * @swagger
+ * /rag/query:
+ *   post:
+ *     summary: Ask a question about one admission's indexed documents (doctors only)
+ *     tags: [RAG]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [admissionId, question]
+ *             properties:
+ *               admissionId: { type: string, format: uuid }
+ *               question: { type: string }
+ *     responses:
+ *       201:
+ *         description: AI answer with cited source chunks
+ * /rag/admissions/{admissionId}/history:
+ *   get:
+ *     summary: Get the conversation transcript for an admission
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Transcript
+ *   delete:
+ *     summary: Clear the conversation for an admission
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Cleared
+ */
 ragRouter.post(
   "/query",
   verifyToken,
@@ -57,7 +99,71 @@ ragRouter.delete(
 // ever matches sessions owned by req.user.id, so one clinician cannot read,
 // rename or delete another's chat even with a valid id.
 
-// GET /rag/chats — the caller's chats, most recently active first
+/**
+ * @swagger
+ * /rag/chats:
+ *   get:
+ *     summary: List the caller's assistant chats, most recently active first
+ *     tags: [RAG]
+ *     responses:
+ *       200:
+ *         description: Chat list
+ *   post:
+ *     summary: Start a new empty assistant chat
+ *     tags: [RAG]
+ *     responses:
+ *       201:
+ *         description: Chat created
+ *   delete:
+ *     summary: Delete every chat the caller owns
+ *     tags: [RAG]
+ *     responses:
+ *       204:
+ *         description: Deleted
+ * /rag/chats/{chatId}:
+ *   get:
+ *     summary: Get one chat with its full transcript
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Chat and messages
+ *   patch:
+ *     summary: Rename a chat
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title]
+ *             properties:
+ *               title: { type: string }
+ *     responses:
+ *       200:
+ *         description: Renamed
+ *   delete:
+ *     summary: Delete one chat, its messages, and its resources
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 ragRouter.get(
   "/chats",
   verifyToken,
@@ -115,7 +221,72 @@ ragRouter.delete(
 // removed from Cloudinary as well as the database when either the resource or
 // the whole chat is deleted.
 
-// GET /rag/chats/:chatId/resources — attached files and their indexing state
+/**
+ * @swagger
+ * /rag/chats/{chatId}/resources:
+ *   get:
+ *     summary: List files attached to a chat and their indexing state
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Attached files
+ *   post:
+ *     summary: Attach a file to a chat
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file: { type: string, format: binary }
+ *     responses:
+ *       201:
+ *         description: File attached and queued for indexing
+ * /rag/chats/{chatId}/resources/{documentId}/file:
+ *   get:
+ *     summary: Get an attached file's bytes (for inline preview/download)
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: File stream
+ * /rag/chats/{chatId}/resources/{documentId}:
+ *   delete:
+ *     summary: Detach and destroy an attached file
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: chatId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Removed
+ */
 ragRouter.get(
   "/chats/:chatId/resources",
   verifyToken,
@@ -154,7 +325,33 @@ ragRouter.delete(
   ragController.removeChatResource
 );
 
-// GET /rag/admissions/:admissionId/index — knowledge-base status for the admission
+/**
+ * @swagger
+ * /rag/admissions/{admissionId}/index:
+ *   get:
+ *     summary: Get knowledge-base indexing status for an admission
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Index status per document
+ * /rag/admissions/{admissionId}/reindex:
+ *   post:
+ *     summary: Re-queue pending/failed documents for an admission
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Re-queued
+ */
 ragRouter.get(
   "/admissions/:admissionId/index",
   verifyToken,
@@ -172,7 +369,45 @@ ragRouter.post(
   ragController.reindexAdmission
 );
 
-// GET /rag/documents/:documentId/status — poll a single document's progress
+/**
+ * @swagger
+ * /rag/documents/{documentId}/status:
+ *   get:
+ *     summary: Poll a single document's indexing progress
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Status
+ * /rag/documents/{documentId}/reindex:
+ *   post:
+ *     summary: Force a fresh extract-and-embed cycle for a document (doctors only)
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Re-queued
+ * /rag/documents/{documentId}/chunks:
+ *   get:
+ *     summary: Inspect the indexed text chunks the AI can see for a document (doctors only)
+ *     tags: [RAG]
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Chunk list
+ */
 ragRouter.get(
   "/documents/:documentId/status",
   verifyToken,

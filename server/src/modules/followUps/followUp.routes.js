@@ -9,7 +9,32 @@ const admissionFollowUpRouter = express.Router();
 const followUpRouter = express.Router();
 
 
-// POST /admissions/:id/follow-ups
+/**
+ * @swagger
+ * /admissions/{id}/follow-ups:
+ *   post:
+ *     summary: Schedule a clinical follow-up (doctors only)
+ *     tags: [Follow-Ups]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       201:
+ *         description: Follow-up scheduled
+ *   get:
+ *     summary: List follow-ups for an admission
+ *     tags: [Follow-Ups]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Follow-up list
+ */
 admissionFollowUpRouter.post(
   "/:id/follow-ups",
   verifyToken,
@@ -26,7 +51,21 @@ admissionFollowUpRouter.get(
   followUpController.getFollowUps
 );
 
-// DELETE /follow-ups/:id
+/**
+ * @swagger
+ * /follow-ups/{id}:
+ *   delete:
+ *     summary: Delete a scheduled follow-up (doctors only)
+ *     tags: [Follow-Ups]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 followUpRouter.delete(
   "/:id",
   verifyToken,
