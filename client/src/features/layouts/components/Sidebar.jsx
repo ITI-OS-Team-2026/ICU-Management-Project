@@ -13,6 +13,7 @@ import {
   FileText,
   LogOut,
   History,
+  KeyRound,
   Settings,
   HelpCircle,
   Sparkles,
@@ -35,6 +36,7 @@ const SIDEBAR_NAV = {
     { to: '/admin/users', label: 'Manage Users', icon: Users },
     { to: '/admin/beds',  label: 'Manage Beds',  icon: BedDouble },
     { to: '/admin/audit-logs', label: 'Audit Logs', icon: History },
+    { to: '/admin/login-attempts', label: 'Login Attempts', icon: KeyRound },
     { to: '/help',        label: 'Help & Docs',  icon: HelpCircle },
   ],
   ICU_NURSE: [

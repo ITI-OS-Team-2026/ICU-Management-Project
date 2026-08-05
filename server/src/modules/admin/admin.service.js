@@ -448,9 +448,11 @@ const DEFAULT_AUDIT_RANGE = '24h';
  * while the list was unfiltered, so a critical event from minutes ago could sit
  * directly beneath a card reading zero.
  *
- * @returns {{ createdAt?: { gte: Date } }} — spreadable into a Prisma `where`
+ * @param {string} field - the timestamp column to filter on; defaults to
+ *   `createdAt` for audit logs, but `LoginAttempt` rows use `attemptedAt`.
+ * @returns {{ [field]?: { gte: Date } }} — spreadable into a Prisma `where`
  */
-const resolveAuditRange = (range = DEFAULT_AUDIT_RANGE) => {
+const resolveAuditRange = (range = DEFAULT_AUDIT_RANGE, field = 'createdAt') => {
   const key = AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE;
   if (key === 'all') return {};
 
@@ -463,7 +465,7 @@ const resolveAuditRange = (range = DEFAULT_AUDIT_RANGE) => {
     since.setDate(since.getDate() - days);
   }
 
-  return { createdAt: { gte: since } };
+  return { [field]: { gte: since } };
 };
 
 const getAuditLogs = async (query = {}) => {
@@ -584,6 +586,94 @@ const getAuditLogStats = async (query = {}) => {
   };
 };
 
+/**
+ * Login Attempts — shares the same range windowing as the audit log so the
+ * two screens can never disagree about what "last 24 hours" means.
+ */
+const getLoginAttempts = async (query = {}) => {
+  const { search, page = 1, limit = 10, outcome, range } = query;
+
+  const where = { ...resolveAuditRange(range, "attemptedAt") };
+
+  if (search) {
+    where.OR = [
+      { email: { contains: search, mode: "insensitive" } },
+      { ipAddress: { contains: search, mode: "insensitive" } },
+      {
+        user: {
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+          ],
+        },
+      },
+    ];
+  }
+
+  if (outcome === "SUCCESS") where.success = true;
+  if (outcome === "FAILED") where.success = false;
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [totalCount, attempts] = await Promise.all([
+    prisma.loginAttempt.count({ where }),
+    prisma.loginAttempt.findMany({
+      where,
+      orderBy: { attemptedAt: "desc" },
+      skip,
+      take: Number(limit),
+      include: {
+        user: {
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+      },
+    }),
+  ]);
+
+  const mappedAttempts = attempts.map((a) => ({
+    id: a.id,
+    email: a.email,
+    ipAddress: a.ipAddress,
+    userAgent: a.userAgent,
+    success: a.success,
+    failureReason: a.failureReason,
+    attemptedAt: a.attemptedAt,
+    user: a.user
+      ? { name: `${a.user.firstName} ${a.user.lastName}`, email: a.user.email, role: a.user.role }
+      : null,
+  }));
+
+  return {
+    data: mappedAttempts,
+    meta: {
+      total: totalCount,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(totalCount / Number(limit)),
+    },
+  };
+};
+
+const getLoginAttemptStats = async (query = {}) => {
+  const { range } = query;
+  const window = resolveAuditRange(range, "attemptedAt");
+
+  const [totalAttempts, successfulAttempts, failedAttempts, lockedAccounts] = await Promise.all([
+    prisma.loginAttempt.count({ where: { ...window } }),
+    prisma.loginAttempt.count({ where: { ...window, success: true } }),
+    prisma.loginAttempt.count({ where: { ...window, success: false } }),
+    prisma.user.count({ where: { status: "LOCKED" } }),
+  ]);
+
+  return {
+    range: AUDIT_RANGES.includes(range) ? range : DEFAULT_AUDIT_RANGE,
+    totalAttempts,
+    successfulAttempts,
+    failedAttempts,
+    lockedAccounts,
+  };
+};
+
 module.exports = {
   createUser,
   getUsers,
@@ -597,5 +687,7 @@ module.exports = {
   getUserStats,
   getBedStats,
   getAuditLogs,
-  getAuditLogStats
+  getAuditLogStats,
+  getLoginAttempts,
+  getLoginAttemptStats
 };

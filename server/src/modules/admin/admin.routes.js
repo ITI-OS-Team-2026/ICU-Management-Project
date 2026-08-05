@@ -9,7 +9,9 @@ const {
   bedCreateSchema,
   bedUpdateSchema,
   auditLogQuerySchema,
-  auditLogStatsQuerySchema
+  auditLogStatsQuerySchema,
+  loginAttemptQuerySchema,
+  loginAttemptStatsQuerySchema
 } = require("./admin.schema");
 
 const router = express.Router();
@@ -107,6 +109,23 @@ router.get(
   restrictTo(["SYSTEM_ADMIN"]),
   validate({ query: auditLogQuerySchema }),
   adminController.getAuditLogs
+);
+
+// Login Attempts
+router.get(
+  "/login-attempts/stats",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  validate({ query: loginAttemptStatsQuerySchema }),
+  adminController.getLoginAttemptStats
+);
+
+router.get(
+  "/login-attempts",
+  verifyToken,
+  restrictTo(["SYSTEM_ADMIN"]),
+  validate({ query: loginAttemptQuerySchema }),
+  adminController.getLoginAttempts
 );
 
 module.exports = router;

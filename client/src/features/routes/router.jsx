@@ -163,6 +163,11 @@ export const router = createBrowserRouter([
         element: page(Pages.AuditLogsPage),
         loader: roleGuardLoader(['SYSTEM_ADMIN']),
       },
+      {
+        path: 'admin/login-attempts',
+        element: page(Pages.LoginAttemptsPage),
+        loader: roleGuardLoader(['SYSTEM_ADMIN']),
+      },
     ],
   },
   
