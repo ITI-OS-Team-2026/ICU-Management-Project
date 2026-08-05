@@ -6,10 +6,38 @@ const logger = require("./logger");
 
 let io;
 
+const getAllowedOrigins = () => {
+  const configured = [process.env.CLIENT_URL, process.env.CLIENT_ORIGIN]
+    .filter(Boolean)
+    .flatMap((url) => url.split(","))
+    .map((url) => url.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  const defaults = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+  ];
+
+  return Array.from(new Set([...configured, ...defaults]));
+};
+
 const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const allowed = getAllowedOrigins();
+        const sanitizedOrigin = origin.replace(/\/$/, "");
+        if (allowed.includes(sanitizedOrigin) || sanitizedOrigin.endsWith(".vercel.app")) {
+          return callback(null, true);
+        }
+        if (process.env.NODE_ENV !== "production") {
+          return callback(null, true);
+        }
+        return callback(null, false);
+      },
       credentials: true,
     },
   });

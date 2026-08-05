@@ -17,7 +17,11 @@ const options = {
         "(curl, Postman, this page's \"Try it out\") outside a browser session.",
     },
     servers: [
-      { url: `http://localhost:${config.port}/api`, description: "Local development" },
+      { url: "/api", description: "Current Host API" },
+      ...(process.env.SERVER_URL
+        ? [{ url: process.env.SERVER_URL.endsWith("/api") ? process.env.SERVER_URL : `${process.env.SERVER_URL.replace(/\/$/, "")}/api`, description: "Production API" }]
+        : []),
+      { url: `http://localhost:${config.port}/api`, description: "Local Development" },
     ],
     components: {
       securitySchemes: {
