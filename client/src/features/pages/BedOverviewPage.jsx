@@ -1,9 +1,11 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { RefreshCcw, Activity, Droplet } from "lucide-react";
+import { useState, useEffect } from "react";
+import { RefreshCcw, Activity, Droplet, Search } from "lucide-react";
 import { useBeds } from "../hooks/useBeds";
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -18,12 +20,37 @@ import {
 
 const BEDS_PER_PAGE = 8;
 
+const BED_STATUS_FILTERS = ["All", "AVAILABLE", "OCCUPIED", "MAINTENANCE"];
+
 export default function BedOverviewPage() {
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+
+  // Debounce so typing in the search box issues one request, not one per key.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Paging, and the ward-wide status counts, both come from the server.
   const { beds, meta, stats, page, setPage, isLoading, error, refetch } = useBeds(
-    undefined,
-    { pageSize: BEDS_PER_PAGE },
+    statusFilter === "All" ? undefined : statusFilter,
+    { pageSize: BEDS_PER_PAGE, search: debouncedSearch },
   );
+
+  // Changing a filter must send you back to page 1, otherwise the narrower
+  // result set can have fewer pages than the page you are currently on. Done
+  // in the setters rather than an effect so it happens in the same render
+  // pass — an effect would queue a second render and a redundant fetch.
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPage(1);
+  };
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const totalPages = Math.max(1, meta.totalPages || 1);
   const safePage = Math.min(page, totalPages);
@@ -86,14 +113,52 @@ export default function BedOverviewPage() {
         />
       </div>
 
-      {/* Bed Grid - Catalogue Structure */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {isLoading
-          ? Array.from({ length: BEDS_PER_PAGE }).map((_, i) => (
-              <BedCardSkeleton key={i} />
-            ))
-          : pagedBeds.map((bed) => <BedCard key={bed.id} bed={bed} />)}
+      {/* Search and status filter */}
+      <div className="flex flex-col xl:flex-row items-center gap-4">
+        <div className="relative w-full flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by bed number or patient name..."
+            className="pl-9 font-sans h-11 bg-card rounded-xl border-border w-full"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
+
+        <div
+          className="flex flex-wrap items-center bg-card border border-border rounded-xl p-1 gap-1 min-h-[44px] w-full xl:w-auto"
+          role="group"
+          aria-label="Bed status"
+        >
+          {BED_STATUS_FILTERS.map((option) => (
+            <Button
+              key={option}
+              variant="ghost"
+              size="sm"
+              onClick={() => handleStatusFilterChange(option)}
+              aria-pressed={statusFilter === option}
+              className={`font-sans rounded-lg h-9 px-4 ${statusFilter === option ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {option === "All" ? "All" : option.charAt(0) + option.slice(1).toLowerCase()}
+            </Button>
+          ))}
+        </div>
       </div>
+
+      {/* Bed Grid - Catalogue Structure */}
+      {!isLoading && pagedBeds?.length === 0 ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground font-sans bg-card rounded-xl border border-border">
+          No beds found.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {isLoading
+            ? Array.from({ length: BEDS_PER_PAGE }).map((_, i) => (
+                <BedCardSkeleton key={i} />
+              ))
+            : pagedBeds.map((bed) => <BedCard key={bed.id} bed={bed} />)}
+        </div>
+      )}
 
       {!isLoading && totalPages > 1 && (
         <Pagination>

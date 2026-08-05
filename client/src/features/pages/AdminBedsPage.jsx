@@ -1,6 +1,6 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
-import { useState } from 'react';
-import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
 const BEDS_PER_PAGE = 12;
@@ -33,12 +33,40 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
+const BED_STATUS_FILTERS = ['All', 'AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
+
 export default function AdminBedsPage() {
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  // Debounce so typing in the search box issues one request, not one per key.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   // Paging and the ward-wide status counts are both served by the API.
   const {
-    beds, meta, stats, page, setPage,
+    beds, meta, page, setPage, stats,
     isLoading, error, refetch, createBed, updateBedStatus,
-  } = useBeds(undefined, { pageSize: BEDS_PER_PAGE });
+  } = useBeds(statusFilter === 'All' ? undefined : statusFilter, {
+    pageSize: BEDS_PER_PAGE,
+    search: debouncedSearch,
+  });
+
+  // Changing a filter must send you back to page 1, otherwise the narrower
+  // result set can have fewer pages than the page you are currently on. Done
+  // in the setters rather than an effect so it happens in the same render
+  // pass — an effect would queue a second render and a redundant fetch.
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setPage(1);
+  };
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
@@ -151,12 +179,44 @@ export default function AdminBedsPage() {
           total={stats.total}
           progressColor="bg-status-available"
         />
-        <SummaryCard 
-          title="Maintenance" 
-          value={isLoading ? '-' : stats.maintenance} 
+        <SummaryCard
+          title="Maintenance"
+          value={isLoading ? '-' : stats.maintenance}
           total={stats.total}
           progressColor="bg-status-maintenance"
         />
+      </div>
+
+      <div className="flex flex-col xl:flex-row items-center gap-4">
+        <div className="relative w-full flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by bed number or patient name..."
+            className="pl-9 font-sans h-11 bg-card rounded-xl border-border w-full"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
+
+        {/* Status filter — drives the grid and paging together */}
+        <div
+          className="flex flex-wrap items-center bg-card border border-border rounded-xl p-1 gap-1 min-h-[44px] w-full xl:w-auto"
+          role="group"
+          aria-label="Bed status"
+        >
+          {BED_STATUS_FILTERS.map((option) => (
+            <Button
+              key={option}
+              variant="ghost"
+              size="sm"
+              onClick={() => handleStatusFilterChange(option)}
+              aria-pressed={statusFilter === option}
+              className={`font-sans rounded-lg h-9 px-4 ${statusFilter === option ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              {option === 'All' ? 'All' : option.charAt(0) + option.slice(1).toLowerCase()}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {updateError && (
@@ -171,11 +231,17 @@ export default function AdminBedsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {isLoading
-          ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
-          : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={handleUpdateStatus} />)}
-      </div>
+      {!isLoading && beds?.length === 0 ? (
+        <div className="flex items-center justify-center py-12 text-muted-foreground font-sans bg-card rounded-xl border border-border">
+          No beds found.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          {isLoading
+            ? Array.from({ length: 8 }).map((_, i) => <BedCardSkeleton key={i} />)
+            : beds?.map((bed) => <BedCard key={bed.id} bed={bed} updateBedStatus={handleUpdateStatus} />)}
+        </div>
+      )}
 
       {!isLoading && totalPages > 1 && (
         <div className="flex items-center justify-between gap-4 flex-wrap">

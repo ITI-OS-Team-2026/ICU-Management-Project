@@ -66,8 +66,8 @@ const createBed = async (req, res, next) => {
 
 const getBeds = async (req, res, next) => {
   try {
-    const { status, page, limit } = req.query;
-    const beds = await adminService.getBeds({ status, page, limit });
+    const { status, search, page, limit } = req.query;
+    const beds = await adminService.getBeds({ status, search, page, limit });
     res.status(200).json(beds);
   } catch (error) {
     next(error);

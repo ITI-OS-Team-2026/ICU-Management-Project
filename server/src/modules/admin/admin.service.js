@@ -297,9 +297,25 @@ const createBed = async (data) => {
 
 // Pagination is opt-in: callers that pass `page` get { data, meta }, while
 // bed-picker dropdowns that need every bed keep receiving a plain array.
-const getBeds = async ({ status, page, limit }) => {
+const getBeds = async ({ status, search, page, limit }) => {
   const where = {};
   if (status) where.status = status;
+
+  if (search) {
+    // Matches either the bed's own number or its current occupant's name, so
+    // searching "Emma" finds her bed as readily as searching "ICU-01" does.
+    where.OR = [
+      { bedNumber: { contains: search, mode: "insensitive" } },
+      {
+        admissions: {
+          some: {
+            status: "ACTIVE",
+            patient: { name: { contains: search, mode: "insensitive" } },
+          },
+        },
+      },
+    ];
+  }
 
   const paginated = page !== undefined && page !== null && page !== "";
   const currentPage = Math.max(1, Number(page) || 1);
