@@ -159,6 +159,41 @@ sequenceDiagram
 - Admin queries the `audit_logs` table via a read-only, non-clinical-data-scoped endpoint (`GET /admin/audit-logs`), filterable by user, action type, and date range.
 - This endpoint explicitly excludes clinical field values from the response — it shows *that* a vitals record was created and *by whom*, never the vitals values themselves — enforcing the System Admin's "no clinical data" boundary described in the SRS at the API layer, not just the UI layer.
 
+## 3.4 Review Login Attempts
+
+**Trigger:** Admin investigates suspicious sign-in activity or a locked-out account.
+- Every call to `POST /auth/login` writes a `login_attempts` row — success or failure, with the email typed, IP, user agent, and (on failure) a `failure_reason` (`INVALID_PASSWORD` / `ACCOUNT_LOCKED` / `UNKNOWN_EMAIL`).
+- `GET /admin/login-attempts` — searchable/filterable log (`search`, `outcome`, `range`, `page`, `limit`).
+- `GET /admin/login-attempts/stats` — summary counts for the same window, including currently locked accounts, so the dashboard cards can never disagree with the rows below them.
+
+## 3.5 Resolve a Password Reset Request
+
+**Trigger:** A clinician who is locked out or has forgotten their password asks for help, since the System Admin never resets a password directly against `users.password_hash` without a logged request.
+
+```mermaid
+sequenceDiagram
+    actor Clinician
+    actor Admin
+    participant UI as Web client
+    participant API as Backend API
+    participant DB as PostgreSQL
+
+    Clinician->>UI: "Forgot password" (signed in, or public form if locked out)
+    UI->>API: POST /password-reset-requests (or /password-reset-requests/public)
+    API->>DB: Insert password_reset_requests row, status = PENDING
+    API-->>UI: 201 Created — response never reveals whether the email matched an account (public route)
+    Admin->>UI: Open pending password reset requests
+    UI->>API: GET /admin/password-reset-requests
+    Admin->>UI: Generate temp password, reply
+    UI->>API: POST /admin/password-reset-requests/:id/resolve
+    API->>DB: Set status = RESOLVED, admin_reply, resolved_by, resolved_at
+    API->>DB: Audit log (2.3): UPDATE on password_reset_requests
+    API-->>UI: 200 OK
+    Clinician->>UI: GET /password-reset-requests/my — sees admin_reply, logs in with temp password
+```
+
+**Notes:** The public route (`POST /password-reset-requests/public`) is rate-limited by IP+target-email rather than IP alone — on a shared hospital terminal, IP-alone keying would let one clinician's attempts lock out everyone else on that terminal.
+
 ---
 
 # 4. Role Flow: ICU Nurse
@@ -524,6 +559,8 @@ flowchart TD
 | Audit logging | 2.3 | System (all writes) | FR-1.3 |
 | Soft deletion | 2.4 | System (all deletes) | FR-1.3 |
 | Manage users | 3.1 | System Admin | — |
+| Review login attempts | 3.4 | System Admin | FR-1.1 |
+| Resolve password reset request | 3.5 | System Admin, requesting user | FR-1.1 |
 | Admit patient | 4.1 | Nurse | FR-1.4 |
 | Record vitals | 4.2 | Nurse | FR-1.2, FR-1.4 |
 | Upload document | 4.3 | Nurse | FR-1.4 |

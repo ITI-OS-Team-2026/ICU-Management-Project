@@ -9,13 +9,22 @@ users [icon: user, color: blue] {
   password_hash string
   role enum
   status string
+  auth_provider string
+  phone string
+  profile_image string
+  last_login timestamp
+  failed_login_attempts integer
+  locked_until timestamp
 }
 
 login_attempts [icon: log-in, color: blue] {
   id uuid pk
   user_id uuid fk
-  success boolean
+  email string
   ip_address string
+  user_agent string
+  success boolean
+  failure_reason string
   attempted_at timestamp
 }
 
@@ -30,10 +39,25 @@ refresh_tokens [icon: key, color: blue] {
 audit_logs [icon: shield, color: blue] {
   id uuid pk
   user_id uuid fk
-  action string
+  action enum // LOGIN, LOGOUT, CREATE, UPDATE, ARCHIVE, VIEW, ACCOUNT_LOCKED, GENERATE_SUMMARY, QUERY_RAG
   target_table string
+  target_id uuid
   old_values jsonb
   new_values jsonb
+  ip_address string
+  user_agent string
+  created_at timestamp
+}
+
+password_reset_requests [icon: key, color: blue] {
+  id uuid pk
+  requester_id uuid fk
+  message text
+  status enum // PENDING, RESOLVED
+  admin_reply text
+  resolved_by_id uuid fk
+  resolved_at timestamp
+  seen_by_user boolean
   created_at timestamp
 }
 
@@ -49,13 +73,15 @@ patients [icon: heart, color: red] {
   occupation text
   marital_status enum
   handedness enum
+  children_count integer
+  youngest_child_age string
   is_archived boolean
   archived_at timestamp
 }
 
 medical_histories [icon: clipboard, color: red] {
   id uuid pk
-  patient_id uuid fk
+  patient_id uuid fk // unique — 1:1 with patients
   diabetes_dm boolean
   hypertension_htn boolean
   past_similar_conditions text
@@ -67,6 +93,12 @@ medical_histories [icon: clipboard, color: red] {
   consanguinity boolean
   family_similar_conditions text
   inherited_diseases jsonb
+  free_text text
+  custom_fields jsonb
+  special_habits text
+  blood_transfusion boolean
+  menstrual_history jsonb
+  obstetric_history jsonb
 }
 
 allergies [icon: alert-circle, color: red] {
@@ -89,13 +121,14 @@ admissions [icon: clipboard, color: red] {
   patient_id uuid fk
   bed_id uuid fk
   doctor_id uuid fk
-  admission_reason text
+  transfer_reason text // formerly admission_reason
   place_of_transfer text
   transfer_doctor_name text
   chief_complaint text
+  complaint_analysis text
   symptoms_related_system text
   symptoms_other_systems text
-  previous_investigations text
+  previous_investigations jsonb
   previous_treatments text
   provisional_diagnosis text
   status string
@@ -119,11 +152,39 @@ diagnoses [icon: file-plus, color: red] {
   id uuid pk
   admission_id uuid fk
   condition_name text
-  status enum
+  type enum // PRIMARY, SECONDARY, COMORBIDITY, COMPLICATION
+  status enum // SUSPECTED, CONFIRMED, RULED_OUT, RESOLVED
+  clinical_notes text
   diagnosed_by uuid fk
+  original_diagnosed_by uuid fk
   diagnosed_at timestamp
+  ruled_out_reason text
+  resolved_at timestamp
+  resolution_reason text
+  status_changed_by uuid fk
   is_archived boolean
   archived_at timestamp
+}
+
+diagnosis_acknowledgements [icon: check, color: red] {
+  id uuid pk
+  diagnosis_id uuid fk
+  nurse_id uuid fk
+  acknowledged_at timestamp
+  created_at timestamp
+}
+
+diagnosis_concerns [icon: alert-circle, color: red] {
+  id uuid pk
+  diagnosis_id uuid fk
+  raised_by uuid fk
+  note text
+  status enum // OPEN, ADDRESSED, DISMISSED
+  response_note text
+  responded_by uuid fk
+  responded_at timestamp
+  created_at timestamp
+  updated_at timestamp
 }
 
 // ===== CLINICAL RECORDING =====
@@ -148,13 +209,21 @@ medications [icon: package, color: green] {
   id uuid pk
   admission_id uuid fk
   prescribed_by uuid fk
+  original_prescriber_id uuid fk
   drug_name string
   dosage string
-  frequency string
+  frequency enum // OD, BD, TDS, QDS, Q4H, Q6H, Q8H, Q12H, PRN, STAT, CONTINUOUS, OTHER
+  frequency_text string
+  route enum // IV, PO, IM, SC, INH, TOPICAL, PR, NG
+  instructions text
   start_date timestamp
   end_date timestamp
   prescribed_at timestamp
   is_active boolean
+  allergy_acknowledged boolean
+  discontinued_by uuid fk
+  discontinued_at timestamp
+  discontinue_reason text
   is_archived boolean
   archived_at timestamp
 }
@@ -242,12 +311,25 @@ follow_ups [icon: file-text, color: yellow] {
 
 medical_documents [icon: folder, color: yellow] {
   id uuid pk
-  admission_id uuid fk
+  admission_id uuid fk // null for assistant chat resources
+  chat_session_id uuid fk // set instead of admission_id for chat resources
+  message_id uuid fk
   uploaded_by uuid fk
   document_type string
   original_filename string
   file_path string
+  mime_type string
+  file_size integer
   embedding_status string
+  embedding_error text
+  embedding_model string
+  chunk_count integer
+  embedded_at timestamp
+  is_knowledge_base boolean
+  storage_type string // local, cloudinary
+  cloudinary_url text
+  cloudinary_public_id string
+  file_content bytea
   uploaded_at timestamp
   is_archived boolean
   archived_at timestamp
@@ -303,6 +385,7 @@ alert_reviews [icon: check-square, color: purple] {
   review_notes text
   accepted boolean
   reviewed_at timestamp
+  created_at timestamp
 }
 
 notifications [icon: bell, color: purple] {
@@ -310,7 +393,30 @@ notifications [icon: bell, color: purple] {
   user_id uuid fk
   title string
   message string
+  type enum // INFO, ALERT, SUMMON
   status string
+  metadata jsonb
+  created_at timestamp
+  updated_at timestamp
+}
+
+ai_chat_sessions [icon: message-circle, color: purple] {
+  id uuid pk
+  user_id uuid fk
+  title string
+  mode enum // KNOWLEDGE, PATIENT
+  created_at timestamp
+  updated_at timestamp
+  last_message_at timestamp
+}
+
+ai_chat_messages [icon: message-square, color: purple] {
+  id uuid pk
+  session_id uuid fk
+  role enum // USER, ASSISTANT
+  content text
+  cited_sources jsonb
+  retrieval jsonb
   created_at timestamp
 }
 
@@ -331,6 +437,12 @@ users.id < login_attempts.user_id
 users.id < refresh_tokens.user_id
 users.id < audit_logs.user_id
 users.id < notifications.user_id
+users.id < password_reset_requests.requester_id
+users.id < password_reset_requests.resolved_by_id
+users.id < ai_chat_sessions.user_id
+ai_chat_sessions.id < ai_chat_messages.session_id
+ai_chat_sessions.id < medical_documents.chat_session_id
+ai_chat_messages.id < medical_documents.message_id
 
 patients.id < admissions.patient_id
 patients.id < allergies.patient_id
@@ -343,6 +455,13 @@ users.id < admission_nurses.nurse_id
 
 admissions.id < diagnoses.admission_id
 users.id < diagnoses.diagnosed_by
+users.id < diagnoses.original_diagnosed_by
+users.id < diagnoses.status_changed_by
+diagnoses.id < diagnosis_acknowledgements.diagnosis_id
+users.id < diagnosis_acknowledgements.nurse_id
+diagnoses.id < diagnosis_concerns.diagnosis_id
+users.id < diagnosis_concerns.raised_by
+users.id < diagnosis_concerns.responded_by
 
 admissions.id < vital_signs.admission_id
 users.id < vital_signs.recorded_by

@@ -64,6 +64,7 @@ At a high level, the system:
 - Generates one-click AI summaries of a patient's recent clinical course.
 - Answers natural-language clinical questions via a RAG assistant with source citations.
 - Continuously monitors incoming vitals and raises explainable, severity-ranked alerts.
+- Logs every login attempt and gives the System Admin a searchable review of them, alongside an in-app assisted password reset workflow for locked-out clinicians.
 - Preserves full data history through non-destructive (soft) deletion and immutable audit logging.
 
 ## 2.3 User Classes and Characteristics
@@ -80,7 +81,7 @@ At a high level, the system:
 - **Frontend:** Modern browsers on desktop hospital workstations (1080p–4K) and bedside tablet carts (≥1024px width, touch-first).
 - **Backend:** Node.js server environment.
 - **Database:** PostgreSQL, with pgvector extension for embedding storage and similarity search.
-- **AI orchestration:** n8n workflows communicating with external LLM providers (Gemini Pro / GPT-4o) over HTTPS.
+- **AI orchestration:** AWS Bedrock (Llama 3.3 70B), accessed via the ITI proxy, over HTTPS; n8n webhook workflows communicating with external LLM providers are supported as an alternate/legacy path.
 
 ## 2.5 Design and Implementation Constraints
 
@@ -93,7 +94,7 @@ At a high level, the system:
 ## 2.6 Assumptions and Dependencies
 
 - Reliable network connectivity is available within the ICU for real-time dashboard updates (offline support is out of MVP scope).
-- The external LLM provider (Gemini Pro / GPT-4o) is reachable via API; a graceful fallback path is required if it is not.
+- The external LLM provider (Bedrock via the ITI proxy) is reachable via API; a graceful fallback path is required if it is not.
 - Users are pre-provisioned with valid professional credentials by the System Admin; public self-registration is out of scope.
 
 ---
@@ -209,6 +210,33 @@ Requirements are grouped into the three build phases used across the project's p
 
 ---
 
+### FR-1.5 Login Attempt Monitoring & Assisted Password Reset
+
+**Priority:** High
+**Actors:** System Admin (review, resolve); all roles (request)
+
+**Preconditions:** The System Admin is authenticated. A requesting user either has an active session (in-app request) or knows only their email (public/locked-out request).
+
+**System Behavior:**
+1. Every call to `POST /auth/login` writes a `login_attempts` row — success or failure, with the email typed (not the resolved user, so unknown-email attempts are still auditable), IP address, user agent, and, on failure, a reason (invalid password / account locked / unknown email). This is the same lockout mechanism described in FR-1.1's exception handling, logged unconditionally regardless of whether it triggers a lockout.
+2. **`GET /admin/login-attempts`** — System Admin only. Returns a searchable (email, IP, matched user name), filterable (outcome: success/failed; time window: 24h/today/7d/30d/all), paginated log.
+3. **`GET /admin/login-attempts/stats`** — System Admin only. Returns summary counts (total, successful, failed, currently locked accounts) for the same window the list uses, so the two can never disagree.
+4. A signed-in user who knows their current password can request a reset via **`POST /password-reset-requests`** (rate-limited per user).
+5. A user who cannot sign in (forgotten password, locked account) can request a reset via **`POST /password-reset-requests/public`**, submitting only their email — no session required. The response is identical whether or not the email matches an account, and this route is rate-limited by IP+target-email rather than IP alone, since a shared hospital terminal would otherwise let one clinician's failed attempts lock out every other clinician using that terminal.
+6. The System Admin reviews pending requests (**`GET /admin/password-reset-requests`**, **`GET /admin/password-reset-requests/pending-count`**), sets a new temporary password out-of-band, and resolves the request (**`POST /admin/password-reset-requests/:id/resolve`**) with a reply message.
+7. The requesting user sees the resolution and reply via **`GET /password-reset-requests/my`**, with **`POST /password-reset-requests/mark-seen`** and **`GET /password-reset-requests/unseen-count`** driving an unseen-reply badge in the UI.
+
+**Outputs:** Paginated login-attempt log and summary counts for the admin; a created/resolved password-reset-request record for the requesting user.
+
+**Postconditions:** Every login attempt, successful or not, is durably logged. A resolved password-reset-request carries `status = RESOLVED`, the admin's reply, and who resolved it, and is itself an auditable event (FR-1.3).
+
+**Exception Handling:**
+- Public reset request for a non-existent email → `201 Created` regardless, identical to a real match — the system must not leak account existence through this endpoint.
+- Repeated public reset requests from the same IP against different target emails → rate-limited per IP+email pair, not blocked outright, so a shared terminal cannot lock every user on it out of requesting a reset.
+- Non-admin calling any `/admin/login-attempts` or `/admin/password-reset-requests` route → `403 Forbidden`, attempt recorded in the audit log (FR-1.3).
+
+---
+
 ## 3.2 Phase 2 — Core UX & Clinical Visualization
 
 ### FR-2.1 Unified Patient Dashboard
@@ -279,20 +307,22 @@ Requirements are grouped into the three build phases used across the project's p
 **Preconditions:** The target admission has at least one vitals/note/document/exam/follow-up record to query against.
 
 **System Behavior:**
-1. The user submits a natural-language question scoped to the currently open admission.
-2. The backend calls an n8n webhook, passing the admission ID and question text.
-3. The n8n workflow retrieves relevant structured data (vitals, labs, notes, clinical examinations, follow-ups) and performs a pgvector similarity search over embedded document/note chunks for that admission only — never across other patients.
+1. The user submits a natural-language question scoped to the currently open admission, typed or, optionally, dictated via the browser's Web Speech API (client-only — the recognized text is sent through the same endpoint as typed input; no audio ever reaches the server).
+2. The backend calls the AI orchestration layer (AWS Bedrock via the ITI proxy; n8n webhook orchestration also supported), passing the admission ID and question text.
+3. The orchestration layer retrieves relevant structured data (vitals, labs, notes, clinical examinations, follow-ups) and performs a pgvector similarity search over embedded document/note chunks for that admission only — never across other patients.
 4. Retrieved context is passed to the LLM along with the question; the LLM's answer is returned to the backend, which relays it to the frontend.
-5. The response is displayed with exact source timestamps and record references (e.g., "[Vitals log, 04:15 AM]") so the clinician can verify the answer against the original entry.
+5. The response is displayed with exact source timestamps and record references (e.g., "[Vitals log, 04:15 AM]") so the clinician can verify the answer against the original entry, and can optionally be read back aloud via the browser's speech synthesis.
+6. The conversation can be saved as a named chat, revisited later, and have reference files attached to it, independent of the admission it started from.
 
 **Outputs:** A natural-language answer with inline source citations, or a clear no-answer state if nothing relevant is found.
 
 **Postconditions:** The query and response are recorded in the audit log as a `QUERY_RAG` action.
 
 **Exception Handling:**
-- n8n/LLM unreachable or exceeds 6 seconds → the chat shows "AI assistant temporarily unavailable — try again shortly," and the rest of the dashboard remains fully functional (see FR-7.3 graceful degradation).
+- AI orchestration layer unreachable or exceeds 6 seconds → the chat shows "AI assistant temporarily unavailable — try again shortly," and the rest of the dashboard remains fully functional (see FR-7.3 graceful degradation).
 - Retrieved context is insufficient to answer confidently → the system returns an explicit "not enough recorded data to answer this" response rather than an unsupported guess.
 - Question is outside the current admission's data (e.g., asks about a different patient) → the system does not cross reference other admissions and returns a scoped "no data" response.
+- Browser does not support the Web Speech API, or microphone permission is denied → voice input/output is hidden; typed input remains fully functional.
 
 ---
 
@@ -371,15 +401,15 @@ Requirements are grouped into the three build phases used across the project's p
 
 ## 4.3 Software Interfaces
 
-- PostgreSQL database accessed via Prisma or Drizzle ORM.
-- n8n workflow engine, communicating with the backend via webhooks.
-- External LLM APIs (Gemini Pro / GPT-4o) accessed over HTTPS by n8n.
+- PostgreSQL database accessed via Prisma ORM.
+- AWS Bedrock, accessed via the ITI proxy, over HTTPS; n8n workflow engine supported as an alternate path, communicating with the backend via webhooks.
+- Browser Web Speech API for optional voice input/output on AI assistant surfaces — client-only, no backend interface.
 
 ## 4.4 Communication Interfaces
 
 - All client-server traffic encrypted via TLS/HTTPS.
 - REST API over HTTP(S) between frontend and backend.
-- Webhook-based communication between backend and n8n.
+- HTTPS calls from backend to the Bedrock/ITI proxy; webhook-based communication between backend and n8n where that path is used instead.
 
 ---
 
@@ -404,7 +434,7 @@ Requirements are grouped into the three build phases used across the project's p
 ## 5.3 Reliability & Availability
 
 - Target uptime of 99.9% during clinical shift hours.
-- If the AI orchestration layer (n8n/LLM) is unreachable or exceeds a 6-second timeout, the system shall degrade gracefully: raw historical data remains fully available, with a clear non-disruptive status banner indicating AI features are temporarily offline.
+- If the AI orchestration layer (Bedrock/ITI proxy, or n8n where used instead) is unreachable or exceeds a 6-second timeout, the system shall degrade gracefully: raw historical data remains fully available, with a clear non-disruptive status banner indicating AI features are temporarily offline.
 
 ## 5.4 Usability & Accessibility
 
@@ -444,6 +474,8 @@ Requirements are grouped into the three build phases used across the project's p
 | UC-10 | Review AI-generated alert and reasoning | Resident / Specialist |
 | UC-11 | Approve treatment plan / discharge | Specialist |
 | UC-12 | Archive (soft-delete) a record | Nurse / Resident / Specialist |
+| UC-13 | Review login attempts | System Admin |
+| UC-14 | Request / resolve a password reset | All roles (request) / System Admin (resolve) |
 
 ---
 
@@ -463,3 +495,6 @@ Requirements are grouped into the three build phases used across the project's p
 | Query RAG assistant | No | No | Yes | Yes |
 | Trigger instant AI summary | No | No | Yes | Yes |
 | Approve treatment / discharge | No | No | No | Yes |
+| Review login attempts | Yes | No | No | No |
+| Request a password reset | Yes | Yes | Yes | Yes |
+| Resolve a password reset request | Yes | No | No | No |

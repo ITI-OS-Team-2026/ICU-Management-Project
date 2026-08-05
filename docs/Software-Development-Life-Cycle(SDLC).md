@@ -56,13 +56,13 @@ Reasons for choosing Agile:
 ## Phase 3 – System Design
 
 ### Activities
-- Design system architecture: React 19 (Vite) frontend ↔ Express/Node.js backend ↔ PostgreSQL, with n8n as the AI orchestration layer
+- Design system architecture: React 19 (Vite) frontend ↔ Express/Node.js backend ↔ PostgreSQL, with AWS Bedrock (via the ITI proxy) as the primary AI orchestration layer, n8n webhook orchestration supported as an alternate/legacy path
 - Design PostgreSQL database including mandatory soft-deletion fields (`is_archived`, `archived_at`) on every clinical table
 - Create Entity Relationship Diagram (ERD) covering patients, medical histories, admissions, vital signs, diagnoses, clinical examinations, follow-ups, documents, and audit logs
 - Design REST APIs (`/api/patients`, `/api/admissions/:id/vitals`, `/api/admissions/:id/documents`, and related clinical endpoints)
 - Design UI/UX per the Strategic Design Principles: sticky clinical context bar, trend sparklines, strict role-driven UI boundaries, ≥4.5:1 contrast, no hover-gated critical data
 - Design AI architecture: Instant AI Summarization engine and Autonomous Monitoring Agent with Clinical Reasoning Explanations
-- Design RAG workflow via n8n webhook orchestration querying structured vitals, labs, notes, examinations, follow-ups, and embedded documents
+- Design RAG workflow via the Bedrock/ITI proxy (n8n webhook orchestration as an alternate path) querying structured vitals, labs, notes, examinations, follow-ups, and embedded documents; browser-based voice input/output (Web Speech API) as a client-only alternate interaction mode requiring no server design work
 
 ### Deliverables
 - System Architecture Diagram
@@ -79,7 +79,7 @@ Reasons for choosing Agile:
 Development is divided into three phases that mirror the functional requirement groups exactly, rather than generic feature sprints — each phase builds on data and access-control guarantees established in the one before it.
 
 ### Phase 1: Foundation & Data Integrity (Weeks 1–2)
-- **FR-1.1** Secure Authentication & Role-Based Authorization Engine — `HttpOnly`/`Secure` JWT cookies, Express RBAC middleware, Zustand `useAuthStore`
+- **FR-1.1** Secure Authentication & Role-Based Authorization Engine — `HttpOnly`/`Secure` JWT cookies, Express RBAC middleware, Zustand `useAuthStore`, login-attempt logging with account lockout, System Admin login-attempt review, and an in-app assisted password reset workflow for locked-out clinicians
 - **FR-1.2** Smart Input Validation & Real-Time Physiological Boundary Checks — frontend + backend (Zod/Joi) boundary validation on vitals
 - **FR-1.3** Soft Deletion (Archive State) & Action Audit Logging — `is_archived`/`archived_at` fields, immutable `audit_logs` table
 - **FR-1.4** Paperless ICU Workflow CRUD Endpoints — patient admission, vitals, medical history, document upload (`multer`)
@@ -92,7 +92,7 @@ Depends on Phase 1's data model and auth being complete.
 
 ### Phase 3: Intelligence & AI Automation (Weeks 5–6)
 Depends on Phase 1's clinical data existing and Phase 2's dashboard surfaces to render into.
-- **FR-3.1** Conversational RAG Interface — n8n webhook orchestration over patient vitals/notes/labs/exams/follow-ups, with source-citation responses
+- **FR-3.1** Conversational RAG Interface — Bedrock/ITI proxy orchestration (n8n webhook path also supported) over patient vitals/notes/labs/exams/follow-ups, with source-citation responses, saved chat sessions, and optional browser-based voice input/output
 - **FR-3.2** Instant AI Summarization — one-click 24-hour synthesis across Hemodynamic, Respiratory, Renal/Metabolic, and Neurological categories
 - **FR-3.3** Autonomous Monitoring Agent & Alerting — continuous multi-variable anomaly detection, P0/P1 severity alert banner
 - **FR-3.4** Clinical Reasoning Explanations — expandable "Clinical Reasoning & Differential" panel on every AI alert/summary
@@ -125,8 +125,8 @@ Testing is structured in three tracks run continuously alongside — not strictl
 Deployment stack:
 - React 19 (Vite build) + Zustand state management + Tailwind CSS v4 (OKLCH tokens)
 - Express / Node.js (modular routing, controllers, middlewares)
-- PostgreSQL with connection pooling via Prisma or Drizzle ORM
-- n8n orchestration layer for AI workflows, interfacing with Gemini Pro / GPT-4o and SQL/vector retrievers
+- PostgreSQL with connection pooling via Prisma ORM
+- AWS Bedrock (Llama 3.3 70B, via the ITI proxy) as the AI orchestration layer, interfacing with SQL/vector retrievers; n8n webhook orchestration supported as an alternate path
 
 Deployment goals:
 - Stable production build meeting latency benchmarks: <500ms dashboard FCP, <150ms CRUD p95, <3s RAG response, <5s AI summary
@@ -142,7 +142,6 @@ Deployment goals:
 Future improvements (Post-MVP v2.0 — deliberately excluded from the 6-week MVP scope):
 - Multi-Agent Diagnostic Council (specialized agents debating toward consensus)
 - Automated Shift Handover (SBAR-format reports at 07:00/19:00)
-- Voice-to-Text Clinical Notes (medical-tuned transcription)
 - Morning Round Digest (6:00 AM n8n cron summary email)
 - One-Click Discharge Draft
 - Graceful Degradation / Offline State Cache (Service Worker + IndexedDB)

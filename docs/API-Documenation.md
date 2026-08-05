@@ -12,9 +12,11 @@
 
 1. Authentication & Security
 2. Admin — Users & Beds
+2b. Admin — Login Attempts
+2c. Password Reset Requests
 3. Patients, Allergies & Medical History
 4. Admissions & Nurse Assignment
-5. Diagnoses
+5. Diagnoses (incl. Acknowledgements & Concerns)
 6. Vital Signs
 7. Medications & Administrations
 8. Investigation Orders
@@ -91,6 +93,70 @@
 ## `PATCH /admin/beds/:id`
 - **Auth:** Admin only
 - **Request Body:** `{ status }` — `available` / `occupied` / `maintenance`
+
+---
+
+# 2b. Admin — Login Attempts
+
+Every login attempt (success or failure) is logged to `login_attempts`, written on every call to `POST /auth/login`. These endpoints are the read-only admin view over that log.
+
+## `GET /admin/login-attempts`
+- **Auth:** Admin only
+- **Query:** `search` (matches email, IP address, or the matched user's name), `outcome` (`All` / `SUCCESS` / `FAILED`), `range` (`24h` / `today` / `7d` / `30d` / `all`, default `24h`), `page`, `limit`
+- **Responses:** `200 OK` — paginated login attempt log
+
+## `GET /admin/login-attempts/stats`
+- **Auth:** Admin only
+- **Query:** `range` (`24h` / `today` / `7d` / `30d` / `all`, default `24h`)
+- **Responses:** `200 OK` — summary counts for the window, including currently locked accounts
+
+---
+
+# 2c. Password Reset Requests
+
+An in-app assisted password reset workflow — separate from the login-lockout flow above. A clinician who is locked out or has forgotten their password asks an admin to reset it; an admin resolves the request with a new temporary password. Backed by the `password_reset_requests` table.
+
+## `POST /password-reset-requests`
+- **Auth:** Any authenticated user
+- **Description:** Ask an admin to reset your password. Rate-limited per user.
+- **Request Body:** `{ message? }`
+- **Responses:** `201 Created`
+
+## `POST /password-reset-requests/public`
+- **Auth:** None (public)
+- **Description:** For someone locked out who can't reach the authenticated route above. Rate-limited by IP+target-email (not IP alone, since shared hospital terminals would otherwise let one clinician's attempts lock out everyone else on that terminal). The response never reveals whether the email actually matched an account.
+- **Request Body:** `{ email }`
+- **Responses:** `201 Created` — regardless of whether the email matched an account
+
+## `GET /password-reset-requests/my`
+- **Auth:** Any authenticated user
+- **Description:** List the caller's own reset requests.
+- **Responses:** `200 OK`
+
+## `POST /password-reset-requests/mark-seen`
+- **Auth:** Any authenticated user
+- **Description:** Mark the caller's resolved requests as seen.
+- **Responses:** `200 OK`
+
+## `GET /password-reset-requests/unseen-count`
+- **Auth:** Any authenticated user
+- **Description:** Count the caller's unseen admin replies.
+- **Responses:** `200 OK`
+
+## `GET /admin/password-reset-requests`
+- **Auth:** Admin only
+- **Description:** List all password reset requests.
+- **Responses:** `200 OK`
+
+## `GET /admin/password-reset-requests/pending-count`
+- **Auth:** Admin only
+- **Responses:** `200 OK` — `{ count }`
+
+## `POST /admin/password-reset-requests/:id/resolve`
+- **Auth:** Admin only
+- **Description:** Resolve a request — sets `status = RESOLVED`, `admin_reply`, `resolved_by`, `resolved_at`.
+- **Request Body:** `{ admin_reply }`
+- **Responses:** `200 OK` — resolved request
 
 ---
 
@@ -184,25 +250,41 @@
 | `patient_id` | uuid | yes | |
 | `bed_id` | uuid | yes | must be `available` |
 | `doctor_id` | uuid | yes | attending specialist |
-| `admission_reason` | string | no | |
+| `transfer_reason` | string | no | formerly `admission_reason` |
 | `place_of_transfer` | string | no | |
 | `transfer_doctor_name` | string | no | |
 | `chief_complaint` | string | no | |
+| `complaint_analysis` | string | no | structured analysis of the chief complaint |
 | `symptoms_related_system` | string | no | |
 | `symptoms_other_systems` | string | no | |
-| `previous_investigations` | string | no | |
+| `previous_investigations` | object/array | no | JSONB, not free text |
 | `previous_treatments` | string | no | |
 | `provisional_diagnosis` | string | no | |
 
 - **Responses:** `201 Created` — sets `beds.status = occupied` · `409 Conflict` (bed already ACTIVE)
 - **Related:** unique partial index one ACTIVE admission per bed
 
+## `POST /admissions/full`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** The single-page "admit patient" wizard's endpoint — creates the `Patient` row (if new), the admission, and the bed occupancy in one call, instead of a client-side `POST /patients` then `POST /admissions` sequence.
+- **Responses:** `201 Created`
+
 ## `GET /admissions`
 - **Auth:** Nurse, Resident, Specialist
-- **Query:** `status`, `bed_id`
+- **Query:** `status`, `search`, `page`, `limit`
+
+## `GET /admissions/census`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Ward-wide census counts for dashboards (e.g. occupied/available beds, active admissions). Must be requested above `/admissions/:id` in routing so `census` is never parsed as an admission id.
+- **Responses:** `200 OK`
 
 ## `GET /admissions/:id`
 - **Auth:** Nurse, Resident, Specialist
+
+## `POST /admissions/:id/summon`
+- **Auth:** Nurse only
+- **Description:** Summon the attending doctor — an urgent bedside notification, distinct from the alert/notification pipeline.
+- **Responses:** `201 Created`
 
 ## `PATCH /admissions/:id/discharge`
 - **Auth:** Specialist only
@@ -231,22 +313,52 @@
 
 ---
 
-# 5. Diagnoses
+# 5. Diagnoses (incl. Acknowledgements & Concerns)
+
+A diagnosis starts `SUSPECTED` and is moved through the differential (`CONFIRMED` / `RULED_OUT` / `RESOLVED`) with a required reason. Nurses cannot diagnose, but can acknowledge that they've seen a diagnosis and raise a concern that the presentation doesn't fit it.
 
 ## `POST /admissions/:id/diagnoses`
 - **Auth:** Resident, Specialist
-- **Request Body:** `{ condition_name, status }`
-- **Responses:** `201 Created` — `diagnosed_by` from session, `diagnosed_at` server-generated
+- **Request Body:** `{ conditionName, type?, clinicalNotes? }` — `type` one of `PRIMARY` / `SECONDARY` / `COMORBIDITY` / `COMPLICATION` (default `SECONDARY`)
+- **Responses:** `201 Created` — `diagnosed_by` from session, `diagnosed_at` server-generated, `status` defaults to `SUSPECTED`
 
 ## `GET /admissions/:id/diagnoses`
 - **Auth:** Nurse, Resident, Specialist
 
+## `GET /admissions/:id/diagnosis-concerns`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Every unanswered nursing concern raised against this admission's diagnoses — the doctor's queue.
+
 ## `PATCH /diagnoses/:id`
 - **Auth:** Resident, Specialist
+- **Description:** Amend wording, type, or clinical reasoning. Status is deliberately excluded — use `PATCH /diagnoses/:id/status`.
+
+## `PATCH /diagnoses/:id/status`
+- **Auth:** Resident, Specialist
+- **Description:** Move a diagnosis through the differential — confirm, rule out, or resolve. A reason is required for the change.
+- **Request Body:** `{ status, reason }` — `status` one of `CONFIRMED` / `SUSPECTED` / `RULED_OUT` / `RESOLVED`
+- **Responses:** `200 OK`
 
 ## `DELETE /diagnoses/:id`
 - **Auth:** Resident, Specialist
 - **Responses:** `204 No Content` (soft archive)
+
+## `POST /diagnoses/:id/acknowledge`
+- **Auth:** Nurse only
+- **Description:** Records that the bedside nurse has seen this diagnosis (or an amended version of it — amendments create a new diagnosis id, so re-acknowledgement is required). One row per nurse per diagnosis version.
+- **Responses:** `200 OK`
+
+## `POST /diagnoses/:id/concerns`
+- **Auth:** Nurse only
+- **Description:** Raise a nursing observation that the patient's presentation doesn't fit the recorded diagnosis.
+- **Request Body:** `{ concern }`
+- **Responses:** `201 Created`
+
+## `PATCH /diagnosis-concerns/:id`
+- **Auth:** Resident, Specialist
+- **Description:** Respond to and close a nursing concern. Only a doctor can close a concern, and only with an answer.
+- **Request Body:** `{ response }`
+- **Responses:** `200 OK`
 
 ---
 
@@ -285,20 +397,28 @@
 
 ## `POST /admissions/:id/medications`
 - **Auth:** Resident, Specialist
-- **Request Body:** `{ drug_name, dosage, frequency, start_date?, end_date? }`
+- **Request Body:** `{ drugName, dosage, frequency, frequencyText?, route?, instructions?, startDate?, endDate? }` — `frequency` one of `OD`/`BD`/`TDS`/`QDS`/`Q4H`/`Q6H`/`Q8H`/`Q12H`/`PRN`/`STAT`/`CONTINUOUS`/`OTHER`; `route` one of `IV`/`PO`/`IM`/`SC`/`INH`/`TOPICAL`/`PR`/`NG`
 - **Responses:** `201 Created` — `prescribed_by` from session
 
 ## `GET /admissions/:id/medications`
 - **Auth:** Nurse, Resident, Specialist
 - **Query:** `is_active`
 
+## `GET /admissions/:id/mar`
+- **Auth:** Nurse, Resident, Specialist
+- **Description:** Today's Medication Administration Record (MAR) — the due-dose schedule for every active order, generated from each order's `frequency`. This is what the nurse works from at the bedside.
+- **Responses:** `200 OK`
+
 ## `PATCH /medications/:id`
 - **Auth:** Resident, Specialist
-- **Request Body:** `{ is_active: false }` to discontinue, OR append-only updates `{ drug_name, dosage, frequency }` to correct mistakes.
+- **Description:** Amend a medication order (append-only correction; `original_prescriber_id` is preserved).
+- **Request Body:** `{ drugName?, dosage?, frequency?, route?, instructions? }`
 
 ## `DELETE /medications/:id`
 - **Auth:** Resident, Specialist
-- **Responses:** `204 No Content`
+- **Description:** Discontinues rather than hard-deletes — the order stays in the record marked inactive with the reason it was stopped.
+- **Request Body:** `{ reason }`
+- **Responses:** `200 OK`
 
 ## `POST /medications/:id/administrations`
 - **Auth:** Nurse only
@@ -724,15 +844,21 @@ Deleting a resource — or the chat holding it — destroys the Cloudinary origi
 | Auth | GET | `/auth/me` | Any authenticated |
 | Admin | POST/GET/PATCH/DELETE | `/admin/users` … | Admin |
 | Admin | POST/GET/PATCH | `/admin/beds` … | Admin (+ read for clinical) |
+| Admin | GET | `/admin/login-attempts`, `/admin/login-attempts/stats` | Admin |
+| Password Reset | POST/GET | `/password-reset-requests` … | Own user (+ public for `/public`) |
+| Password Reset | GET/POST | `/admin/password-reset-requests` … | Admin |
 | Patients | POST/GET/DELETE | `/patients` … | Nurse/Resident/Specialist |
 | Patients | POST/GET/DELETE | `/patients/:id/allergies`, `/allergies/:id` | Clinical |
 | Patients | POST/GET/PATCH | `/patients/:id/medical-history` | Resident/Specialist (GET all clinical) |
-| Admissions | POST/GET/DELETE | `/admissions` … | Clinical |
+| Admissions | POST/GET/DELETE | `/admissions`, `/admissions/full`, `/admissions/census` … | Clinical |
 | Admissions | PATCH | `/admissions/:id/discharge` | Specialist |
 | Admissions | POST/GET/DELETE | `/admissions/:id/nurses` … | Nurse/Specialist |
-| Diagnoses | POST/GET/DELETE | `/admissions/:id/diagnoses`, `/diagnoses/:id` | Clinical |
+| Admissions | POST | `/admissions/:id/summon` | Nurse |
+| Diagnoses | POST/GET/PATCH/DELETE | `/admissions/:id/diagnoses`, `/diagnoses/:id`, `/diagnoses/:id/status` | Doctors write, Clinical read |
+| Diagnoses | POST | `/diagnoses/:id/acknowledge` | Nurse |
+| Diagnoses | POST/GET/PATCH | `/diagnoses/:id/concerns`, `/admissions/:id/diagnosis-concerns`, `/diagnosis-concerns/:id` | Nurse raises, Doctors respond |
 | Vitals | POST/GET/DELETE | `/admissions/:id/vitals`, `/vitals/:id` | Clinical |
-| Medications | CRUD + administrations | `/medications` … | Role-split (see above) |
+| Medications | CRUD + administrations + MAR | `/medications` …, `/admissions/:id/mar` | Role-split (see above) |
 | Investigations | POST/GET/PATCH | `/investigation-orders` … | Clinical |
 | Labs | POST/GET/DELETE | `/labs` … | Clinical |
 | Examinations | POST/GET | `/admissions/:id/examinations` | Clinical |
