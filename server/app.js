@@ -2,13 +2,20 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const helmet = require("helmet");
+const swaggerUi = require("swagger-ui-express");
 const { xss } = require("express-xss-sanitizer");
 const secureHpp = require("./src/middlewares/secureHpp");
 
 const errorHandler = require("./src/middlewares/errorHandler");
 const apiRouter = require("./src/routes");
+const swaggerSpec = require("./src/config/swagger");
 
 const app = express();
+
+// Mounted before helmet: Swagger UI ships an inline bootstrap <script>, which
+// helmet's default CSP (script-src 'self', no 'unsafe-inline') would block.
+// Routes registered here never reach helmet's middleware below.
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Security headers first (cross-origin so Vite client on :5173 can call this API)
 app.use(

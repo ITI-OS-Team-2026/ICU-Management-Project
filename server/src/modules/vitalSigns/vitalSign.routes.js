@@ -9,6 +9,45 @@ const admissionVitalsRouter = express.Router();
 const vitalsRouter = express.Router();
 
 // Routes nested under /admissions/:id/vitals
+/**
+ * @swagger
+ * /admissions/{id}/vitals:
+ *   post:
+ *     summary: Record a vital sign reading
+ *     tags: [Vitals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               temperature: { type: number }
+ *               pulse: { type: integer }
+ *               systolicBp: { type: integer }
+ *               diastolicBp: { type: integer }
+ *               respiratoryRate: { type: integer }
+ *               spo2: { type: integer }
+ *     responses:
+ *       201:
+ *         description: Vital sign recorded
+ *   get:
+ *     summary: List vital sign history for an admission
+ *     tags: [Vitals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Vitals history
+ */
 admissionVitalsRouter.post(
   "/:id/vitals",
   verifyToken,
@@ -25,6 +64,32 @@ admissionVitalsRouter.get(
 );
 
 // Standalone routes under /vitals/:id
+/**
+ * @swagger
+ * /vitals/{id}:
+ *   patch:
+ *     summary: Correct a vital sign reading (doctors only)
+ *     tags: [Vitals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Updated reading
+ *   delete:
+ *     summary: Soft-delete a vital sign reading (doctors only)
+ *     tags: [Vitals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 vitalsRouter.patch(
   "/:id",
   verifyToken,

@@ -8,6 +8,12 @@ module.exports = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "12h",
   cookieName: "smartcare_token",
   cookieMaxAge: 12 * 60 * 60 * 1000, // 12 hours in ms
+  // "Strict" works on localhost because the Vite dev server and the API are
+  // same-site there. In production the frontend and backend are on separate
+  // domains (e.g. vercel.app / onrender.com) — a genuinely cross-site request
+  // — so the cookie needs "None" to be sent at all, which browsers only
+  // permit when paired with Secure (already true in production below).
+  cookieSameSite: process.env.NODE_ENV === "production" ? "None" : "Strict",
   lockoutThreshold: 5,
   lockoutDurationMinutes: 15,
   // AI orchestration (n8n) — FR-3.1 / FR-3.2 graceful degradation at 6s

@@ -12,7 +12,32 @@ const {
 const admissionTreatmentApprovalRouter = express.Router();
 const treatmentApprovalRouter = express.Router();
 
-// POST /admissions/:id/treatment-approvals
+/**
+ * @swagger
+ * /admissions/{id}/treatment-approvals:
+ *   post:
+ *     summary: Request a treatment approval (doctors only)
+ *     tags: [Treatment Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       201:
+ *         description: Approval requested
+ *   get:
+ *     summary: List treatment approvals for an admission
+ *     tags: [Treatment Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Approval list
+ */
 admissionTreatmentApprovalRouter.post(
   "/:id/treatment-approvals",
   verifyToken,
@@ -21,7 +46,6 @@ admissionTreatmentApprovalRouter.post(
   treatmentApprovalController.createTreatmentApproval
 );
 
-// GET /admissions/:id/treatment-approvals
 admissionTreatmentApprovalRouter.get(
   "/:id/treatment-approvals",
   verifyToken,
@@ -29,7 +53,53 @@ admissionTreatmentApprovalRouter.get(
   treatmentApprovalController.getTreatmentApprovals
 );
 
-// PATCH /treatment-approvals/:id
+/**
+ * @swagger
+ * /treatment-approvals/{id}:
+ *   patch:
+ *     summary: Approve or reject a treatment request (specialist only)
+ *     tags: [Treatment Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [decision]
+ *             properties:
+ *               decision: { type: string, enum: [APPROVED, REJECTED] }
+ *     responses:
+ *       200:
+ *         description: Decision recorded
+ *   delete:
+ *     summary: Withdraw a still-pending approval request
+ *     tags: [Treatment Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Withdrawn
+ * /treatment-approvals/{id}/execution:
+ *   patch:
+ *     summary: Record bedside execution of an approved treatment (nurse only)
+ *     tags: [Treatment Approvals]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Execution recorded
+ */
 treatmentApprovalRouter.patch(
   "/:id",
   verifyToken,
@@ -38,7 +108,6 @@ treatmentApprovalRouter.patch(
   treatmentApprovalController.decideTreatmentApproval
 );
 
-// PATCH /treatment-approvals/:id/execution — nurse records bedside execution
 treatmentApprovalRouter.patch(
   "/:id/execution",
   verifyToken,
@@ -47,7 +116,6 @@ treatmentApprovalRouter.patch(
   treatmentApprovalController.executeTreatmentApproval
 );
 
-// DELETE /treatment-approvals/:id — requester withdraws a still-pending request
 treatmentApprovalRouter.delete(
   "/:id",
   verifyToken,

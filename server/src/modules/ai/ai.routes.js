@@ -14,7 +14,33 @@ const {
 const aiRouter = express.Router();
 const admissionAiRouter = express.Router();
 
-// DELETE /ai/summaries/:summaryId — Resident, Specialist
+/**
+ * @swagger
+ * /ai/summaries/{summaryId}:
+ *   delete:
+ *     summary: Soft-delete an AI-generated summary (doctors only)
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: summaryId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ * /ai/summaries/{summaryId}/restore:
+ *   patch:
+ *     summary: Restore a soft-deleted summary (doctors only)
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: summaryId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Restored summary
+ */
 aiRouter.delete(
   "/summaries/:summaryId",
   verifyToken,
@@ -23,7 +49,6 @@ aiRouter.delete(
   aiController.deleteSummary
 );
 
-// PATCH /ai/summaries/:summaryId/restore — Resident, Specialist
 aiRouter.patch(
   "/summaries/:summaryId/restore",
   verifyToken,
@@ -32,7 +57,42 @@ aiRouter.patch(
   aiController.restoreSummary
 );
 
-// POST /ai/summary — Resident, Specialist
+/**
+ * @swagger
+ * /ai/summary:
+ *   post:
+ *     summary: Generate an AI clinical summary for an admission (doctors only)
+ *     tags: [AI]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [admissionId]
+ *             properties:
+ *               admissionId: { type: string, format: uuid }
+ *     responses:
+ *       201:
+ *         description: Summary generated
+ * /ai/query:
+ *   post:
+ *     summary: Ask a free-form AI question about an admission (doctors only)
+ *     tags: [AI]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [admissionId, question]
+ *             properties:
+ *               admissionId: { type: string, format: uuid }
+ *               question: { type: string }
+ *     responses:
+ *       201:
+ *         description: AI answer, logged
+ */
 aiRouter.post(
   "/summary",
   verifyToken,
@@ -41,7 +101,6 @@ aiRouter.post(
   aiController.createSummary
 );
 
-// POST /ai/query — Resident, Specialist
 aiRouter.post(
   "/query",
   verifyToken,
@@ -50,7 +109,33 @@ aiRouter.post(
   aiController.createQuery
 );
 
-// GET /admissions/:id/summaries — Nurse, Resident, Specialist
+/**
+ * @swagger
+ * /admissions/{id}/summaries:
+ *   get:
+ *     summary: List AI-generated summaries for an admission
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Summary list
+ * /admissions/{id}/ai-query-logs:
+ *   get:
+ *     summary: List AI query history for an admission (doctors only)
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Query log
+ */
 admissionAiRouter.get(
   "/:id/summaries",
   verifyToken,
@@ -58,7 +143,6 @@ admissionAiRouter.get(
   aiController.getSummaries
 );
 
-// GET /admissions/:id/ai-query-logs — Resident, Specialist
 admissionAiRouter.get(
   "/:id/ai-query-logs",
   verifyToken,
@@ -67,8 +151,33 @@ admissionAiRouter.get(
   aiController.getQueryLogs
 );
 
-// POST /ai/admissions/:admissionId/patient-summary — Resident, Specialist
-// Generates an AI-powered clinical summary using Bedrock
+/**
+ * @swagger
+ * /ai/admissions/{admissionId}/patient-summary:
+ *   post:
+ *     summary: Generate an AI-powered clinical summary via Bedrock (doctors only)
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Generated summary
+ * /ai/admissions/{admissionId}/patient-context:
+ *   get:
+ *     summary: Get the aggregated patient data context used for AI prompts (no LLM call)
+ *     tags: [AI]
+ *     parameters:
+ *       - in: path
+ *         name: admissionId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Aggregated context
+ */
 aiRouter.post(
   "/admissions/:admissionId/patient-summary",
   verifyToken,
@@ -77,8 +186,6 @@ aiRouter.post(
   aiController.generatePatientSummary
 );
 
-// GET /ai/admissions/:admissionId/patient-context — Resident, Specialist
-// Returns the aggregated patient data context (no LLM call)
 aiRouter.get(
   "/admissions/:admissionId/patient-context",
   verifyToken,

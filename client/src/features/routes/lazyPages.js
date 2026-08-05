@@ -27,6 +27,7 @@ export const DischargePage = lazy(() => import('../pages/DischargePage'));
 export const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage'));
 export const AdminBedsPage = lazy(() => import('../pages/AdminBedsPage'));
 export const AuditLogsPage = lazy(() => import('../pages/AuditLogsPage'));
+export const LoginAttemptsPage = lazy(() => import('../pages/LoginAttemptsPage'));
 export const NursingNotesPage = lazy(() => import('../pages/NursingNotesPage'));
 export const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 export const SettingsPage = lazy(() => import('../pages/SettingsPage'));

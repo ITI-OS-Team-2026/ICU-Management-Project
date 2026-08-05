@@ -20,7 +20,7 @@ const login = async (req, res, next) => {
     res.cookie(config.cookieName, token, {
       httpOnly: true,
       secure: config.nodeEnv === "production",
-      sameSite: "Strict",
+      sameSite: config.cookieSameSite,
       maxAge: config.cookieMaxAge,
     });
 
@@ -46,7 +46,7 @@ const logout = async (req, res, next) => {
     res.clearCookie(config.cookieName, {
       httpOnly: true,
       secure: config.nodeEnv === "production",
-      sameSite: "Strict",
+      sameSite: config.cookieSameSite,
     });
 
     return res.status(204).send();

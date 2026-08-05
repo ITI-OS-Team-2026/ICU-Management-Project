@@ -35,8 +35,8 @@ async function main() {
   const admin = await seedUser({
     email: adminEmail,
     password: adminPassword,
-    firstName: process.env.SEED_ADMIN_FIRST_NAME || "System",
-    lastName: process.env.SEED_ADMIN_LAST_NAME || "Admin",
+    firstName: process.env.SEED_ADMIN_FIRST_NAME || "Ahmed",
+    lastName: process.env.SEED_ADMIN_LAST_NAME || "Ramadan",
     role: "SYSTEM_ADMIN",
   });
   console.log(`✓ System Admin (ID: ${admin.id})`);
@@ -45,8 +45,8 @@ async function main() {
   const nursePassword = (process.env.SEED_NURSE_PASSWORD || "SuperSecurePassword2026!").trim();
   const nurse = nurseEmail && nursePassword ? await seedUser({
     email: nurseEmail, password: nursePassword,
-    firstName: process.env.SEED_NURSE_FIRST_NAME || "Test",
-    lastName: process.env.SEED_NURSE_LAST_NAME || "Nurse",
+    firstName: process.env.SEED_NURSE_FIRST_NAME || "Mariam",
+    lastName: process.env.SEED_NURSE_LAST_NAME || "Ahmed",
     role: "ICU_NURSE",
   }) : null;
   if (nurse) console.log(`✓ ICU Nurse (ID: ${nurse.id})`);
@@ -55,8 +55,8 @@ async function main() {
   const residentPassword = (process.env.SEED_RESIDENT_PASSWORD || "SuperSecurePassword2026!").trim();
   const resident = residentEmail && residentPassword ? await seedUser({
     email: residentEmail, password: residentPassword,
-    firstName: process.env.SEED_RESIDENT_FIRST_NAME || "Test",
-    lastName: process.env.SEED_RESIDENT_LAST_NAME || "Resident",
+    firstName: process.env.SEED_RESIDENT_FIRST_NAME || "Omar",
+    lastName: process.env.SEED_RESIDENT_LAST_NAME || "Sayed",
     role: "MEDICAL_RESIDENT",
   }) : null;
   if (resident) console.log(`✓ Medical Resident (ID: ${resident.id})`);
@@ -65,8 +65,8 @@ async function main() {
   const specialistPassword = (process.env.SEED_SPECIALIST_PASSWORD || "SuperSecurePassword2026!").trim();
   const specialist = specialistEmail && specialistPassword ? await seedUser({
     email: specialistEmail, password: specialistPassword,
-    firstName: process.env.SEED_SPECIALIST_FIRST_NAME || "Test",
-    lastName: process.env.SEED_SPECIALIST_LAST_NAME || "Specialist",
+    firstName: process.env.SEED_SPECIALIST_FIRST_NAME || "Mohamed",
+    lastName: process.env.SEED_SPECIALIST_LAST_NAME || "Ramadan",
     role: "ICU_SPECIALIST",
   }) : null;
   if (specialist) console.log(`✓ ICU Specialist (ID: ${specialist.id})`);
@@ -100,12 +100,12 @@ async function main() {
 
   // ── Comprehensive patient seed ──────────────────────────────────────────
   const seedPatients = [
-    { name: "Emma Rodriguez", mrn: "MRN-EMMA-001", age: 52, gender: "Female", bedNumber: "CCU-7/R3", chiefComplaint: "Chest pain and dyspnea" },
-    { name: "James Porter", mrn: "MRN-JAMES-002", age: 59, gender: "Male", bedNumber: "CCU-7/B5", chiefComplaint: "Acute MI with cardiogenic shock" },
-    { name: "Liu Wei", mrn: "MRN-LIU-003", age: 64, gender: "Male", bedNumber: "CCU-8/B2", chiefComplaint: "Septic shock, pneumonia" },
-    { name: "Sofia Martinez", mrn: "MRN-SOFIA-004", age: 41, gender: "Female", bedNumber: "ICU-N/R7", chiefComplaint: "Respiratory failure post-op" },
-    { name: "Derek Thompson", mrn: "MRN-DEREK-005", age: 48, gender: "Male", bedNumber: "ICU-S/R4", chiefComplaint: "Acute liver failure" },
-    { name: "Fatima Al-Hassan", mrn: "MRN-FATIMA-006", age: 37, gender: "Female", bedNumber: "ICU-S/R1", chiefComplaint: "Severe DKA" },
+    { name: "Emma Rodriguez", mrn: "MRN-EMMA-001", age: 52, gender: "Female", bedNumber: "CCU-7/R3", chiefComplaint: "Chest pain and dyspnea", nurse: nurse },
+    { name: "James Porter", mrn: "MRN-JAMES-002", age: 59, gender: "Male", bedNumber: "CCU-7/B5", chiefComplaint: "Acute MI with cardiogenic shock", nurse: nurse2 },
+    { name: "Liu Wei", mrn: "MRN-LIU-003", age: 64, gender: "Male", bedNumber: "CCU-8/B2", chiefComplaint: "Septic shock, pneumonia", nurse: nurse },
+    { name: "Sofia Martinez", mrn: "MRN-SOFIA-004", age: 41, gender: "Female", bedNumber: "ICU-N/R7", chiefComplaint: "Respiratory failure post-op", nurse: nurse2 },
+    { name: "Derek Thompson", mrn: "MRN-DEREK-005", age: 48, gender: "Male", bedNumber: "ICU-S/R4", chiefComplaint: "Acute liver failure", nurse: nurse },
+    { name: "Fatima Al-Hassan", mrn: "MRN-FATIMA-006", age: 37, gender: "Female", bedNumber: "ICU-S/R1", chiefComplaint: "Severe DKA", nurse: nurse2 },
   ];
 
   for (const p of seedPatients) {
@@ -141,6 +141,16 @@ async function main() {
       }
 
       console.log(`✓ ${p.name} in ${p.bedNumber} (Admission: ${admission.id.slice(0, 8)}…)`);
+
+      // ── Nurse assignment ──────────────────────────────────────────────────
+      const existingNurseAssignment = await tx.admissionNurse.findFirst({
+        where: { admissionId: admission.id, nurseId: p.nurse.id, unassignedAt: null },
+      });
+      if (!existingNurseAssignment) {
+        await tx.admissionNurse.create({
+          data: { admissionId: admission.id, nurseId: p.nurse.id, assignedAt: admission.admittedAt },
+        });
+      }
 
       // ── Reference document (available to all patients) ──────────────────────
       if (referenceDocExists && referenceDocStats) {

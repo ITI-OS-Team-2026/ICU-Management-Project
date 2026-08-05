@@ -9,7 +9,41 @@ const admissionNotesRouter = express.Router();
 const baseNotesRouter = express.Router();
 
 // Routes nested under /admissions
-// POST /admissions/:id/notes/clinical
+/**
+ * @swagger
+ * /admissions/{id}/notes/clinical:
+ *   post:
+ *     summary: Add a clinical note (doctors only)
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content: { type: string }
+ *     responses:
+ *       201:
+ *         description: Note created
+ *   get:
+ *     summary: List clinical notes for an admission
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Clinical note list
+ */
 admissionNotesRouter.post(
   "/:id/notes/clinical",
   verifyToken,
@@ -26,7 +60,41 @@ admissionNotesRouter.get(
   noteController.getClinicalNotes
 );
 
-// POST /admissions/:id/notes/nursing
+/**
+ * @swagger
+ * /admissions/{id}/notes/nursing:
+ *   post:
+ *     summary: Add a nursing note (nurses only)
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content: { type: string }
+ *     responses:
+ *       201:
+ *         description: Note created
+ *   get:
+ *     summary: List nursing notes for an admission
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Nursing note list
+ */
 admissionNotesRouter.post(
   "/:id/notes/nursing",
   verifyToken,
@@ -44,7 +112,33 @@ admissionNotesRouter.get(
 );
 
 // Routes nested under /notes
-// DELETE /notes/clinical/:id
+/**
+ * @swagger
+ * /notes/clinical/{id}:
+ *   delete:
+ *     summary: Delete a clinical note (doctors only)
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ * /notes/nursing/{id}:
+ *   delete:
+ *     summary: Delete a nursing note (doctors only)
+ *     tags: [Notes]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 baseNotesRouter.delete(
   "/clinical/:id",
   verifyToken,

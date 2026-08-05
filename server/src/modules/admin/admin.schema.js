@@ -52,6 +52,20 @@ const auditLogStatsQuerySchema = Joi.object({
   range: Joi.string().valid(...AUDIT_RANGE_VALUES).optional(),
 });
 
+// Shares AUDIT_RANGE_VALUES with the audit log — same "24h/today/7d/30d/all"
+// windowing, just applied to LoginAttempt.attemptedAt instead of createdAt.
+const loginAttemptQuerySchema = Joi.object({
+  search: Joi.string().trim().max(100).allow("").optional(),
+  outcome: Joi.string().valid("All", "SUCCESS", "FAILED").optional(),
+  range: Joi.string().valid(...AUDIT_RANGE_VALUES).optional(),
+  page: Joi.number().integer().min(1).default(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+});
+
+const loginAttemptStatsQuerySchema = Joi.object({
+  range: Joi.string().valid(...AUDIT_RANGE_VALUES).optional(),
+});
+
 module.exports = {
   userCreateSchema,
   userUpdateSchema,
@@ -60,4 +74,6 @@ module.exports = {
   bedUpdateSchema,
   auditLogQuerySchema,
   auditLogStatsQuerySchema,
+  loginAttemptQuerySchema,
+  loginAttemptStatsQuerySchema,
 };

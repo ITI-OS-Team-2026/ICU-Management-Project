@@ -12,7 +12,41 @@ const baseDocumentsRouter = express.Router();
 // Shared with assistant chat resources so both accept the same formats/size.
 const uploadMiddleware = uploadSingleFile("file");
 
-// POST /admissions/:id/documents
+/**
+ * @swagger
+ * /admissions/{id}/documents:
+ *   post:
+ *     summary: Upload a medical document
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file: { type: string, format: binary }
+ *               documentType: { type: string }
+ *     responses:
+ *       201:
+ *         description: Document uploaded and queued for embedding
+ *   get:
+ *     summary: List documents for an admission
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Document list
+ */
 admissionDocumentsRouter.post(
   "/:id/documents",
   verifyToken,
@@ -30,7 +64,33 @@ admissionDocumentsRouter.get(
   documentController.getDocuments
 );
 
-// GET /documents/:id/download
+/**
+ * @swagger
+ * /documents/{id}/download:
+ *   get:
+ *     summary: Download a document's original file
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: File stream
+ * /documents/{id}:
+ *   delete:
+ *     summary: Delete a document (doctors only)
+ *     tags: [Documents]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ */
 baseDocumentsRouter.get(
   "/:id/download",
   verifyToken,

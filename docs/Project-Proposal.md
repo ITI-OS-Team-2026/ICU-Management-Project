@@ -88,8 +88,9 @@ To design and develop an AI-powered ICU management system that centralizes patie
 - Patient timeline
 - Soft-deletion (archive) and immutable action audit logging
 - AI-generated patient summaries
-- RAG-powered conversational clinical assistant
+- RAG-powered conversational clinical assistant, with browser-based voice input/output (Web Speech API) as an alternate interaction mode for gloved, hands-free bedside use
 - Autonomous monitoring agent with explainable, severity-ranked alerts
+- Login attempt monitoring and account lockout, with an in-app assisted password reset workflow for locked-out clinicians
 - Dashboard reporting
 
 ## Excluded Features (Post-MVP Roadmap)
@@ -104,7 +105,6 @@ The MVP does not include:
 - Medical device integration
 - Multi-agent diagnostic council (debating specialized AI agents)
 - Automated shift-handover (SBAR) reports
-- Voice-to-text clinical dictation
 - Scheduled morning-round AI digest emails
 - One-click discharge draft generation
 - Offline/service-worker data caching
@@ -122,6 +122,7 @@ The system is designed for the four distinct roles operating inside an Intensive
 - Assign and audit role boundaries
 - Manage ICU bed configuration
 - Monitor system health and review the action audit trail
+- Review login attempts (success/failure, IP, lockouts) and resolve assisted password reset requests
 - **No access** to unblinded clinical records, vitals, or patient identifiers
 
 ### ICU Nurse
@@ -161,12 +162,13 @@ The proposed technology stack:
 | Styling | Tailwind CSS v4 (OKLCH tokens) |
 | Backend | Node.js + Express.js |
 | Database | PostgreSQL |
-| ORM | Prisma or Drizzle |
+| ORM | Prisma |
 | Authentication | JWT via `HttpOnly`, `Secure` cookies |
-| AI Orchestration | n8n (webhook-driven workflows) |
-| AI Models | Gemini Pro / GPT-4o |
+| AI Orchestration | AWS Bedrock via the ITI proxy (primary); n8n webhook orchestration supported as an alternate/legacy path |
+| AI Models | Llama 3.3 70B (`us.meta.llama3-3-70b-instruct-v1:0`) via Bedrock |
 | Retrieval | SQL + vector database retrievers |
 | Vector Search | pgvector |
+| Voice I/O | Browser Web Speech API (client-only, no server component) |
 | Version Control | Git & GitHub |
 
 ---

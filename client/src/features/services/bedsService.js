@@ -5,8 +5,12 @@ export const bedsService = {
    * Omit `pagination` to get every bed as a plain array; pass { page, limit }
    * to get a paginated { data, meta } payload from the server.
    */
-  async getBeds(status, pagination) {
-    const params = { ...(status ? { status } : {}), ...(pagination || {}) };
+  async getBeds(status, pagination, search) {
+    const params = {
+      ...(status ? { status } : {}),
+      ...(search ? { search } : {}),
+      ...(pagination || {}),
+    };
     const { data } = await api.get('/admin/beds', { params });
     return data;
   },

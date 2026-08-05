@@ -90,9 +90,13 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 
 # Wave 7 — AI Summarization & RAG
 
-**Endpoints:** `POST /ai/summary`, `GET /admissions/:id/summaries`, `POST /ai/query`, `GET /admissions/:id/ai-query-logs`
+**Endpoints:**
+- Patient summaries: `POST /ai/summary`, `GET /admissions/:id/summaries`, `DELETE/PATCH /ai/summaries/:summaryId`, `POST /ai/admissions/:admissionId/patient-summary`, `GET /ai/admissions/:admissionId/patient-context`
+- Legacy query log: `POST /ai/query`, `GET /admissions/:id/ai-query-logs`
+- RAG assistant: `POST /rag/query`, `GET/DELETE /rag/admissions/:admissionId/history`, `GET /rag/admissions/:admissionId/index`, `POST /rag/admissions/:admissionId/reindex`, `GET/POST /rag/documents/:documentId/status|reindex|chunks`
+- Saved assistant chats: `GET/POST/DELETE /rag/chats`, `GET/PATCH/DELETE /rag/chats/:chatId`, `GET/POST/DELETE /rag/chats/:chatId/resources`
 
-**Why deliberately this late:** these endpoints have nothing to summarize or retrieve until Wave 4's clinical data and Wave 5's embedded documents actually exist.
+**Why deliberately this late:** these endpoints have nothing to summarize or retrieve until Wave 4's clinical data and Wave 5's embedded documents actually exist. Saved chats and chat resources are the last thing in this wave — they're a UX layer on top of the RAG query endpoint above, not a data dependency for anything else.
 
 ---
 
@@ -114,9 +118,20 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 
 # Wave 10 — Admin Audit Log Viewer
 
-**Endpoints:** `GET /admin/audit-logs`
+**Endpoints:** `GET /admin/audit-logs`, `GET /admin/audit-logs/stats`
 
 **Why last:** the audit-logging *middleware* was already built in Wave 0 and has been silently collecting correct data since then. This wave is only the reporting view on top of it — lowest priority because no other feature depends on it.
+
+---
+
+# Wave 11 — Login Attempts & Assisted Password Reset
+
+**Endpoints:**
+- `GET /admin/login-attempts`, `GET /admin/login-attempts/stats`
+- `POST /password-reset-requests`, `POST /password-reset-requests/public`, `GET /password-reset-requests/my`, `POST /password-reset-requests/mark-seen`, `GET /password-reset-requests/unseen-count`
+- `GET /admin/password-reset-requests`, `GET /admin/password-reset-requests/pending-count`, `POST /admin/password-reset-requests/:id/resolve`
+
+**Why last:** like Wave 10, the data these endpoints read (`login_attempts`) has been written since Wave 0 — `POST /auth/login` logs every attempt regardless of whether this wave has been built yet. This wave is the admin-facing reporting/resolution layer on top of that existing data, plus the self-contained password-reset-request workflow, which depends only on Wave 0's `users` table and auth middleware — it could technically move earlier, but there's no reason to prioritize it over clinical features.
 
 ---
 
@@ -131,7 +146,8 @@ The build order below groups endpoints into 11 waves. Endpoints within the same 
 | 4 | Vitals, labs, diagnoses, medications, notes, examinations, follow-ups, investigation orders | Wave 3 |
 | 5 | Documents + embedding trigger | Wave 4 |
 | 6 | Discharge, treatment approval | Wave 4 |
-| 7 | AI summary + RAG query | Waves 4, 5 |
+| 7 | AI summary, RAG query, saved assistant chats | Waves 4, 5 |
 | 8 | Monitoring agent, alerts | Wave 4 |
 | 9 | Notifications | Wave 8 |
 | 10 | Audit log viewer | Wave 0 (data), built last |
+| 11 | Login attempts, assisted password reset | Wave 0 (data), built last |

@@ -6,10 +6,10 @@ import { bedsService } from '../services/bedsService';
  * returns { data, meta } instead of a bare array. Callers that need every bed
  * (bed pickers, dashboards) omit it and keep the full list.
  *
- * A caller that varies `status` should call setPage(1) alongside it, otherwise
- * a narrower filter can leave you past the last page.
+ * A caller that varies `status` or `search` should call setPage(1) alongside
+ * it, otherwise a narrower filter can leave you past the last page.
  */
-export function useBeds(status, { pageSize } = {}) {
+export function useBeds(status, { pageSize, search } = {}) {
   const paginated = Boolean(pageSize);
 
   const [beds, setBeds] = useState([]);
@@ -32,7 +32,7 @@ export function useBeds(status, { pageSize } = {}) {
     try {
       setIsLoading(true);
       setError(null);
-      const res = await bedsService.getBeds(status, paginated ? { page, limit: pageSize } : undefined);
+      const res = await bedsService.getBeds(status, paginated ? { page, limit: pageSize } : undefined, search);
       if (paginated) {
         setBeds(res?.data || []);
         setMeta(res?.meta || { total: 0, page, limit: pageSize, totalPages: 1 });
@@ -44,7 +44,7 @@ export function useBeds(status, { pageSize } = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [status, paginated, page, pageSize]);
+  }, [status, paginated, page, pageSize, search]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
