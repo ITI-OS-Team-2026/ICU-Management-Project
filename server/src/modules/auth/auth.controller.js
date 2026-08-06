@@ -4,7 +4,7 @@ const config = require("../../config/env");
 // POST /auth/login - Authenticate user, set cookie, and return user profile
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     const ipAddress = req.ip || req.connection?.remoteAddress || "unknown";
     const userAgent = req.get("User-Agent") || null;
 
@@ -68,7 +68,7 @@ const getMe = async (req, res, next) => {
 // PUT /auth/password - Change current user's password
 const changePassword = async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body || {};
     await authService.changePassword({
       userId: req.user.id,
       currentPassword,

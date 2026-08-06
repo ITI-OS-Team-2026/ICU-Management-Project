@@ -11,9 +11,10 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 # Install dependencies first so this layer is cached unless package*.json changes.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Prisma needs its query engine generated against the schema before the app can boot.
+# Prisma v7+ requires prisma.config.ts at the project root alongside the prisma/ directory.
+COPY prisma.config.ts ./
 COPY prisma ./prisma
 RUN npx prisma generate
 
@@ -26,4 +27,4 @@ RUN mkdir -p uploads/documents
 
 EXPOSE 3000
 
-CMD ["node", "index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node index.js"]

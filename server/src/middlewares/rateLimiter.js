@@ -8,6 +8,7 @@ const limiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   ipv6Subnet: 56,
+  validate: { trustProxy: false, xForwardedForHeader: false },
   handler: (req, res, next) => {
     throw new APIError("Too many requests, please try again later.", 429);
   },
@@ -20,23 +21,20 @@ const authLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
+  validate: { trustProxy: false, xForwardedForHeader: false },
   handler: (req, res, next) => {
     throw new APIError("Too many login attempts, please try again later.", 429);
   },
 });
 
 // Password reset rate limiter (very strict) — authenticated route.
-// Keyed by the requesting account, not IP: this is a shared hospital app,
-// and IP-keying meant one nurse's attempts consumed the *entire ward's*
-// shared workstation/NAT budget, locking every other clinician on that
-// terminal out of requesting their own reset for the next hour. Per-account
-// keying is also strictly more correct here — we know exactly who's asking.
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 3, // Only 3 password reset attempts per hour, per account
   standardHeaders: "draft-8",
   legacyHeaders: false,
   keyGenerator: (req) => req.user.id,
+  validate: { trustProxy: false, xForwardedForHeader: false },
   handler: (req, res, next) => {
     throw new APIError(
       "Too many password reset attempts, please try again in 1 hour.",
@@ -46,21 +44,16 @@ const passwordResetLimiter = rateLimit({
 });
 
 // Password reset rate limiter — public/unauthenticated route (login page).
-// There's no account to key by yet, so this combines IP with the *target*
-// email instead of IP alone, for the same reason as above: a shared clinic
-// terminal has one IP but many clinicians, each requesting a reset for their
-// own distinct email. Keying by IP+email means they no longer share a
-// budget, while a single email still can't be hammered from that IP, and a
-// single IP still can't rapid-fire many different targets unbounded (each
-// new email it tries only gets 3 attempts before it, too, is throttled).
 const publicPasswordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   limit: 3,
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
   keyGenerator: (req) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
-    return `${ipKeyGenerator(req.ip)}:${email}`;
+    const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
+    return `${ipKeyGenerator(clientIp)}:${email}`;
   },
   handler: (req, res, next) => {
     throw new APIError(
@@ -76,6 +69,7 @@ const uploadLimiter = rateLimit({
   limit: 10, // 10 uploads per hour
   standardHeaders: "draft-8",
   legacyHeaders: false,
+  validate: { trustProxy: false, xForwardedForHeader: false },
   handler: (req, res, next) => {
     throw new APIError(
       "Too many upload attempts, please try again later.",
