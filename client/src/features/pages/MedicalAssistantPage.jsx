@@ -13,6 +13,7 @@ import {
   Volume2,
   AudioLines,
   Headphones,
+  ArrowRight,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -299,7 +300,7 @@ export default function MedicalAssistantPage() {
         <div
           className={`${
             showHistory ? 'block' : 'hidden'
-          } lg:block lg:col-span-3 h-[calc(100vh-11rem)] min-h-[520px]`}
+          } lg:block lg:col-span-3 h-[calc(100vh-7rem)] min-h-[520px]`}
         >
           <ChatHistorySidebar
             chats={chats}
@@ -310,11 +311,12 @@ export default function MedicalAssistantPage() {
             onRename={renameChat}
             onDelete={deleteChat}
             onDeleteAll={deleteAllChats}
+            onClose={() => setShowHistory(false)}
           />
         </div>
 
         {/* ── Conversation ───────────────────────────────────────────────── */}
-        <div className="lg:col-span-9 xl:col-span-6 flex flex-col rounded-xl border border-border bg-card shadow-sm h-[calc(100vh-11rem)] min-h-[520px] overflow-hidden">
+        <div className={`${showHistory ? 'hidden' : 'flex'} lg:flex lg:col-span-9 flex-col rounded-xl border border-border bg-card shadow-sm h-[calc(100vh-7rem)] min-h-[520px] overflow-hidden`}>
           {/* Header */}
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 shrink-0">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -332,16 +334,6 @@ export default function MedicalAssistantPage() {
 
               <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles size={17} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="font-display text-base font-bold text-foreground leading-tight truncate">
-                  {activeChat ? activeChat.title : 'Medical Knowledge Assistant'}
-                </h1>
-                <p className="font-sans text-[11px] text-muted-foreground truncate">
-                  {activeChat
-                    ? 'Saved chat — continue where you left off'
-                    : 'Ask about medical knowledge from clinical guidelines — references the indexed knowledge base'}
-                </p>
               </div>
             </div>
 
@@ -389,7 +381,7 @@ export default function MedicalAssistantPage() {
           </div>
 
           {/* Transcript */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+          <div ref={scrollRef} className={`flex-1 overflow-y-auto ${isEmpty ? 'p-4 sm:p-6' : 'px-4 py-4 space-y-5'}`}>
             {isLoadingMessages ? (
               <div className="space-y-4">
                 <Skeleton className="h-12 w-2/3 ml-auto rounded-2xl" />
@@ -397,31 +389,28 @@ export default function MedicalAssistantPage() {
                 <Skeleton className="h-12 w-1/2 ml-auto rounded-2xl" />
               </div>
             ) : isEmpty ? (
-              <div className="flex h-full flex-col items-center justify-center text-center px-4">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Sparkles size={22} />
-                </div>
-                <h2 className="font-display text-base font-bold text-foreground">
-                  Ask medical knowledge questions
-                </h2>
-                <p className="mt-1 max-w-sm font-sans text-xs leading-relaxed text-muted-foreground">
-                  Questions about medical concepts, guidelines, symptom interpretation, occupational
-                  exposures, risk factors, and clinical frameworks from the ICU medicine knowledge
-                  base. Every conversation is saved so you can return to it later.
-                </p>
-
-                <div className="mt-5 flex w-full max-w-md flex-col gap-2">
-                  {KNOWLEDGE_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => submitQuestion(prompt)}
-                      disabled={isAsking || isPreparingFiles}
-                      className="rounded-lg border border-border bg-background px-3 py-2 text-left font-sans text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
+              <div className="flex h-full flex-col justify-end animate-in fade-in duration-700 pb-4">
+                <div className="w-full">
+                  <h2 className="font-display text-4xl sm:text-5xl md:text-6xl leading-[1.1] font-medium tracking-tight text-foreground mb-6">
+                    What are we<br/>building today?
+                  </h2>
+                  <div className="flex overflow-x-auto snap-x space-x-3 pb-4 no-scrollbar w-full max-w-full">
+                    {KNOWLEDGE_PROMPTS.map((prompt, i) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => submitQuestion(prompt)}
+                        disabled={isAsking || isPreparingFiles}
+                        className="snap-start shrink-0 w-64 h-32 flex flex-col justify-between rounded-[24px] bg-muted/30 border border-border p-5 text-left transition-all hover:bg-muted/60 disabled:opacity-50"
+                        style={{ animationDelay: `${i * 100}ms` }}
+                      >
+                        <Sparkles size={18} className="text-primary" fill="currentColor" />
+                        <span className="font-sans text-[15px] font-medium leading-snug text-foreground/90 line-clamp-3">
+                          {prompt}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -526,7 +515,7 @@ export default function MedicalAssistantPage() {
               onRemove={removeResource}
             />
 
-            <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 p-2 sm:p-1.5 rounded-2xl sm:rounded-[32px] mx-auto w-full max-w-4xl bg-muted/40 border border-border">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -535,66 +524,72 @@ export default function MedicalAssistantPage() {
                 className="hidden"
                 tabIndex={-1}
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={Boolean(uploadingFile)}
-                title="Attach a file to this chat"
-                aria-label="Attach a file to this chat"
-                className="h-[42px] w-[42px] shrink-0"
-              >
-                {uploadingFile ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Plus size={18} />
-                )}
-              </Button>
+              
+              <div className="flex-1 w-full order-1 sm:order-2">
+                <Textarea
+                  ref={inputRef}
+                  value={question}
+                  onChange={(event) => setQuestion(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                  maxLength={2000}
+                  disabled={isAsking}
+                  placeholder={
+                    voice.isListening
+                      ? 'Listening...'
+                      : 'Ask AI a question'
+                  }
+                  aria-label="Ask the medical assistant a question"
+                  className="w-full min-h-[44px] max-h-32 resize-y font-sans text-[16px] border-0 shadow-none focus-visible:ring-0 bg-transparent px-2 py-3 text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
 
-              {voice.sttSupported && (
+              <div className="flex justify-between items-center w-full sm:w-auto sm:contents order-2">
                 <Button
                   type="button"
-                  variant={voice.isListening ? 'default' : 'outline'}
+                  variant="ghost"
                   size="icon"
-                  onClick={handleMicToggle}
-                  title={voice.isListening ? 'Stop listening' : 'Dictate your question'}
-                  aria-label={voice.isListening ? 'Stop listening' : 'Dictate your question'}
-                  aria-pressed={voice.isListening}
-                  className={`h-[42px] w-[42px] shrink-0 ${
-                    voice.isListening ? 'animate-pulse' : ''
-                  }`}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={Boolean(uploadingFile)}
+                  title="Attach a file to this chat"
+                  aria-label="Attach a file to this chat"
+                  className="sm:order-1 h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted/50"
                 >
-                  <Mic size={17} />
+                  {uploadingFile ? (
+                    <Loader2 size={20} className="animate-spin" />
+                  ) : (
+                    <Paperclip size={20} />
+                  )}
                 </Button>
-              )}
 
-              <Textarea
-                ref={inputRef}
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                maxLength={2000}
-                disabled={isAsking}
-                placeholder={
-                  voice.isListening
-                    ? 'Listening — speak your question…'
-                    : 'Ask about medical concepts, guidelines, symptoms, risks, or clinical frameworks…'
-                }
-                aria-label="Ask the medical assistant a question"
-                className="min-h-[42px] max-h-32 resize-y font-sans text-sm"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={isAsking || isPreparingFiles || !question.trim()}
-                title={isPreparingFiles ? 'Waiting for the attached file to finish preparing…' : undefined}
-                aria-label="Send question"
-                className="h-[42px] w-[42px] shrink-0"
-              >
-                {isAsking ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </Button>
+                <div className="sm:order-3 shrink-0">
+                  {!question.trim() && voice.sttSupported ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleMicToggle}
+                      title={voice.isListening ? 'Stop listening' : 'Dictate your question'}
+                      aria-label={voice.isListening ? 'Stop listening' : 'Dictate your question'}
+                      aria-pressed={voice.isListening}
+                      className={`h-[44px] w-[44px] rounded-full shrink-0 transition-colors text-muted-foreground hover:bg-muted/50 ${voice.isListening ? 'animate-pulse bg-destructive hover:bg-destructive/90 text-destructive-foreground hover:text-destructive-foreground' : ''}`}
+                    >
+                      <Mic size={20} />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      size="icon"
+                      disabled={isAsking || isPreparingFiles || !question.trim()}
+                      title={isPreparingFiles ? 'Waiting for the attached file to finish preparing…' : undefined}
+                      aria-label="Send question"
+                      className={`h-[44px] w-[44px] rounded-full shrink-0 transition-colors bg-primary text-primary-foreground hover:bg-primary/90 ${!question.trim() ? 'opacity-50' : ''}`}
+                    >
+                      {isAsking ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className={isEmpty ? 'ml-0.5' : ''} />}
+                    </Button>
+                  )}
+                </div>
+              </div>
             </form>
 
             {voice.isListening ? (
@@ -622,91 +617,11 @@ export default function MedicalAssistantPage() {
                   {' '}— you can send as soon as it is ready to be searched.
                 </span>
               </p>
-            ) : (
-              <p className="mt-1.5 flex items-center gap-1 font-sans text-[10px] text-muted-foreground">
-                <Paperclip size={10} className="shrink-0" />
-                <span>
-                  <strong>+</strong> attaches a PDF, image or text file to this chat (max 10MB) — the
-                  assistant reads it once indexing finishes. Enter to send · Shift+Enter for a new line
-                  {voice.sttSupported ? ' · microphone to dictate.' : '.'}
-                </span>
-              </p>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* ── Info Panel ─────────────────────────────────────────────────── */}
-        <div className="hidden xl:block xl:col-span-3 space-y-4">
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">About This Assistant</h3>
-            <ul className="mt-2 space-y-1.5 font-sans text-[11px] leading-relaxed text-muted-foreground list-disc list-inside">
-              <li>Searches the indexed medical knowledge base first and cites it when it answers the question</li>
-              <li>Falls back to the AI's own general medical knowledge when the knowledge base has nothing relevant — labeled "General AI knowledge"</li>
-              <li>NOT patient-specific — no access to individual patient records</li>
-              <li>Great for: understanding concepts, checking guidelines, learning best practices</li>
-            </ul>
-          </div>
 
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">Voice Agent</h3>
-            {voice.sttSupported ? (
-              <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-                Press the <strong>microphone</strong> to dictate a question into the box and send it
-                yourself. Turn on <strong>Hands-free</strong> to hold a spoken conversation — it
-                listens, sends when you pause, reads the answer back, then listens again. Speak over
-                an answer to interrupt it. Speech never leaves this device; only the transcribed
-                question is sent.
-              </p>
-            ) : (
-              <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-                This browser cannot listen for speech
-                {voice.ttsSupported ? ', but it can read answers aloud — use ' : '. '}
-                {voice.ttsSupported && <strong>Listen</strong>}
-                {voice.ttsSupported ? ' on any answer. ' : ''}
-                For dictation and hands-free conversation, open the assistant in Chrome or Edge over
-                HTTPS.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">Your Chats</h3>
-            <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-              Conversations are saved automatically and are private to your account. Reopen one from
-              the list on the left to keep going — follow-up questions use that chat's earlier turns
-              for context. Rename or delete a chat with the icons on its row.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">Attaching Files</h3>
-            <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-              Use <strong>+</strong> to attach a paper, protocol or scan to the chat you are in. It
-              is indexed and then searchable <em>only inside that chat</em> — no other chat and no
-              other clinician can retrieve it. Deleting the file, or the whole chat, removes it from
-              cloud storage and the database.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">Knowledge Base Includes</h3>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Badge variant="outline" className="text-[10px]">History-Taking Guides</Badge>
-              <Badge variant="outline" className="text-[10px]">Symptom Analysis</Badge>
-              <Badge variant="outline" className="text-[10px]">Occupational Exposures</Badge>
-              <Badge variant="outline" className="text-[10px]">Risk Stratification</Badge>
-              <Badge variant="outline" className="text-[10px]">Gender-Specific Care</Badge>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-muted/20 p-4">
-            <h3 className="font-display text-xs font-bold text-foreground">Tip</h3>
-            <p className="mt-2 font-sans text-[11px] leading-relaxed text-muted-foreground">
-              Use this for medical concepts and guidelines. For patient-specific questions, go to a
-              patient's record and use the <strong>AI Chat</strong> tab to ask about their records.
-            </p>
-          </div>
-        </div>
       </div>
 
       {lightboxResource && (
