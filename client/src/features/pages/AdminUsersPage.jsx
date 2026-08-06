@@ -248,8 +248,8 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Filters Row */}
-      <div className="flex items-center gap-4 overflow-x-auto pb-2 px-1 scrollbar-none whitespace-nowrap">
-        <div className="relative w-[280px] shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-2 px-1">
+        <div className="relative w-full sm:w-[280px] shrink-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search by name or email..." 
@@ -261,32 +261,34 @@ export default function AdminUsersPage() {
           />
         </div>
 
-        {/* Role Filters */}
-        <div className="flex items-center gap-1 bg-background/50 p-1 rounded-full border border-border/50 shrink-0">
-          {roles.map(r => (
-            <Button
-              key={r.label}
-              variant={filters.role === r.value ? "default" : "ghost"}
-              className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors ${filters.role === r.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              onClick={() => setFilters(prev => ({ ...prev, role: r.value, page: 1 }))}
-            >
-              {r.label}
-            </Button>
-          ))}
-        </div>
+        <div className="flex flex-wrap items-center gap-3 min-w-0 w-full sm:w-auto">
+          {/* Role Filters */}
+          <div className="flex items-center gap-1 bg-background/50 p-1 rounded-full border border-border/50 max-w-full overflow-x-auto scrollbar-none">
+            {roles.map(r => (
+              <Button
+                key={r.label}
+                variant={filters.role === r.value ? "default" : "ghost"}
+                className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors shrink-0 ${filters.role === r.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                onClick={() => setFilters(prev => ({ ...prev, role: r.value, page: 1 }))}
+              >
+                {r.label}
+              </Button>
+            ))}
+          </div>
 
-        {/* Status Filters */}
-        <div className="flex items-center gap-1 bg-background/50 p-1 rounded-full border border-border/50 shrink-0">
-          {statuses.map(s => (
-            <Button
-              key={s.label}
-              variant={filters.status === s.value ? "default" : "ghost"}
-              className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors ${filters.status === s.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              onClick={() => setFilters(prev => ({ ...prev, status: s.value, page: 1 }))}
-            >
-              {s.label}
-            </Button>
-          ))}
+          {/* Status Filters */}
+          <div className="flex items-center gap-1 bg-background/50 p-1 rounded-full border border-border/50 max-w-full overflow-x-auto scrollbar-none">
+            {statuses.map(s => (
+              <Button
+                key={s.label}
+                variant={filters.status === s.value ? "default" : "ghost"}
+                className={`rounded-full h-8 px-4 text-[13px] font-sans transition-colors shrink-0 ${filters.status === s.value ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+                onClick={() => setFilters(prev => ({ ...prev, status: s.value, page: 1 }))}
+              >
+                {s.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 

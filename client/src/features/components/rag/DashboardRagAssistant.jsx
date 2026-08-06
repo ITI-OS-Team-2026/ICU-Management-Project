@@ -185,11 +185,8 @@ export function DashboardRagAssistant({ admissions = [], activeAdmissionId, onSe
           </div>
           <div className="min-w-0">
             <CardTitle className="font-display text-sm font-bold text-login-brand-foreground">
-              SmartCare AI Assistant
+              SmartCare AI
             </CardTitle>
-            <span className="font-sans text-[10px] text-login-brand-muted mt-0.5 block">
-              Retrieval-augmented · answers cite the record they came from
-            </span>
           </div>
         </div>
 
@@ -254,48 +251,8 @@ export function DashboardRagAssistant({ admissions = [], activeAdmissionId, onSe
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col p-6 gap-4">
-        {/* Patient context selector */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-login-brand-ring/30 p-3 rounded-lg border border-login-brand-ring/40">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="font-sans text-xs font-semibold text-login-brand-muted">
-              Query Context:
-            </span>
-            {indexStatus && (
-              <span className="flex items-center gap-1 font-sans text-[10px] text-login-brand-muted">
-                <Database className="h-2.5 w-2.5" />
-                {indexStatus.counts.total === 0
-                  ? 'Clinical records only — no documents uploaded'
-                  : `${indexStatus.indexed_chunks} indexed passage${
-                      indexStatus.indexed_chunks === 1 ? '' : 's'
-                    } from ${indexStatus.counts.completed}/${indexStatus.counts.total} document${
-                      indexStatus.counts.total === 1 ? '' : 's'
-                    }`}
-              </span>
-            )}
-          </div>
+      <CardContent className="flex-1 flex flex-col p-4 gap-4 min-h-0">
 
-          <div className="w-full sm:w-64 shrink-0">
-            <Select value={activeAdmissionId || ''} onValueChange={onSelectAdmission}>
-              <SelectTrigger className="w-full h-8 bg-login-brand border-login-brand-ring/60 text-xs font-sans">
-                <SelectValue placeholder="Select patient…">
-                  {selectedAdmission ? patientLabel(selectedAdmission) : null}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="bg-login-brand text-login-brand-foreground border-login-brand-ring">
-                {admissions.map((a) => (
-                  <SelectItem
-                    key={a.id}
-                    value={a.id}
-                    className="text-xs font-sans focus:bg-login-brand-ring focus:text-login-brand-foreground"
-                  >
-                    {patientLabel(a)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
 
         {isLoading ? (
           <div className="flex-1 space-y-3">
@@ -343,7 +300,7 @@ export function DashboardRagAssistant({ admissions = [], activeAdmissionId, onSe
             ) : (
               <ScrollArea
                 ref={scrollRef}
-                className="flex-1 max-h-[320px] bg-login-brand-ring/10 p-3 rounded-lg border border-login-brand-ring/25"
+                className="flex-1 min-h-0 pr-3"
               >
                 <div className="space-y-4">
                   {messages.map((message) => (

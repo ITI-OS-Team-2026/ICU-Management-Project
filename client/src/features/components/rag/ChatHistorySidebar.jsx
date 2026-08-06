@@ -166,6 +166,7 @@ export default function ChatHistorySidebar({
   onRename,
   onDelete,
   onDeleteAll,
+  onClose,
 }) {
   const [search, setSearch] = useState('');
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -197,10 +198,23 @@ export default function ChatHistorySidebar({
   return (
     <div className="flex h-full flex-col rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="shrink-0 space-y-2 border-b border-border p-3">
-        <Button onClick={onNewChat} size="sm" className="w-full gap-1.5">
-          <Plus size={14} />
-          New chat
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={onNewChat} size="sm" className="flex-1 gap-1.5">
+            <Plus size={14} />
+            New chat
+          </Button>
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 shrink-0 lg:hidden text-muted-foreground hover:text-foreground"
+              aria-label="Close sidebar"
+            >
+              <X size={16} />
+            </Button>
+          )}
+        </div>
 
         {chats.length > 4 && (
           <div className="relative">

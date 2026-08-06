@@ -299,32 +299,32 @@ export default function PatientListPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Total Patients"
-          value={isLoading ? '-' : stats.total}
+          value={stats.total}
           icon={Users}
           iconClass="text-primary bg-primary/10"
         />
         <StatsCard
           title="Critical"
-          value={isLoading ? '-' : stats.critical}
+          value={stats.critical}
           icon={AlertCircle}
           iconClass="text-destructive bg-destructive/10"
         />
         <StatsCard
           title="Watchful"
-          value={isLoading ? '-' : stats.watchful}
+          value={stats.watchful}
           icon={AlertTriangle}
           iconClass="text-status-reserved bg-status-reserved/10"
         />
         <StatsCard
           title="Stable"
-          value={isLoading ? '-' : stats.stable}
+          value={stats.stable}
           icon={CheckCircle2}
           iconClass="text-status-available bg-status-available/10"
         />
       </div>
 
       {/* ── Search & Filter Controls ─────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-card p-4 rounded-xl border border-border">
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between bg-card p-4 rounded-lg border border-border">
         <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-start sm:items-center">
           {/* Search bar */}
           <div className="relative w-full sm:w-64">
@@ -341,34 +341,38 @@ export default function PatientListPage() {
           {/* Acuity filters */}
           <div className="flex flex-wrap items-center gap-1.5 bg-muted/50 p-1 rounded-lg border border-border/50">
             {['All', 'Critical', 'Watchful', 'Stable'].map((type) => (
-              <button
+              <Button
                 key={type}
+                variant={acuityFilter === type ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setAcuityFilter(type)}
-                className={`px-3 py-1 text-xs font-sans font-medium rounded-md transition-all ${
-                  acuityFilter === type
-                    ? 'bg-card text-foreground shadow-2xs border border-border'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                className={`h-7 px-3 text-xs font-sans font-medium transition-all ${
+                  acuityFilter !== type
+                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    : ''
                 }`}
               >
                 {type}
-              </button>
+              </Button>
             ))}
           </div>
 
           {/* Bed unit filters */}
           <div className="flex flex-wrap items-center gap-1.5 bg-muted/50 p-1 rounded-lg border border-border/50">
             {availableUnits.map((unit) => (
-              <button
+              <Button
                 key={unit}
+                variant={unitFilter === unit ? 'default' : 'ghost'}
+                size="sm"
                 onClick={() => setUnitFilter(unit)}
-                className={`px-3 py-1 text-xs font-sans font-medium rounded-md transition-all ${
-                  unitFilter === unit
-                    ? 'bg-card text-foreground shadow-2xs border border-border'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                className={`h-7 px-3 text-xs font-sans font-medium transition-all ${
+                  unitFilter !== unit
+                    ? 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    : ''
                 }`}
               >
                 {unit}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -379,7 +383,7 @@ export default function PatientListPage() {
             variant="ghost"
             size="icon"
             onClick={() => setViewMode('list')}
-            className={`h-8 w-8 rounded-md ${viewMode === 'list' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'}`}
+            className={`h-8 w-8 rounded-md ${viewMode === 'list' ? 'bg-card text-foreground border border-border' : 'text-muted-foreground'}`}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -387,7 +391,7 @@ export default function PatientListPage() {
             variant="ghost"
             size="icon"
             onClick={() => setViewMode('grid')}
-            className={`h-8 w-8 rounded-md ${viewMode === 'grid' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'}`}
+            className={`h-8 w-8 rounded-md ${viewMode === 'grid' ? 'bg-card text-foreground border border-border' : 'text-muted-foreground'}`}
           >
             <Grid className="h-4 w-4" />
           </Button>
@@ -398,16 +402,16 @@ export default function PatientListPage() {
       {isLoading ? (
         <TableSkeleton />
       ) : error ? (
-        <div className="flex h-48 items-center justify-center p-6 bg-card border border-border rounded-xl">
+        <div className="flex h-48 items-center justify-center p-6 bg-card border border-border rounded-lg">
           <p className="text-destructive font-sans font-medium">Error loading patient census: {error}</p>
         </div>
       ) : totalMatching === 0 ? (
-        <div className="flex flex-col h-48 items-center justify-center p-6 bg-card border border-border rounded-xl">
+        <div className="flex flex-col h-48 items-center justify-center p-6 bg-card border border-border rounded-lg">
           <Users className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-muted-foreground font-sans font-medium">No matching patients found in this census.</p>
         </div>
       ) : viewMode === 'list' ? (
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-2xs">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -556,24 +560,24 @@ export default function PatientListPage() {
             const initials = p.patient?.name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '??';
             
             return (
-              <Card key={p.id} className="rounded-xl border border-border shadow-2xs hover:border-primary/30 transition-all bg-card overflow-hidden">
+              <Card key={p.id} className="border border-border hover:border-primary/30 transition-all bg-card overflow-hidden">
                 <div className="p-5 flex flex-col gap-4">
                   {/* Header info */}
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 bg-primary/10 text-primary">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                    <div className="flex items-center gap-3 min-w-0 w-full">
+                      <Avatar className="h-9 w-9 bg-primary/10 text-primary shrink-0">
                         <AvatarFallback className="text-xs font-bold font-sans">
                           {initials}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-sans font-bold text-foreground text-sm leading-tight">{p.patient?.name}</span>
-                        <span className="font-sans text-xs text-muted-foreground mt-0.5">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-sans font-bold text-foreground text-sm leading-tight truncate">{p.patient?.name}</span>
+                        <span className="font-sans text-xs text-muted-foreground mt-0.5 truncate">
                           {p.patient?.mrn} · {p.patient?.age}y {p.patient?.gender}
                         </span>
                       </div>
                     </div>
-                    <Badge variant={p.acuityVariant} className={`font-sans text-[10px] font-semibold border ${p.badgeClass}`}>
+                    <Badge variant={p.acuityVariant} className={`font-sans text-[10px] font-semibold border ${p.badgeClass} shrink-0`}>
                       {p.acuity}
                     </Badge>
                   </div>
@@ -582,30 +586,30 @@ export default function PatientListPage() {
 
                   {/* Bed and Diagnosis */}
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                       <span className="font-sans text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Bed</span>
-                      <span className="font-sans text-sm font-bold text-foreground mt-0.5">{p.bed?.bed_number || 'Unassigned'}</span>
+                      <span className="font-sans text-sm font-bold text-foreground mt-0.5 truncate">{p.bed?.bed_number || 'Unassigned'}</span>
                     </div>
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                       <span className="font-sans text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">Diagnosis</span>
                       <span className="font-sans text-sm font-semibold text-foreground mt-0.5 truncate">{p.primaryDiagnosis}</span>
                     </div>
                   </div>
 
                   {/* Vitals row */}
-                  <div className="bg-muted/40 p-3 rounded-lg flex justify-between items-center font-tnum text-xs text-muted-foreground">
+                  <div className="bg-muted/40 p-3 rounded-lg flex flex-wrap justify-between items-center font-tnum text-xs text-muted-foreground gap-2">
                     <div>HR <span className="font-bold text-foreground">{p.latestVitals?.pulse ?? '—'}</span></div>
                     <div>SpO₂ <span className="font-bold text-foreground">{p.latestVitals?.spo2 ? `${p.latestVitals.spo2}%` : '—'}</span></div>
                     <div>BP <span className="font-bold text-foreground">{p.latestVitals?.systolicBp ? `${p.latestVitals.systolicBp}/${p.latestVitals.diastolicBp}` : '—'}</span></div>
                   </div>
 
                   {/* AI Risk Indicator */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <TrendingUp className={`h-4 w-4 ${p.acuityColor}`} />
                       <span className="font-sans text-[11px] font-bold text-muted-foreground">AI Risk Status</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Progress value={p.riskScore} className="w-16 h-1">
                         <ProgressTrack>
                           <ProgressIndicator className={p.indicatorClass} />
@@ -618,18 +622,18 @@ export default function PatientListPage() {
                   <div className="h-px bg-border/50" />
 
                   {/* Care Team & Action */}
-                    <div className="flex justify-between items-center gap-4">
-                    <div className="flex flex-col">
-                      <span className="font-sans text-[10px] text-muted-foreground">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
-                      <span className="font-sans text-[10px] text-muted-foreground mt-0.5">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-sans text-[10px] text-muted-foreground truncate">Attending: <span className="font-bold text-foreground">{p.doctorName}</span></span>
+                      <span className="font-sans text-[10px] text-muted-foreground mt-0.5 truncate">Nurse: <span className="font-medium text-foreground">{p.nurseName}</span></span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                       {isNurse && (
                         <Button
                           onClick={() => setSummonTarget(p)}
                           variant="destructive"
                           size="sm"
-                          className="gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
+                          className="flex-1 sm:flex-none gap-1.5 h-8 font-sans font-bold transition-all rounded-md px-3"
                         >
                           Summon
                           <BellRing className="h-3.5 w-3.5" />
@@ -639,7 +643,7 @@ export default function PatientListPage() {
                         onClick={() => navigate(`/patients/${p.id}`)}
                         variant="secondary"
                         size="sm"
-                        className="gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
+                        className="flex-1 sm:flex-none gap-1.5 h-8 font-sans font-bold hover:bg-primary hover:text-primary-foreground bg-primary/10 text-primary transition-all rounded-md px-3"
                       >
                         Open
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -697,14 +701,14 @@ export default function PatientListPage() {
 
 function StatsCard({ title, value, icon: Icon, iconClass }) {
   return (
-    <Card className="shadow-2xs border-border bg-card rounded-xl overflow-hidden">
-      <CardContent className="p-6 flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="font-sans text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</span>
-          <span className="font-tnum text-[2rem] font-bold leading-tight text-foreground mt-1">{value}</span>
+    <Card className="border-border bg-card overflow-hidden">
+      <CardContent className="p-4 sm:p-6 flex items-start sm:items-center justify-between gap-3">
+        <div className="flex flex-col min-w-0">
+          <span className="font-sans text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider break-words leading-tight">{title}</span>
+          <span className="font-tnum text-3xl sm:text-[2rem] font-bold leading-none text-foreground mt-1 sm:mt-2">{value}</span>
         </div>
-        <div className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </CardContent>
     </Card>
@@ -713,7 +717,7 @@ function StatsCard({ title, value, icon: Icon, iconClass }) {
 
 function TableSkeleton() {
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-2xs space-y-4 p-6">
+    <div className="bg-card border border-border rounded-lg overflow-hidden space-y-4 p-6">
       <div className="flex justify-between items-center">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-6 w-24" />

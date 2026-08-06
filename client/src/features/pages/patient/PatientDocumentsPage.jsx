@@ -40,6 +40,7 @@ import {
 import { ragService, describeRagError, getEmbeddingStatusMeta } from '../../services/ragService';
 import EmbeddingStatusBadge from '../../components/rag/EmbeddingStatusBadge';
 import { useAuthStore } from '../../store/authStore';
+import api from '@/lib/api';
 
 /* ================================================================
    Helpers
@@ -93,6 +94,7 @@ function DocumentRow({
   onDownload,
   onReindex,
   onInspect,
+  onView,
   isDeleting,
   isReindexing,
   isDownloading,
@@ -101,7 +103,7 @@ function DocumentRow({
   const uploaderName = [doc.uploader?.firstName, doc.uploader?.lastName].filter(Boolean).join(' ') || 'Unknown';
   const statusMeta = getEmbeddingStatusMeta(doc.embeddingStatus);
   const canRetry = canManage && ['FAILED', 'PENDING'].includes(doc.embeddingStatus);
-  const canInspect = doc.embeddingStatus === 'COMPLETED' && doc.chunkCount > 0;
+  const canInspect = canManage && doc.embeddingStatus === 'COMPLETED' && doc.chunkCount > 0;
 
   return (
     <div className="border-b border-border/60 last:border-0 hover:bg-muted/30 transition-colors group">
@@ -138,6 +140,16 @@ function DocumentRow({
             {meta.label}
           </span>
 
+          <Button
+            variant="ghost" size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity"
+            onClick={() => onView(doc)}
+            title="View file"
+            aria-label={`View ${doc.originalFilename}`}
+          >
+            <Eye size={15} />
+          </Button>
+
           {canInspect && (
             <Button
               variant="ghost" size="icon"
@@ -146,7 +158,7 @@ function DocumentRow({
               title="View the indexed passages the AI can cite"
               aria-label={`View indexed passages for ${doc.originalFilename}`}
             >
-              <Eye size={15} />
+              <Database size={15} />
             </Button>
           )}
 
@@ -601,6 +613,19 @@ export default function PatientDocumentsPage() {
     }
   };
 
+  const handleView = async (doc) => {
+    try {
+      setActionError(null);
+      const response = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Failed to view document:', err);
+      setActionError('Failed to display file in browser.');
+    }
+  };
+
   const handleReindex = async (doc) => {
     if (reindexingId) return;
     try {
@@ -762,6 +787,7 @@ export default function PatientDocumentsPage() {
               onDownload={handleDownload}
               onReindex={handleReindex}
               onInspect={setInspectingDoc}
+              onView={handleView}
               isDeleting={deletingId === doc.id}
               isReindexing={reindexingId === doc.id}
               isDownloading={downloadingId === doc.id}

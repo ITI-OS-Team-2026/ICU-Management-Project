@@ -20,6 +20,7 @@ import {
 import api from '@/lib/api';
 import DiagnosisContextStrip from '../components/diagnoses/DiagnosisContextStrip';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,7 +58,7 @@ export default function VitalsEntryPage() {
   // These fields mirror createVitalSignSchema on the server exactly. Anything not
   // in that schema is stripped by the validate middleware (stripUnknown: true), so
   // adding inputs here without a matching column silently discards what is typed.
-  const { register, handleSubmit, watch, reset } = useForm({
+  const { register, handleSubmit, watch, reset, setValue } = useForm({
     defaultValues: {
       temperature: '',
       pulse: '',
@@ -319,7 +320,7 @@ export default function VitalsEntryPage() {
     return (
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Patient context bar */}
-        <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
             <Skeleton className="h-5 w-32" />
             <Skeleton className="h-9 w-56 rounded-md" />
@@ -409,8 +410,8 @@ export default function VitalsEntryPage() {
     <div className="mx-auto max-w-7xl px-4 py-6">
       
       {/* ── Patient Context Ticker & Switcher ────────────────────────────────── */}
-      <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start gap-2">
           <div className="flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
             <span className="font-display font-semibold text-foreground">Current Patient:</span>
@@ -496,7 +497,7 @@ export default function VitalsEntryPage() {
             className={`relative rounded-none px-4 py-2 font-display text-sm font-semibold transition-all hover:bg-transparent ${currentView === 'monitor' ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary' : 'text-muted-foreground'}`}
             onClick={() => handleToggleView('monitor')}
           >
-            Telemetry & Charts Monitor
+            Charts Monitor
           </Button>
         </div>
       </div>
@@ -641,11 +642,11 @@ export default function VitalsEntryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="is_override"
-                      className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-ring"
-                      {...register('is_override')}
+                      className="mt-1"
+                      checked={isOverrideChecked}
+                      onCheckedChange={(val) => setValue('is_override', val)}
                     />
                     <Label htmlFor="is_override" className="text-xs leading-normal font-sans text-muted-foreground select-none cursor-pointer">
                       Acknowledge critical alerts and authorize entry override. Requires clinical reason.
@@ -747,7 +748,7 @@ export default function VitalsEntryPage() {
                 <CardContent className="p-4 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-wider">Heart Rate</span>
-                    <Heart className="h-4 w-4 text-rose-500 animate-pulse" />
+                    <Heart className="h-4 w-4 text-rose-500" />
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="font-display text-2xl font-bold font-tnum">

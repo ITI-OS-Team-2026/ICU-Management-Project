@@ -1,15 +1,21 @@
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Activity,
   Users,
   UserPlus,
+  ClipboardList,
+  Stethoscope,
+  Pill
 } from 'lucide-react';
 
 import { useDashboard } from '../../hooks/useDashboard';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import DashboardRagAssistant from '../../components/rag/DashboardRagAssistant';
 import { useShortcuts } from '../../hooks/useShortcuts';
 
@@ -42,7 +48,6 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
   const handleOpenPatient = () => {
     if (activeAdmissionId) {
-      // The overview tab is the index route — `/overview` matches nothing.
       navigate(`/patients/${activeAdmissionId}`);
     }
   };
@@ -57,22 +62,19 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* ── Header Greeting Section ────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="font-sans text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-            Clinical Workbench
-          </span>
-          <h1 className="font-display text-headline text-foreground font-bold">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0">
+        <div className="min-w-0">
+          <h1 className="font-display text-headline text-foreground font-bold text-balance">
             Good morning, {greetingName}
           </h1>
           <p className="text-sm font-sans text-muted-foreground mt-0.5">
             {currentFormattedDate} · Critical Care Unit
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {stats.criticalCases > 0 ? (
-            <Badge variant="destructive" className="animate-pulse gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+            <Badge variant="destructive" className="gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse" />
               {stats.criticalCases} Critical Patients
             </Badge>
           ) : (
@@ -81,17 +83,82 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
               All Patients Stable
             </Badge>
           )}
-          <Button size="sm" variant="outline" onClick={() => navigate('/patients/admit')} className="ml-2">
+          <Button size="sm" variant="outline" onClick={() => navigate('/patients/admit')} className="ml-2 hidden sm:flex">
             <UserPlus className="h-4 w-4 mr-2" />
             Admit Patient
+          </Button>
+          <Button size="icon" variant="outline" onClick={() => navigate('/patients/admit')} className="ml-1 sm:hidden">
+            <UserPlus className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
       {/* ── Workbench Layout columns ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (RAG AI Assistant — the main tool) */}
-        <div className="lg:col-span-2 flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column (Mini Patient Census) - 3/12 */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-sm font-bold text-foreground">
+              My Patients
+            </h2>
+            <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold px-2" onClick={() => navigate('/patients')}>
+              View All
+            </Button>
+          </div>
+          
+          <Card className="border-border shadow-2xs bg-card overflow-hidden flex flex-col h-[400px] lg:h-[calc(100vh-200px)]">
+            <ScrollArea className="h-full">
+              <div className="flex flex-col p-2 gap-1">
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-md">
+                      <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-3 w-2/3" />
+                        <Skeleton className="h-2 w-1/2" />
+                      </div>
+                    </div>
+                  ))
+                ) : admissions.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground font-sans text-balance">
+                    No active patients assigned.
+                  </div>
+                ) : (
+                  admissions.map(adm => {
+                    const isSelected = adm.id === activeAdmissionId;
+                    const bedStr = adm.bed?.bed_number ? `Bed ${adm.bed.bed_number.split('/')[1] || adm.bed.bed_number}` : 'No Bed';
+                    return (
+                      <button
+                        key={adm.id}
+                        onClick={() => handlePatientSelect(adm.id)}
+                        className={`flex flex-col gap-1 p-3 rounded-lg text-left transition-colors border ${
+                          isSelected 
+                            ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20' 
+                            : 'bg-transparent border-transparent hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full gap-2">
+                          <span className="font-sans text-sm font-semibold text-foreground truncate">
+                            {adm.patient?.name || 'Unknown'}
+                          </span>
+                          {adm.isCritical && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+                          )}
+                        </div>
+                        <span className="font-sans text-xs text-muted-foreground truncate">
+                          {bedStr} · {adm.reasonForAdmission?.split(' ')[0] || 'Observation'}...
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-5 flex flex-col h-[800px] lg:h-[calc(100vh-200px)]">
           <DashboardRagAssistant
             admissions={admissions}
             activeAdmissionId={activeAdmissionId}
@@ -100,11 +167,12 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
           />
         </div>
 
-        {/* Right Column (Clinical Overview) */}
-        <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 gap-4">
+        {/* Right Column (Clinical Overview & Feed) - 4/12 */}
+        <div className="lg:col-span-4 flex flex-col gap-6 h-[500px] lg:h-[calc(100vh-200px)]">
+          {/* Quick Stats Row */}
+          <div className="grid grid-cols-2 gap-4 shrink-0">
             <StatsCard
-              title="My Patients"
+              title="Active Patients"
               value={isLoading ? '-' : stats.activePatients}
               icon={Users}
               iconClass="text-primary bg-primary/10"
@@ -117,51 +185,112 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
             />
           </div>
           
-          <Card className="rounded-[1.25rem] border-border bg-card shadow-2xs flex flex-col flex-1">
-            <CardHeader className="pb-3 pt-5 px-6 border-b border-border/50">
-              <CardTitle className="font-display text-sm font-bold text-foreground">
-                Critical Alerts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-6 flex flex-col justify-between gap-6">
-              <div className="space-y-5">
-                {isLoading ? (
-                  Array.from({ length: 4 }).map((_, idx) => (
-                    <div key={idx} className="flex gap-3">
-                      <Skeleton className="h-2 w-2 rounded-full mt-1.5 shrink-0" />
-                      <div className="space-y-2 flex-1">
-                        <Skeleton className="h-3 w-full" />
-                        <Skeleton className="h-2.5 w-2/3" />
-                      </div>
-                    </div>
-                  ))
-                ) : activities.filter(a => a.type === 'alert' || a.type === 'vitals').length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center py-8">
-                    <span className="text-sm font-sans text-muted-foreground">No alerts for now</span>
-                  </div>
-                ) : (
-                  activities.filter(a => a.type === 'alert' || a.type === 'vitals').slice(0, 4).map((act, idx) => (
-                    <div key={idx} className="flex gap-3">
-                      <span className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${act.dotColor}`} />
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-sans text-xs font-bold text-foreground truncate">
-                          {act.title}
-                        </span>
-                        <span className="font-sans text-[11px] text-muted-foreground mt-0.5">
-                          {act.desc}
-                        </span>
-                      </div>
-                      <span className="font-tnum text-[10px] text-muted-foreground shrink-0 mt-0.5 whitespace-nowrap ml-2">
-                        {act.time}
-                      </span>
-                    </div>
-                  ))
-                )}
+          {/* Unified Clinical Feed */}
+          <div className="flex flex-col flex-1 min-h-0">
+            <Tabs defaultValue="critical" className="w-full flex flex-col h-full">
+              <div className="flex items-center justify-between mb-4 shrink-0">
+                <h2 className="font-display text-sm font-bold text-foreground">
+                  Clinical Feed
+                </h2>
+                <TabsList className="h-8">
+                  <TabsTrigger value="critical" className="text-xs px-3">Critical</TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs px-3">All</TabsTrigger>
+                </TabsList>
               </div>
-            </CardContent>
-          </Card>
+
+              <Card className="flex-1 border-border shadow-2xs bg-card overflow-hidden min-h-0">
+                <TabsContent value="critical" className="p-0 m-0 border-none outline-none h-full data-[state=active]:flex flex-col">
+                  <ScrollArea className="flex-1">
+                    <FeedList 
+                      isLoading={isLoading} 
+                      activities={activities.filter(a => a.type === 'alert' || a.type === 'vitals')} 
+                      emptyTitle="All patients stable."
+                      emptyDesc="No critical alerts or vitals deviations in the current shift."
+                    />
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="all" className="p-0 m-0 border-none outline-none h-full data-[state=active]:flex flex-col">
+                  <ScrollArea className="flex-1">
+                    <FeedList 
+                      isLoading={isLoading} 
+                      activities={activities} 
+                      emptyTitle="No recent activity."
+                      emptyDesc="No clinical events recorded recently."
+                    />
+                  </ScrollArea>
+                </TabsContent>
+              </Card>
+            </Tabs>
+          </div>
+
+          {/* Quick Actions (Ghost Buttons) */}
+          <div className="grid grid-cols-3 gap-2 shrink-0">
+            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+              <Stethoscope className="h-4 w-4" />
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Order Lab</span>
+            </Button>
+            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+              <ClipboardList className="h-4 w-4" />
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Add Note</span>
+            </Button>
+            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+              <Pill className="h-4 w-4" />
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Medicate</span>
+            </Button>
+          </div>
+
         </div>
       </div>
+    </div>
+  );
+}
+
+function FeedList({ isLoading, activities, emptyTitle, emptyDesc }) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col p-2">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div key={idx} className="flex gap-3 p-3">
+            <Skeleton className="h-2 w-2 rounded-full mt-1.5 shrink-0" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-2 w-2/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="flex flex-col py-8 px-6 text-center items-center justify-center h-full min-h-[150px]">
+        <span className="text-sm font-sans font-medium text-foreground">{emptyTitle}</span>
+        <span className="text-xs font-sans text-muted-foreground mt-1 text-balance leading-relaxed max-w-[200px]">
+          {emptyDesc}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col p-2 gap-1">
+      {activities.map((act, idx) => (
+        <div key={idx} className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+          <span className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${act.dotColor}`} />
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="font-sans text-xs font-bold text-foreground truncate">
+              {act.title}
+            </span>
+            <span className="font-sans text-[11px] text-muted-foreground mt-0.5 truncate">
+              {act.desc}
+            </span>
+          </div>
+          <span className="font-tnum text-[10px] font-semibold text-muted-foreground shrink-0 mt-0.5 whitespace-nowrap ml-2">
+            {act.time}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

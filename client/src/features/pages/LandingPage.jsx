@@ -377,7 +377,6 @@ function SiteFooter() {
     <footer className="border-t border-border/60">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
         <p>© {new Date().getFullYear()} SmartCare ICU. Institutional clinical platform.</p>
-        <p>Role-based access · Sessions secured with HttpOnly cookies</p>
       </div>
     </footer>
   );

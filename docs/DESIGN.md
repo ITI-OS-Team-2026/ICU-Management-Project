@@ -2,7 +2,7 @@
 name: "SmartCare ICU"
 description: "Paperless intensive care management and AI decision-support dashboard"
 colors:
-  background: "oklch(1.0000 0 0)"
+  background: "oklch(0.97 0.01 260)"
   foreground: "oklch(0.3211 0 0)"
   card: "oklch(1.0000 0 0)"
   popover: "oklch(1.0000 0 0)"

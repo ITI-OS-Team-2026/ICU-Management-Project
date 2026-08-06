@@ -38,7 +38,7 @@ export default function MainLayout() {
           <TopHeader isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
           {/* Page content */}
-          <main className="flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-4 lg:p-6">
             <Outlet />
           </main>
         </div>
