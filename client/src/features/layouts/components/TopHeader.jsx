@@ -58,7 +58,7 @@ export function TopHeader({ isCollapsed, setIsCollapsed }) {
         {/* Shortcuts are worthless if nobody knows they exist; `?` alone is not
             discoverable, so it gets a button on every screen size — tablets and
             docked phones have keyboards too. */}
-        {(user?.role === 'resident' || user?.role === 'specialist') && (
+        {(user?.role === 'MEDICAL_RESIDENT' || user?.role === 'ICU_SPECIALIST') && (
           <Button
             variant="ghost"
             size="icon"
