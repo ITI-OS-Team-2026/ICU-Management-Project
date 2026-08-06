@@ -13,6 +13,7 @@ import { useDashboard } from '../../hooks/useDashboard';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 
 export default function NurseDashboard({ greetingName, currentFormattedDate }) {
   const navigate = useNavigate();
@@ -35,8 +36,8 @@ export default function NurseDashboard({ greetingName, currentFormattedDate }) {
         </div>
         <div className="flex items-center gap-2">
           {stats.criticalCases > 0 ? (
-            <Badge variant="destructive" className="animate-pulse gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+            <Badge variant="destructive" className="gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold">
+              <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-primary-foreground" />
               {stats.criticalCases} Critical Alerts Active
             </Badge>
           ) : (
@@ -88,7 +89,7 @@ export default function NurseDashboard({ greetingName, currentFormattedDate }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (Clinical Shortcuts Card) */}
         <div className="lg:col-span-2 flex flex-col">
-          <Card className="rounded-[1.25rem] border-border bg-card shadow-2xs flex-1 flex flex-col p-6 min-h-[420px]">
+          <Card className="border-border bg-card flex-1 flex flex-col p-6 min-h-[420px]">
             <CardHeader className="p-0 pb-5 border-b border-border/50">
               <CardTitle className="font-display text-sm font-bold text-foreground">
                 Clinical Quick Actions
@@ -97,7 +98,7 @@ export default function NurseDashboard({ greetingName, currentFormattedDate }) {
                 Access direct clinical charts and bedside recording views
               </p>
             </CardHeader>
-            <CardContent className="flex-1 grid grid-cols-2 gap-4 pt-6">
+            <CardContent className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
               <QuickActionButton
                 title="Vitals Entry"
                 desc="Record hourly vitals signs"
@@ -127,7 +128,7 @@ export default function NurseDashboard({ greetingName, currentFormattedDate }) {
         </div>
 
         {/* Right Column (Recent Activity Feed) */}
-        <Card className="rounded-[1.25rem] border-border bg-card shadow-2xs flex flex-col">
+        <Card className="border-border bg-card flex flex-col">
           <CardHeader className="pb-3 pt-5 px-6 border-b border-border/50 flex flex-row items-center justify-between">
             <CardTitle className="font-display text-sm font-bold text-foreground">
               Recent Activity
@@ -186,19 +187,19 @@ export default function NurseDashboard({ greetingName, currentFormattedDate }) {
 
 function StatsCard({ title, value, subText, badgeText, badgeColor, icon: Icon, iconClass }) {
   return (
-    <Card className="shadow-2xs border-border bg-card rounded-xl overflow-hidden">
-      <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col">
-            <span className="font-sans text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+    <Card className="border-border bg-card overflow-hidden">
+      <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full gap-4">
+        <div className="flex justify-between items-start gap-3">
+          <div className="flex flex-col min-w-0">
+            <span className="font-sans text-[10px] font-bold text-muted-foreground uppercase tracking-wider break-words leading-tight">
               {title}
             </span>
-            <span className="font-tnum text-[2.25rem] font-bold leading-none text-foreground mt-2">
+            <span className="font-tnum text-3xl sm:text-[2.25rem] font-bold leading-none text-foreground mt-1 sm:mt-2">
               {value}
             </span>
           </div>
-          <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
-            <Icon className="h-4.5 w-4.5" />
+          <div className={`h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
+            <Icon className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
           </div>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-auto">
@@ -218,21 +219,22 @@ function StatsCard({ title, value, subText, badgeText, badgeColor, icon: Icon, i
 
 function QuickActionButton({ title, desc, icon: Icon, onClick }) {
   return (
-    <button
+    <Button
+      variant="outline"
       onClick={onClick}
-      className="flex flex-col items-start text-left p-4 rounded-xl border border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/40 transition-all gap-3 focus:outline-none focus:ring-2 focus:ring-primary/40"
+      className="h-auto flex flex-col items-start text-left p-4 bg-muted/20 hover:border-primary/40 hover:bg-muted/40 transition-all gap-3"
     >
-      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
+      <div className="h-8 w-8 rounded-md shrink-0 bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
         <Icon className="h-4 w-4" />
       </div>
-      <div>
-        <span className="font-sans text-xs font-bold text-foreground block">
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="font-sans text-xs font-bold text-foreground block truncate max-w-full">
           {title}
         </span>
-        <span className="font-sans text-[10px] text-muted-foreground mt-0.5 block leading-normal">
+        <span className="font-sans text-[10px] text-muted-foreground block leading-normal whitespace-normal text-left">
           {desc}
         </span>
       </div>
-    </button>
+    </Button>
   );
 }

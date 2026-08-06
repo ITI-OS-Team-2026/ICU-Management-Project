@@ -252,17 +252,18 @@ export default function LabResultsPage() {
               }
 
               return (
-                <button
+                <Button
                   key={p.id}
                   onClick={() => handleSelectPatient(p.id)}
-                  className={`shrink-0 snap-start whitespace-nowrap px-3.5 py-2 rounded-full border text-xs font-sans font-semibold flex items-center gap-1.5 transition-all focus:outline-none cursor-pointer ${
+                  variant="outline"
+                  className={`shrink-0 snap-start whitespace-nowrap h-8 px-3.5 rounded-full text-xs font-sans font-semibold flex items-center gap-1.5 transition-all focus:outline-none cursor-pointer border ${
                     isSelected ? 'ring-2 ring-primary/20 scale-[1.02]' : 'hover:bg-muted/30 text-foreground/80'
                   } ${badgeStyle}`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
                   {firstName}
                   {pulse && <span className="font-tnum font-normal opacity-85">{pulse}bpm</span>}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -273,7 +274,7 @@ export default function LabResultsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Document type selection & notes */}
         <div className="md:col-span-1 space-y-4">
-          <Card className="rounded-[1.25rem] border border-border bg-card shadow-2xs">
+          <Card className="border border-border bg-card">
             <CardContent className="p-5 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="docType" className="text-xs font-sans font-bold text-foreground">Document Type</Label>
@@ -307,13 +308,13 @@ export default function LabResultsPage() {
 
         {/* Upload dropzone */}
         <div className="md:col-span-2">
-          <Card className="rounded-[1.25rem] border border-border bg-card shadow-2xs h-full flex flex-col justify-center">
+          <Card className="border border-border bg-card h-full flex flex-col justify-center">
             <CardContent className="p-4 sm:p-6 md:p-8">
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-5 sm:p-8 flex flex-col items-center justify-center text-center transition-all ${
+                className={`border-2 border-dashed rounded-lg p-5 sm:p-8 flex flex-col items-center justify-center text-center transition-all ${
                   isDragging ? 'border-primary bg-primary/5' : 'border-border/80 hover:border-primary/40'
                 }`}
               >
@@ -326,7 +327,7 @@ export default function LabResultsPage() {
                 />
                 
                 <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4 border border-primary/20">
-                  <UploadCloud className="h-6 w-6 animate-bounce" />
+                  <UploadCloud className="h-6 w-6" />
                 </div>
 
                 {selectedFile ? (
@@ -424,7 +425,7 @@ export default function LabResultsPage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-3.5 shadow-2xs"
+                className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-3.5"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
@@ -445,7 +446,7 @@ export default function LabResultsPage() {
             {docsError}
           </div>
         ) : documents.length === 0 ? (
-          <div className="p-6 bg-card border border-border rounded-[1.25rem] text-center text-sm text-muted-foreground font-sans">
+          <div className="p-6 bg-card border border-border rounded-lg text-center text-sm text-muted-foreground font-sans">
             No uploaded documents found for this patient admission context.
           </div>
         ) : (
@@ -469,7 +470,7 @@ export default function LabResultsPage() {
               return (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between p-3.5 bg-card border border-border rounded-xl shadow-2xs hover:border-primary/20 transition-all gap-2 sm:gap-4"
+                  className="flex items-center justify-between p-3.5 bg-card border border-border rounded-lg hover:border-primary/20 transition-all gap-2 sm:gap-4"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
