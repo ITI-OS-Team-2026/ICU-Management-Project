@@ -39,7 +39,7 @@
   --font-display: Outfit, sans-serif;
   --font-serif: Source Serif 4, serif;
   --font-mono: JetBrains Mono, monospace;
-  --radius: 1.15rem;
+  --radius: 0.75rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;
@@ -114,7 +114,7 @@
   --font-display: Outfit, sans-serif;
   --font-serif: Source Serif 4, serif;
   --font-mono: JetBrains Mono, monospace;
-  --radius: 1.15rem;
+  --radius: 0.5rem;
   --shadow-x: 0;
   --shadow-y: 1px;
   --shadow-blur: 3px;

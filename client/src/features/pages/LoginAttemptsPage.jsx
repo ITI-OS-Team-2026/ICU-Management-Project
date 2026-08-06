@@ -168,7 +168,7 @@ export default function LoginAttemptsPage() {
 
 function StatCard({ icon, title, value, iconBg, scope }) {
   return (
-    <Card className="shadow-sm border-transparent rounded-[1.25rem] bg-card overflow-hidden">
+    <Card className="border-border bg-card overflow-hidden">
       <CardContent className="p-6 flex items-center gap-4">
         <div className={`h-12 w-12 rounded-full flex items-center justify-center ${iconBg}`}>
           {icon}
@@ -225,29 +225,29 @@ function AttemptRow({ attempt }) {
         <div className="w-px h-full bg-border mt-2" />
       </div>
 
-      <Card className="flex-1 shadow-sm border-transparent rounded-[1.25rem] bg-card p-4">
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex gap-4 items-start">
+      <Card className="flex-1 border-border bg-card p-4 min-w-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="flex gap-4 items-start min-w-0 w-full">
             <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${avatarBg} text-white font-sans font-bold text-sm`}>
               {getInitials(attempt.user?.name) === '??' ? attempt.email[0]?.toUpperCase() : getInitials(attempt.user?.name)}
             </div>
-            <div className="flex flex-col">
-              <h3 className="font-sans font-bold text-foreground text-[15px] leading-tight">
+            <div className="flex flex-col min-w-0 flex-1">
+              <h3 className="font-sans font-bold text-foreground text-[15px] leading-tight break-words">
                 {isSuccess ? 'Successful sign-in' : 'Failed sign-in'}
               </h3>
-              <p className="font-sans text-sm text-muted-foreground mt-0.5">
+              <p className="font-sans text-sm text-muted-foreground mt-0.5 break-words">
                 {attempt.user ? `${attempt.user.name} · ${attempt.user.role}` : attempt.email}
               </p>
 
-              <div className="flex items-center gap-3 mt-3 flex-wrap">
-                <span className="bg-muted px-2 py-0.5 rounded text-[11px] font-sans font-semibold text-muted-foreground">
+              <div className="flex flex-col items-start gap-1.5 mt-3">
+                <span className="bg-muted px-2 py-0.5 rounded text-[11px] font-sans font-semibold text-muted-foreground break-all">
                   {attempt.email}
                 </span>
                 <span className="font-tnum text-[11px] text-muted-foreground/70">
                   IP: {attempt.ipAddress || 'Unknown'}
                 </span>
                 {attempt.failureReason && (
-                  <span className="font-sans text-[12px] text-destructive italic ml-2">
+                  <span className="font-sans text-[12px] text-destructive italic break-words">
                     {attempt.failureReason}
                   </span>
                 )}
@@ -255,7 +255,7 @@ function AttemptRow({ attempt }) {
             </div>
           </div>
 
-          <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-1 shrink-0 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border sm:border-t-0">
             <span className={`font-sans text-[12px] font-bold ${badgeColor}`}>
               {isSuccess ? 'Success' : 'Failed'}
             </span>

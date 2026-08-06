@@ -605,13 +605,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </Form>
-
-          <div className="mt-8 space-y-4">
-            <Separator />
-            <p className="text-center text-xs leading-relaxed text-muted-foreground">
-              Role-based access · Session secured with HttpOnly cookies
-            </p>
-          </div>
         </section>
       </div>
     </div>

@@ -170,29 +170,23 @@ export default function AdminBedsPage() {
         <SummaryCard 
           title="Occupied" 
           value={isLoading ? '-' : stats.occupied} 
-          total={stats.total}
-          progressColor="bg-status-occupied"
         />
         <SummaryCard 
           title="Available" 
           value={isLoading ? '-' : stats.available} 
-          total={stats.total}
-          progressColor="bg-status-available"
         />
         <SummaryCard
           title="Maintenance"
           value={isLoading ? '-' : stats.maintenance}
-          total={stats.total}
-          progressColor="bg-status-maintenance"
         />
       </div>
 
-      <div className="flex flex-col xl:flex-row items-center gap-4">
-        <div className="relative w-full flex-1">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pb-2">
+        <div className="relative w-full sm:w-[280px] shrink-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by bed number or patient name..."
-            className="pl-9 font-sans h-11 bg-card rounded-xl border-border w-full"
+            className="pl-9 font-sans h-9 bg-background border-border rounded-md w-full"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -200,22 +194,24 @@ export default function AdminBedsPage() {
 
         {/* Status filter — drives the grid and paging together */}
         <div
-          className="flex flex-wrap items-center bg-card border border-border rounded-xl p-1 gap-1 min-h-[44px] w-full xl:w-auto"
+          className="flex flex-wrap items-center gap-3 min-w-0 w-full sm:w-auto"
           role="group"
           aria-label="Bed status"
         >
-          {BED_STATUS_FILTERS.map((option) => (
-            <Button
-              key={option}
-              variant="ghost"
-              size="sm"
-              onClick={() => handleStatusFilterChange(option)}
-              aria-pressed={statusFilter === option}
-              className={`font-sans rounded-lg h-9 px-4 ${statusFilter === option ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              {option === 'All' ? 'All' : option.charAt(0) + option.slice(1).toLowerCase()}
-            </Button>
-          ))}
+          <div className="flex items-center gap-1 bg-background/50 p-1 rounded-md border border-border/50 max-w-full overflow-x-auto scrollbar-none">
+            {BED_STATUS_FILTERS.map((option) => (
+              <Button
+                key={option}
+                variant={statusFilter === option ? "default" : "ghost"}
+                size="sm"
+                onClick={() => handleStatusFilterChange(option)}
+                aria-pressed={statusFilter === option}
+                className={`font-sans rounded-md h-8 px-4 shrink-0 transition-colors ${statusFilter === option ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+              >
+                {option === 'All' ? 'All' : option.charAt(0) + option.slice(1).toLowerCase()}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -277,21 +273,16 @@ export default function AdminBedsPage() {
   );
 }
 
-function SummaryCard({ title, value, total, progressColor }) {
-  const percentage = total > 0 && value !== '-' ? (value / total) * 100 : 0;
-  
+function SummaryCard({ title, value }) {
   return (
-    <Card className="shadow-sm border-border bg-card">
+    <Card className="border-border bg-card">
       <CardHeader className="pb-2 pt-5 px-6">
         <CardTitle className="font-sans text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           {title}
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-6 pt-0 px-6">
-        <div className="font-tnum text-3xl font-bold leading-none mb-4 text-foreground">{value}</div>
-        <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-          <div className={`h-full ${progressColor}`} style={{ width: `${percentage}%` }} />
-        </div>
+        <div className="font-tnum text-3xl font-bold leading-none mb-1 text-foreground">{value}</div>
       </CardContent>
     </Card>
   );
@@ -329,8 +320,8 @@ function BedCard({ bed, updateBedStatus }) {
   };
 
   return (
-    <div className="transition-transform hover:scale-[1.02] h-full">
-      <Card className={`flex flex-col h-full min-h-[200px] shadow-sm border-border bg-card transition-shadow hover:shadow-md ${isAlert ? 'border-destructive ring-1 ring-destructive' : ''}`}>
+    <div className="h-full">
+      <Card className={`flex flex-col h-full min-h-[200px] border-border bg-card transition-shadow ${isAlert ? 'border-destructive ring-1 ring-destructive' : ''}`}>
         <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <CardTitle className="font-sans text-sm font-bold text-foreground">
@@ -430,7 +421,7 @@ function BedCard({ bed, updateBedStatus }) {
 
 function BedCardSkeleton() {
   return (
-    <Card className="min-h-[200px] flex flex-col shadow-sm bg-card border-border">
+    <Card className="min-h-[200px] flex flex-col bg-card border-border">
       <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center justify-between">
         <Skeleton className="h-5 w-16" />
         <Skeleton className="h-5 w-16 rounded-full" />
