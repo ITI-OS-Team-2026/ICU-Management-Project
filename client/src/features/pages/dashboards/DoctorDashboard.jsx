@@ -232,15 +232,27 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
           {/* Quick Actions (Ghost Buttons) */}
           <div className="grid grid-cols-3 gap-2 shrink-0">
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/labs')}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Stethoscope className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Order Lab</span>
             </Button>
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/notes`)}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <ClipboardList className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Add Note</span>
             </Button>
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/medications`)}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Pill className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Medicate</span>
             </Button>
