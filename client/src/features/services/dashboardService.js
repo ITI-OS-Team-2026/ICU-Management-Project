@@ -8,8 +8,10 @@ export const dashboardService = {
     return data.data || [];
   },
 
-  async getClinicalLogs() {
-    const { data } = await api.get('/admissions/clinical-logs');
+  async getClinicalLogs(admissionId = null) {
+    const { data } = await api.get('/admissions/clinical-logs', {
+      params: admissionId ? { admissionId } : {}
+    });
     return data || [];
   },
 

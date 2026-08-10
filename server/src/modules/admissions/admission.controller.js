@@ -92,7 +92,8 @@ const unassignNurse = async (req, res, next) => {
 
 const getClinicalLogs = async (req, res, next) => {
   try {
-    const logs = await admissionService.getClinicalLogs();
+    const { admissionId } = req.query;
+    const logs = await admissionService.getClinicalLogs(admissionId);
     res.status(200).json(logs);
   } catch (error) {
     next(error);

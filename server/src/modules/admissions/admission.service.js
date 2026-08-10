@@ -887,7 +887,7 @@ const unassignNurse = async (req, admissionId, nurseId) => {
     };
   });
 };
-const getClinicalLogs = async () => {
+const getClinicalLogs = async (admissionId = null) => {
   const clinicalTables = [
     'Medication',
     'Diagnosis',
@@ -902,12 +902,21 @@ const getClinicalLogs = async () => {
     'MedicalDocument'
   ];
 
+  const whereClause = {
+    targetTable: { in: clinicalTables },
+    action: { not: 'VIEW' }
+  };
+
+  if (admissionId) {
+    whereClause.OR = [
+      { targetTable: 'Admission', targetId: admissionId },
+      { newValues: { path: ['admissionId'], equals: admissionId } },
+      { oldValues: { path: ['admissionId'], equals: admissionId } }
+    ];
+  }
+
   const logs = await prisma.auditLog.findMany({
-    where: {
-      targetTable: { in: clinicalTables },
-      // Exclude simple VIEW events to keep the feed focused on actual updates/creates
-      action: { not: 'VIEW' }
-    },
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: {
