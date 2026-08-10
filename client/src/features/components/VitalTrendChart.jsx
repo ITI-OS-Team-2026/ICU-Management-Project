@@ -149,6 +149,7 @@ export const VitalTrendChart = memo(function VitalTrendChart({
   ariaLabel,
   layout = 'compact',
   heightClass,
+  dateFormat = 'MMM d, HH:mm',
 }) {
   const chartData = useMemo(
     () => createTrendData(data, (reading) => getVitalValue(reading, dataKey)),
@@ -194,17 +195,18 @@ export const VitalTrendChart = memo(function VitalTrendChart({
         <Separator className="bg-border" />
         <div className={`${actualHeight} w-full`} role="img" aria-label={`${ariaLabel}. Latest ${latestPoint.value} ${unit}, ${latestStatus.label.toLowerCase()}.`}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 2, left: -12 }}>
+            <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 24, left: -12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} vertical={false} />
               <XAxis
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'MMM d, HH:mm')}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, dateFormat)}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                axisLine={false}
-                tickLine={false}
+                axisLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
+                tickLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
                 minTickGap={32}
+                height={24}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
@@ -246,6 +248,7 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
   ariaLabel,
   layout = 'compact',
   heightClass,
+  dateFormat = 'MMM d, HH:mm',
 }) {
   const chartData = useMemo(
     () => createTrendData(data, (reading) => {
@@ -298,17 +301,18 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
         <Separator className="bg-border" />
         <div className={`${actualHeight} w-full`} role="img" aria-label={`${ariaLabel}. Latest ${latestPoint.systolic}/${latestPoint.diastolic} mmHg, ${latestStatus.label.toLowerCase()}.`}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 2, left: -12 }}>
+            <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 24, left: -12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} vertical={false} />
               <XAxis
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'MMM d, HH:mm')}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, dateFormat)}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                axisLine={false}
-                tickLine={false}
+                axisLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
+                tickLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
                 minTickGap={32}
+                height={24}
               />
               <YAxis
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}

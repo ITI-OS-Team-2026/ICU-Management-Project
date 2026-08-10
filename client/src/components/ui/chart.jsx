@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo } from "react";
 
 const ChartContext = createContext({});
@@ -31,3 +32,4 @@ export function ChartContainer({ children, config = {} }) {
 export function useChartConfig() {
   return useContext(ChartContext);
 }
+
