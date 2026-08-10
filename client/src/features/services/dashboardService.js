@@ -8,6 +8,11 @@ export const dashboardService = {
     return data.data || [];
   },
 
+  async getClinicalLogs() {
+    const { data } = await api.get('/admissions/clinical-logs');
+    return data || [];
+  },
+
   // Pending investigation orders used to be fetched here, one request per
   // admission, then filtered client-side. They now arrive on each admission in
   // the list above as `pendingInvestigations`, already filtered by the query.
