@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   LayoutDashboard,
   RefreshCcw,
+  Clock,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const TABS = [
   { label: 'Overview',     path: '',             icon: LayoutDashboard },
   { label: 'Vitals',       path: 'vitals',       icon: Activity },
   { label: 'Diagnoses',    path: 'diagnoses',    icon: Stethoscope },
+  { label: 'Timeline',     path: 'timeline',     icon: Clock },
   { label: 'Documents',    path: 'documents',    icon: FileText },
   { label: 'Medications',  path: 'medications',  icon: Pill },
   { label: 'Follow Ups',   path: 'follow-ups',   icon: ClipboardList },

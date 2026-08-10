@@ -99,6 +99,13 @@ router.get(
   admissionController.getAdmissions
 );
 
+router.get(
+  "/clinical-logs",
+  verifyToken,
+  restrictTo(clinicalRoles),
+  admissionController.getClinicalLogs
+);
+
 // Must stay above "/:id" so "census" isn't parsed as an admission id.
 /**
  * @swagger
