@@ -62,12 +62,17 @@ const countUnseenReplies = async (req, res, next) => {
   }
 };
 
-// GET /admin/password-reset-requests — admin sees all requests
+// GET /admin/password-reset-requests — admin sees requests with pagination and search
 const getAllRequests = async (req, res, next) => {
   try {
-    const { status } = req.query;
-    const requests = await passwordResetService.getAllRequests({ status });
-    res.status(200).json(requests);
+    const { status, page, limit, search } = req.query;
+    const result = await passwordResetService.getAllRequests({
+      status,
+      page,
+      limit,
+      search,
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

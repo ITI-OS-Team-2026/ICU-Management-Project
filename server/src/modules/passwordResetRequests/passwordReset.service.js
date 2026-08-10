@@ -156,31 +156,53 @@ const countUnseenReplies = async (userId) => {
   return { count };
 };
 
-// Admin: get all requests with requester info
-const getAllRequests = async ({ status }) => {
+// Admin: get requests with pagination, filtering, and search
+const getAllRequests = async ({ status, page = 1, limit = 10, search }) => {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+  const skip = (pageNum - 1) * limitNum;
+
   const where = {};
-  if (status && status !== "ALL") where.status = status;
+  if (status && status !== "ALL") {
+    where.status = status;
+  }
 
-  const requests = await prisma.passwordResetRequest.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      message: true,
-      status: true,
-      adminReply: true,
-      createdAt: true,
-      resolvedAt: true,
-      requester: {
-        select: { id: true, firstName: true, lastName: true, email: true, role: true },
-      },
-      resolvedBy: {
-        select: { firstName: true, lastName: true },
-      },
-    },
-  });
+  if (search && String(search).trim()) {
+    const term = String(search).trim();
+    where.OR = [
+      { requester: { email: { contains: term, mode: "insensitive" } } },
+      { requester: { firstName: { contains: term, mode: "insensitive" } } },
+      { requester: { lastName: { contains: term, mode: "insensitive" } } },
+    ];
+  }
 
-  return requests.map((r) => ({
+  const [total, requests] = await Promise.all([
+    prisma.passwordResetRequest.count({ where }),
+    prisma.passwordResetRequest.findMany({
+      where,
+      skip,
+      take: limitNum,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        message: true,
+        status: true,
+        adminReply: true,
+        createdAt: true,
+        resolvedAt: true,
+        requester: {
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+        resolvedBy: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(total / limitNum) || 1;
+
+  const data = requests.map((r) => ({
     id: r.id,
     message: r.message,
     status: r.status,
@@ -198,6 +220,16 @@ const getAllRequests = async ({ status }) => {
       ? `${r.resolvedBy.firstName} ${r.resolvedBy.lastName}`
       : null,
   }));
+
+  return {
+    data,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages,
+    },
+  };
 };
 
 // Admin: count pending requests (for sidebar badge)
