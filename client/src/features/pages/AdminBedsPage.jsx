@@ -1,5 +1,8 @@
 /* Hallmark · macrostructure: Catalogue · genre: modern-minimal · theme: system-managed */
 import { useState, useEffect } from 'react';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { MoreHorizontal, Plus, RefreshCcw, Activity, Droplet, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useBeds } from '../hooks/useBeds';
 
@@ -35,6 +38,13 @@ import { Separator } from '@/components/ui/separator';
 
 const BED_STATUS_FILTERS = ['All', 'AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
 
+const bedSchema = z.object({
+  bed_number: z.string()
+    .min(2, 'Bed number must be at least 2 characters')
+    .max(20, 'Bed number is too long')
+    .regex(/^[A-Za-z0-9\s-]+$/, 'Only letters, numbers, spaces, and hyphens are allowed'),
+});
+
 export default function AdminBedsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -68,10 +78,19 @@ export default function AdminBedsPage() {
     setPage(1);
   };
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
   const [updateError, setUpdateError] = useState(null);
-  const [bedNumber, setBedNumber] = useState('');
+  
+  const {
+    register,
+    handleSubmit,
+    setError,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(bedSchema),
+    defaultValues: { bed_number: '' }
+  });
 
   const handleUpdateStatus = async (id, status) => {
     setUpdateError(null);
@@ -83,18 +102,21 @@ export default function AdminBedsPage() {
     }
   };
 
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
+  const onAddSubmit = async (data) => {
     setAddError(null);
+    
+    // Client-side duplicate check against loaded beds
+    if (beds?.some(b => b.bed_number.toLowerCase() === data.bed_number.toLowerCase())) {
+      setError('bed_number', { type: 'manual', message: 'A bed with this number already exists in the current list.' });
+      return;
+    }
+    
     try {
-      setIsSubmitting(true);
-      await createBed({ bed_number: bedNumber });
+      await createBed({ bed_number: data.bed_number });
       setIsAddOpen(false);
-      setBedNumber('');
+      reset();
     } catch (err) {
       setAddError(err.response?.data?.message || err.message || 'An unknown error occurred');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -135,7 +157,7 @@ export default function AdminBedsPage() {
               <DialogHeader>
                 <DialogTitle className="font-sans">Add New Bed</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
+              <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4 pt-4">
                 {addError && (
                   <div className="bg-destructive/10 text-destructive text-sm font-sans p-3 rounded-md border border-destructive/20">
                     {addError}
@@ -146,11 +168,10 @@ export default function AdminBedsPage() {
                   <Input 
                     id="bed_number" 
                     placeholder="e.g. ICU-01" 
-                    className="font-sans h-9"
-                    value={bedNumber}
-                    onChange={e => setBedNumber(e.target.value)}
-                    required
+                    className={`font-sans h-9 ${errors.bed_number ? 'border-destructive' : ''}`}
+                    {...register('bed_number')}
                   />
+                  {errors.bed_number && <p className="text-destructive text-xs font-sans">{errors.bed_number.message}</p>}
                 </div>
                 <DialogFooter className="pt-4">
                   <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="font-sans">

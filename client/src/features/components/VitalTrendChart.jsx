@@ -200,7 +200,7 @@ export const VitalTrendChart = memo(function VitalTrendChart({
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'HH:mm')}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'MMM d, HH:mm')}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                 axisLine={false}
                 tickLine={false}
@@ -304,7 +304,7 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'HH:mm')}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, 'MMM d, HH:mm')}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                 axisLine={false}
                 tickLine={false}

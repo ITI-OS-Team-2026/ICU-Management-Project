@@ -50,81 +50,28 @@ export function useDashboard() {
       setIsLoading(true);
       setError(null);
 
-      // 1. Get active admissions
-      const activeAdmissions = await dashboardService.getActiveAdmissions();
+      // 1. Get active admissions & clinical logs concurrently
+      const [activeAdmissions, clinicalLogs] = await Promise.all([
+        dashboardService.getActiveAdmissions(),
+        dashboardService.getClinicalLogs(),
+      ]);
 
       let criticalCount = 0;
       let totalPendingLabs = 0;
       let totalAiAlerts = 0;
-      const gatheredActivities = [];
 
-      // 2. Derive everything from that one response.
-      //
-      // The list query carries the newest vital sign, the active diagnoses and
-      // the pending investigation orders for each admission, so the dashboard
-      // costs a single request rather than one per patient on top of it. From
-      // Egypt against a us-east-1 database that difference is the whole load
-      // time — every extra request is another Atlantic round trip.
+      // 2. Derive admission stats
       const enrichedAdmissions = activeAdmissions.map((admission) => {
         const vitals = admission.latestVitals || null;
-        const diagnoses = admission.diagnosesList || [];
         const investigations = admission.pendingInvestigations || [];
 
-        // Count critical cases
         const isCritical = checkIsCritical(vitals);
         if (isCritical) {
           criticalCount++;
-          totalAiAlerts += 1; // Simulate alert trigger
+          totalAiAlerts += 1;
         }
 
-        // Count pending investigations
         totalPendingLabs += investigations.length;
-
-        // Compile dynamic activity logs based on DB state
-        const bedStr = admission.bed?.bed_number ? `Bed ${admission.bed.bed_number.split('/')[1] || admission.bed.bed_number}` : 'Bed —';
-        const patName = admission.patient?.name || 'Patient';
-
-        if (vitals) {
-          const vitalsAt = new Date(vitals.recordedAt || admission.updatedAt).getTime();
-
-          gatheredActivities.push({
-            type: 'vitals',
-            title: 'Vitals updated',
-            desc: `${patName} — ${bedStr}`,
-            dotColor: 'bg-status-available',
-            timestamp: vitalsAt,
-          });
-
-          if (isCritical) {
-            gatheredActivities.push({
-              type: 'alert',
-              title: 'Critical alert raised',
-              desc: `System Alert: abnormal vitals — ${bedStr}`,
-              dotColor: 'bg-destructive',
-              timestamp: vitalsAt,
-            });
-          }
-        }
-
-        investigations.forEach((inv) => {
-          gatheredActivities.push({
-            type: 'lab',
-            title: `${inv.type} order pending`,
-            desc: `${inv.orderName} — ${bedStr}`,
-            dotColor: 'bg-status-reserved',
-            timestamp: new Date(inv.orderDate || admission.createdAt).getTime(),
-          });
-        });
-
-        diagnoses.forEach((diag) => {
-          gatheredActivities.push({
-            type: 'diagnosis',
-            title: 'Diagnosis updated',
-            desc: `${diag.conditionName} — ${bedStr}`,
-            dotColor: 'bg-status-occupied',
-            timestamp: new Date(diag.diagnosedAt || admission.updatedAt).getTime(),
-          });
-        });
 
         return {
           ...admission,
@@ -134,13 +81,42 @@ export function useDashboard() {
         };
       });
 
-      // Sort activities newest first. No placeholder rows are injected when the
-      // list is empty — this is a clinical feed, so an empty state must read as
-      // empty rather than showing invented patients, beds and alerts.
+      // 3. Map real audit logs to activities
+      const gatheredActivities = clinicalLogs.map((log) => {
+        let dotColor = 'bg-status-available';
+        if (log.action === 'ARCHIVE') dotColor = 'bg-destructive';
+        else if (log.action === 'UPDATE') dotColor = 'bg-status-maintenance';
+        
+        if (log.targetTable === 'Medication') dotColor = 'bg-primary';
+        if (log.targetTable === 'Diagnosis') dotColor = 'bg-status-occupied';
+        if (log.targetTable === 'LabResult' || log.targetTable === 'InvestigationOrder') dotColor = 'bg-status-reserved';
+
+        const type = log.targetTable.toLowerCase();
+        
+        let title = `${log.targetTable} ${log.action.toLowerCase()}d`;
+        if (log.targetTable === 'VitalSign') title = `Vitals ${log.action.toLowerCase()}d`;
+        
+        let desc = `By ${log.user?.name || 'System'}`;
+        if (log.targetTable === 'Medication' && log.newValues?.drugName) {
+          desc += ` — ${log.newValues.drugName}`;
+        }
+        
+        return {
+          id: log.id,
+          type: type === 'vitalsign' ? 'vitals' : type,
+          title,
+          desc,
+          dotColor,
+          timestamp: new Date(log.createdAt).getTime(),
+          oldValues: log.oldValues,
+          newValues: log.newValues,
+        };
+      });
+
       const sortedActivities = gatheredActivities
         .filter((act) => !Number.isNaN(act.timestamp))
         .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 5)
+        .slice(0, 15)
         .map((act) => ({ ...act, time: formatRelativeTime(act.timestamp) }));
 
       setAdmissions(enrichedAdmissions);

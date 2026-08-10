@@ -887,6 +887,63 @@ const unassignNurse = async (req, admissionId, nurseId) => {
     };
   });
 };
+const getClinicalLogs = async (admissionId = null) => {
+  const clinicalTables = [
+    'Medication',
+    'Diagnosis',
+    'VitalSign',
+    'LabResult',
+    'InvestigationOrder',
+    'ClinicalExamination',
+    'TreatmentApproval',
+    'Patient',
+    'Admission',
+    'FollowUp',
+    'MedicalDocument'
+  ];
+
+  const whereClause = {
+    targetTable: { in: clinicalTables },
+    action: { not: 'VIEW' }
+  };
+
+  if (admissionId) {
+    whereClause.OR = [
+      { targetTable: 'Admission', targetId: admissionId },
+      { newValues: { path: ['admissionId'], equals: admissionId } },
+      { oldValues: { path: ['admissionId'], equals: admissionId } }
+    ];
+  }
+
+  const logs = await prisma.auditLog.findMany({
+    where: whereClause,
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+  return logs.map(log => ({
+    id: log.id,
+    action: log.action,
+    targetTable: log.targetTable,
+    targetId: log.targetId,
+    createdAt: log.createdAt,
+    oldValues: log.oldValues,
+    newValues: log.newValues,
+    user: log.user ? {
+      name: `${log.user.firstName} ${log.user.lastName}`,
+      role: log.user.role
+    } : null
+  }));
+};
 
 module.exports = {
   createAdmission,
@@ -899,4 +956,5 @@ module.exports = {
   assignNurse,
   getAdmissionNurses,
   unassignNurse,
+  getClinicalLogs,
 };

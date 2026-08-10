@@ -40,6 +40,7 @@ export const PatientVitalsPage = lazy(() => import('../pages/patient/PatientVita
 export const PatientMedicationsPage = lazy(() => import('../pages/patient/PatientMedicationsPage'));
 export const PatientDiagnosesPage = lazy(() => import('../pages/patient/PatientDiagnosesPage'));
 export const PatientNotesPage = lazy(() => import('../pages/patient/PatientNotesPage'));
+export const PatientTimelinePage = lazy(() => import('../pages/patient/PatientTimelinePage'));
 export const PatientDocumentsPage = lazy(() => import('../pages/patient/PatientDocumentsPage'));
 export const PatientFollowUpsPage = lazy(() => import('../pages/patient/PatientFollowUpsPage'));
 export const PatientAlertsPage = lazy(() => import('../pages/patient/PatientAlertsPage'));

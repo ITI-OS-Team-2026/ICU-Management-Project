@@ -16,8 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import DashboardRagAssistant from '../../components/rag/DashboardRagAssistant';
 import { useShortcuts } from '../../hooks/useShortcuts';
+import { ClinicalFeedList } from '../../components/ClinicalFeedList';
 
 export default function DoctorDashboard({ user, greetingName, currentFormattedDate }) {
   const navigate = useNavigate();
@@ -198,24 +206,24 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
                 </TabsList>
               </div>
 
-              <Card className="flex-1 border-border shadow-2xs bg-card overflow-hidden min-h-0">
-                <TabsContent value="critical" className="p-0 m-0 border-none outline-none h-full data-[state=active]:flex flex-col">
-                  <ScrollArea className="flex-1">
-                    <FeedList 
+              <Card className="flex-1 border-border shadow-2xs bg-card overflow-hidden flex flex-col min-h-0">
+                <TabsContent value="critical" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col">
+                  <ScrollArea className="h-full w-full">
+                    <ClinicalFeedList 
                       isLoading={isLoading} 
-                      activities={activities.filter(a => a.type === 'alert' || a.type === 'vitals')} 
-                      emptyTitle="All patients stable."
-                      emptyDesc="No critical alerts or vitals deviations in the current shift."
+                      activities={activities.filter(a => ['critical', 'warning'].includes(a.severity))} 
+                      emptyTitle="No critical updates"
+                      emptyDesc="There are no critical alerts or warnings in the recent feed."
                     />
                   </ScrollArea>
                 </TabsContent>
-                <TabsContent value="all" className="p-0 m-0 border-none outline-none h-full data-[state=active]:flex flex-col">
-                  <ScrollArea className="flex-1">
-                    <FeedList 
+                <TabsContent value="all" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col">
+                  <ScrollArea className="h-full w-full">
+                    <ClinicalFeedList 
                       isLoading={isLoading} 
                       activities={activities} 
-                      emptyTitle="No recent activity."
-                      emptyDesc="No clinical events recorded recently."
+                      emptyTitle="No activity"
+                      emptyDesc="No recent clinical events recorded in the system."
                     />
                   </ScrollArea>
                 </TabsContent>
@@ -225,15 +233,27 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
           {/* Quick Actions (Ghost Buttons) */}
           <div className="grid grid-cols-3 gap-2 shrink-0">
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/labs')}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Stethoscope className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Order Lab</span>
             </Button>
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/notes`)}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <ClipboardList className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Add Note</span>
             </Button>
-            <Button variant="ghost" className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors">
+            <Button 
+              variant="ghost" 
+              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/medications`)}
+              className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Pill className="h-4 w-4" />
               <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Medicate</span>
             </Button>
@@ -241,56 +261,6 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
         </div>
       </div>
-    </div>
-  );
-}
-
-function FeedList({ isLoading, activities, emptyTitle, emptyDesc }) {
-  if (isLoading) {
-    return (
-      <div className="flex flex-col p-2">
-        {Array.from({ length: 4 }).map((_, idx) => (
-          <div key={idx} className="flex gap-3 p-3">
-            <Skeleton className="h-2 w-2 rounded-full mt-1.5 shrink-0" />
-            <div className="space-y-2 flex-1">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-2 w-2/3" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (activities.length === 0) {
-    return (
-      <div className="flex flex-col py-8 px-6 text-center items-center justify-center h-full min-h-[150px]">
-        <span className="text-sm font-sans font-medium text-foreground">{emptyTitle}</span>
-        <span className="text-xs font-sans text-muted-foreground mt-1 text-balance leading-relaxed max-w-[200px]">
-          {emptyDesc}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col p-2 gap-1">
-      {activities.map((act, idx) => (
-        <div key={idx} className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-          <span className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${act.dotColor}`} />
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="font-sans text-xs font-bold text-foreground truncate">
-              {act.title}
-            </span>
-            <span className="font-sans text-[11px] text-muted-foreground mt-0.5 truncate">
-              {act.desc}
-            </span>
-          </div>
-          <span className="font-tnum text-[10px] font-semibold text-muted-foreground shrink-0 mt-0.5 whitespace-nowrap ml-2">
-            {act.time}
-          </span>
-        </div>
-      ))}
     </div>
   );
 }
@@ -314,3 +284,5 @@ function StatsCard({ title, value, icon: Icon, iconClass }) {
     </Card>
   );
 }
+
+
