@@ -30,10 +30,10 @@ export const passwordResetRequestService = {
     return data.count;
   },
 
-  // Admin: get all requests
-  async getAllRequests(status = '') {
-    const params = status ? { status } : {};
-    const { data } = await api.get('/admin/password-reset-requests', { params });
+  // Admin: get all requests with pagination, status filter, and search
+  async getAllRequests(params = {}) {
+    const queryParams = typeof params === 'string' ? { status: params } : params;
+    const { data } = await api.get('/admin/password-reset-requests', { params: queryParams });
     return data;
   },
 

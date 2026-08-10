@@ -21,6 +21,10 @@ import {
   Send,
   X,
   Check,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  RotateCw,
 } from 'lucide-react';
 
 // ── Password rules ────────────────────────────────────────────────────────────
@@ -354,20 +358,49 @@ export default function SettingsPage() {
 
   // ── Admin: all requests inbox ────────────────────────────────────────────
   const [allRequests, setAllRequests] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pendingCount, setPendingCount] = useState(0);
   const [isLoadingAllRequests, setIsLoadingAllRequests] = useState(true);
   const [activeReplyId, setActiveReplyId] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   const [replyStatus, setReplyStatus] = useState({ id: null, type: '', message: '' });
 
-  const fetchAllRequests = useCallback(async () => {
+  const fetchAllRequests = useCallback(async (overrides = {}) => {
     try {
       setIsLoadingAllRequests(true);
-      const data = await passwordResetRequestService.getAllRequests();
-      setAllRequests(data);
-    } catch { /* silently fail */ }
-    finally { setIsLoadingAllRequests(false); }
-  }, []);
+      const page = overrides.page !== undefined ? overrides.page : currentPage;
+      const status = overrides.status !== undefined ? overrides.status : statusFilter;
+      const search = overrides.search !== undefined ? overrides.search : searchTerm;
+
+      const [res, pCount] = await Promise.all([
+        passwordResetRequestService.getAllRequests({
+          page,
+          limit: 10,
+          status: status === 'ALL' ? '' : status,
+          search: search.trim() ? search.trim() : undefined,
+        }),
+        passwordResetRequestService.getPendingCount().catch(() => 0),
+      ]);
+
+      if (res && res.data) {
+        setAllRequests(res.data);
+        setPagination(res.pagination || { page: 1, limit: 10, total: res.data.length, totalPages: 1 });
+      } else if (Array.isArray(res)) {
+        setAllRequests(res);
+        setPagination({ page: 1, limit: 10, total: res.length, totalPages: 1 });
+      }
+
+      setPendingCount(typeof pCount === 'number' ? pCount : 0);
+    } catch {
+      /* silently fail */
+    } finally {
+      setIsLoadingAllRequests(false);
+    }
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleReply = async (requestId) => {
     if (!replyText.trim()) return;
@@ -392,7 +425,6 @@ export default function SettingsPage() {
   }, [isAdmin, fetchAllRequests, fetchMyRequests]);
 
   const hasPending = myRequests.some((r) => r.status === 'PENDING');
-  const pendingCount = allRequests.filter((r) => r.status === 'PENDING').length;
 
   // ── Full-page skeleton while user identity is loading ────────────────────
   if (isLoadingUser) {
@@ -630,7 +662,7 @@ export default function SettingsPage() {
       {isAdmin && (
         <Card className="border-border shadow-sm">
           <CardHeader className="border-b border-border/50 pb-4 bg-muted/10">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <CardTitle className="font-sans text-sm font-semibold flex items-center gap-2">
                   <Inbox className="w-4 h-4 text-primary" />
@@ -648,18 +680,59 @@ export default function SettingsPage() {
                   </div>
                 )}
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={fetchAllRequests}>Refresh</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground gap-1.5 self-end sm:self-auto"
+                onClick={() => fetchAllRequests()}
+              >
+                <RotateCw className="h-3.5 w-3.5" />
+                Refresh
+              </Button>
+            </div>
+
+            {/* Filter and Search controls */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-3">
+              <div className="relative w-full sm:flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search email or name..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="h-8 pl-8 font-sans text-xs"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="h-8 px-2.5 rounded-md border border-input bg-background font-sans text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-auto cursor-pointer"
+              >
+                <option value="ALL">Status: All</option>
+                <option value="PENDING">Status: Pending</option>
+                <option value="RESOLVED">Status: Resolved</option>
+              </select>
             </div>
           </CardHeader>
+
           <CardContent className="p-0">
             {isLoadingAllRequests ? (
               <div className="p-6 space-y-3">
-                {[1, 2].map(i => <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" />)}
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" />
+                ))}
               </div>
             ) : allRequests.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground">
                 <Inbox className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="font-sans text-sm">No password reset requests yet.</p>
+                <p className="font-sans text-sm">No password reset requests found.</p>
               </div>
             ) : (
               allRequests.map((req) => (
@@ -677,9 +750,66 @@ export default function SettingsPage() {
               ))
             )}
           </CardContent>
+
+          {/* Pagination Footer */}
+          {pagination.total > 0 && (
+            <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-t border-border/50 bg-muted/5">
+              <span className="font-sans text-xs text-muted-foreground">
+                Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.total)}–
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page <= 1 || isLoadingAllRequests}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="h-8 text-xs font-sans px-2.5"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                  Previous
+                </Button>
+
+                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (p) =>
+                      Math.abs(p - pagination.page) <= 1 ||
+                      p === 1 ||
+                      p === pagination.totalPages
+                  )
+                  .map((p, idx, arr) => (
+                    <span key={p} className="flex items-center">
+                      {idx > 0 && p - arr[idx - 1] > 1 && (
+                        <span className="px-1 text-xs text-muted-foreground">...</span>
+                      )}
+                      <Button
+                        variant={p === pagination.page ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(p)}
+                        className={`h-8 w-8 text-xs font-sans p-0 ${
+                          p === pagination.page ? 'bg-primary font-bold' : ''
+                        }`}
+                      >
+                        {p}
+                      </Button>
+                    </span>
+                  ))}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pagination.page >= pagination.totalPages || isLoadingAllRequests}
+                  onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
+                  className="h-8 text-xs font-sans px-2.5"
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </div>
+            </CardFooter>
+          )}
         </Card>
       )}
-
     </div>
   );
 }

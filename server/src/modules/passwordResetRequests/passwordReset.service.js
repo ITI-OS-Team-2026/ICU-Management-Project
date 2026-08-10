@@ -156,31 +156,53 @@ const countUnseenReplies = async (userId) => {
   return { count };
 };
 
-// Admin: get all requests with requester info
-const getAllRequests = async ({ status }) => {
+// Admin: get requests with pagination, filtering, and search
+const getAllRequests = async ({ status, page = 1, limit = 10, search }) => {
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+  const skip = (pageNum - 1) * limitNum;
+
   const where = {};
-  if (status && status !== "ALL") where.status = status;
+  if (status && status !== "ALL") {
+    where.status = status;
+  }
 
-  const requests = await prisma.passwordResetRequest.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      message: true,
-      status: true,
-      adminReply: true,
-      createdAt: true,
-      resolvedAt: true,
-      requester: {
-        select: { id: true, firstName: true, lastName: true, email: true, role: true },
-      },
-      resolvedBy: {
-        select: { firstName: true, lastName: true },
-      },
-    },
-  });
+  if (search && String(search).trim()) {
+    const term = String(search).trim();
+    where.OR = [
+      { requester: { email: { contains: term, mode: "insensitive" } } },
+      { requester: { firstName: { contains: term, mode: "insensitive" } } },
+      { requester: { lastName: { contains: term, mode: "insensitive" } } },
+    ];
+  }
 
-  return requests.map((r) => ({
+  const [total, requests] = await Promise.all([
+    prisma.passwordResetRequest.count({ where }),
+    prisma.passwordResetRequest.findMany({
+      where,
+      skip,
+      take: limitNum,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        message: true,
+        status: true,
+        adminReply: true,
+        createdAt: true,
+        resolvedAt: true,
+        requester: {
+          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+        },
+        resolvedBy: {
+          select: { firstName: true, lastName: true },
+        },
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(total / limitNum) || 1;
+
+  const data = requests.map((r) => ({
     id: r.id,
     message: r.message,
     status: r.status,
@@ -198,6 +220,16 @@ const getAllRequests = async ({ status }) => {
       ? `${r.resolvedBy.firstName} ${r.resolvedBy.lastName}`
       : null,
   }));
+
+  return {
+    data,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages,
+    },
+  };
 };
 
 // Admin: count pending requests (for sidebar badge)
@@ -243,15 +275,22 @@ const resolveRequest = async (adminId, requestId, adminReply) => {
     }),
   ]);
 
+  // Fire-and-forget: the password is already updated in the DB transaction
+  // above. Don't block the HTTP response on email delivery — the admin sees
+  // the temp password in the UI regardless.
   sendMail({
     to: request.requester.email,
     subject: "Your ICU SmartCare password has been reset",
     html: `
-      <p>Hi ${request.requester.firstName || "there"},</p>
-      <p>An administrator has reset your password. Your temporary password is:</p>
-      <p style="font-size:18px;font-weight:bold;letter-spacing:1px;padding:12px;background:#f4f4f4;display:inline-block;">${adminReply}</p>
-      <p>Please log in and change your password immediately.</p>
-      <p>&mdash; ICU SmartCare</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1e3a8a;">ICU SmartCare</h2>
+        <p>Hi ${request.requester.firstName || "there"},</p>
+        <p>An administrator has reset your password. Your temporary password is:</p>
+        <p style="font-size: 18px; font-weight: bold; letter-spacing: 1px; padding: 12px; background: #f4f4f4; border-radius: 4px; display: inline-block;">${adminReply}</p>
+        <p>Please log in and change your password immediately.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #666;">&mdash; ICU SmartCare System</p>
+      </div>
     `,
   }).catch((err) =>
     logger.error(`Failed to email temp password to ${request.requester.email}: ${err.message}`)

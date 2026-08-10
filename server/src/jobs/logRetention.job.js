@@ -146,6 +146,18 @@ const runRetentionCycle = async () => {
       logger.info(`Log retention: archived and purged ${aiQueryArchived} AI query log row(s) older than ${config.aiQueryLogRetentionDays}d to ${aiQueryArchiveFile}.`);
     }
 
+    // Password reset requests — purge RESOLVED requests older than retention window (default 7d). Never touch PENDING requests.
+    const passwordResetRetentionDays = config.passwordResetRetentionDays || 7;
+    const passwordResetCutoff = daysAgo(passwordResetRetentionDays);
+    const passwordResetsDeleted = await batchedDelete(
+      prisma.passwordResetRequest,
+      { status: "RESOLVED", resolvedAt: { lt: passwordResetCutoff } },
+      chunkSize
+    );
+    if (passwordResetsDeleted > 0) {
+      logger.info(`Log retention: purged ${passwordResetsDeleted} RESOLVED password reset request(s) older than ${passwordResetRetentionDays}d.`);
+    }
+
     logger.info("Log retention cycle completed.");
   } catch (error) {
     logger.error(`Error in log retention cycle: ${error.message}`, { stack: error.stack });
