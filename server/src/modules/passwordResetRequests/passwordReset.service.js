@@ -243,15 +243,22 @@ const resolveRequest = async (adminId, requestId, adminReply) => {
     }),
   ]);
 
+  // Fire-and-forget: the password is already updated in the DB transaction
+  // above. Don't block the HTTP response on email delivery — the admin sees
+  // the temp password in the UI regardless.
   sendMail({
     to: request.requester.email,
     subject: "Your ICU SmartCare password has been reset",
     html: `
-      <p>Hi ${request.requester.firstName || "there"},</p>
-      <p>An administrator has reset your password. Your temporary password is:</p>
-      <p style="font-size:18px;font-weight:bold;letter-spacing:1px;padding:12px;background:#f4f4f4;display:inline-block;">${adminReply}</p>
-      <p>Please log in and change your password immediately.</p>
-      <p>&mdash; ICU SmartCare</p>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #1e3a8a;">ICU SmartCare</h2>
+        <p>Hi ${request.requester.firstName || "there"},</p>
+        <p>An administrator has reset your password. Your temporary password is:</p>
+        <p style="font-size: 18px; font-weight: bold; letter-spacing: 1px; padding: 12px; background: #f4f4f4; border-radius: 4px; display: inline-block;">${adminReply}</p>
+        <p>Please log in and change your password immediately.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #666;">&mdash; ICU SmartCare System</p>
+      </div>
     `,
   }).catch((err) =>
     logger.error(`Failed to email temp password to ${request.requester.email}: ${err.message}`)
