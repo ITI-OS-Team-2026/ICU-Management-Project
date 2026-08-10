@@ -102,7 +102,10 @@ function DocumentRow({
   const meta = getDocTypeMeta(doc.documentType);
   const uploaderName = [doc.uploader?.firstName, doc.uploader?.lastName].filter(Boolean).join(' ') || 'Unknown';
   const statusMeta = getEmbeddingStatusMeta(doc.embeddingStatus);
-  const canRetry = canManage && ['FAILED', 'PENDING'].includes(doc.embeddingStatus);
+  // SKIPPED = permanent (no text in image, e.g. X-ray). Retrying will never help.
+  // FAILED / PENDING = transient / queued. Can be retried.
+  // COMPLETED docs can also be re-indexed (e.g. after a code fix).
+  const canRetry = canManage && ['FAILED', 'PENDING', 'COMPLETED'].includes(doc.embeddingStatus);
   const canInspect = canManage && doc.embeddingStatus === 'COMPLETED' && doc.chunkCount > 0;
 
   return (
@@ -201,10 +204,18 @@ function DocumentRow({
         </div>
       </div>
 
-      {/* Why a document is not searchable */}
-      {doc.embeddingError && doc.embeddingStatus !== 'COMPLETED' && (
+      {/* Explanation row — shown whenever there is relevant context below the row */}
+      {doc.embeddingStatus === 'SKIPPED' && (
+        <p className="px-4 pb-3 -mt-1 pl-[68px] font-sans text-[11px] text-amber-600 dark:text-amber-400">
+          <span className="font-semibold">Not AI-searchable · </span>
+          {doc.embeddingError
+            ? doc.embeddingError
+            : 'No readable text was found in this file. X-rays, scans, and photos are stored but cannot be searched by the AI assistant.'}
+        </p>
+      )}
+      {doc.embeddingStatus === 'FAILED' && doc.embeddingError && (
         <p className="px-4 pb-3 -mt-1 pl-[68px] font-sans text-[11px] text-muted-foreground">
-          <span className="font-semibold">{statusMeta.label}:</span> {doc.embeddingError}
+          <span className="font-semibold">Failed: </span>{doc.embeddingError}
         </p>
       )}
     </div>
@@ -319,8 +330,11 @@ function UploadDialog({ open, onClose, onUploaded, admissionId }) {
             Upload Document
           </DialogTitle>
           <DialogDescription className="font-sans text-xs text-muted-foreground">
-            PDFs and text files are indexed automatically so the AI assistant can cite them. Images
-            are stored but need OCR before they can be searched.
+            PDFs and text files are indexed automatically so the AI assistant can cite them.
+            Images that contain printed or typed text (e.g. scanned forms, lab reports) are
+            also indexed via OCR. X-rays, scans, and photos are stored but{' '}
+            <span className="font-semibold text-amber-600 dark:text-amber-400">cannot be searched by the AI</span>
+            {' '}— they contain no text for the assistant to read.
           </DialogDescription>
         </DialogHeader>
 
@@ -651,6 +665,7 @@ export default function PatientDocumentsPage() {
   const filtered = filter === 'all' ? documents : documents.filter(d => d.documentType?.toLowerCase() === filter);
 
   const searchableCount = documents.filter(d => d.embeddingStatus === 'COMPLETED').length;
+  const skippedCount = documents.filter(d => d.embeddingStatus === 'SKIPPED').length;
   const indexingCount = documents.filter(d => IN_FLIGHT_STATUSES.includes(d.embeddingStatus)).length;
 
   return (
@@ -660,9 +675,23 @@ export default function PatientDocumentsPage() {
         <div>
           <h2 className="font-display text-xl font-bold text-foreground">Patient Documents</h2>
           <p className="font-sans text-sm text-muted-foreground mt-0.5">
-            {documents.length > 0
-              ? `${documents.length} document${documents.length !== 1 ? 's' : ''} · ${searchableCount} searchable by the AI assistant`
-              : 'No documents uploaded yet'}
+            {documents.length > 0 ? (
+              <>
+                {documents.length} document{documents.length !== 1 ? 's' : ''}
+                {' · '}
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                  {searchableCount} AI-searchable
+                </span>
+                {skippedCount > 0 && (
+                  <>
+                    {' · '}
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      {skippedCount} not AI-searchable
+                    </span>
+                  </>
+                )}
+              </>
+            ) : 'No documents uploaded yet'}
           </p>
         </div>
         <div className="flex items-center gap-2">
