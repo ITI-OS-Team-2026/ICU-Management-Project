@@ -90,6 +90,14 @@ const resolveRequest = async (req, res, next) => {
     if (!adminReply || !adminReply.trim()) {
       return res.status(400).json({ message: "A reply (new temporary password) is required." });
     }
+    // Enforce the same complexity policy so the temp credential is not trivially guessable
+    const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+[\]{};:'",.<>/?\\|`~]).{8,}$/;
+    if (!PASSWORD_REGEX.test(adminReply.trim())) {
+      return res.status(400).json({
+        message:
+          "Temporary password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.",
+      });
+    }
     const result = await passwordResetService.resolveRequest(
       req.user.id,
       req.params.id,

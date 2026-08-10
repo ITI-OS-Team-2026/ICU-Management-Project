@@ -19,7 +19,103 @@ import {
   CheckCircle2,
   KeyRound,
   Send,
+  X,
+  Check,
 } from 'lucide-react';
+
+// ── Password rules ────────────────────────────────────────────────────────────
+const PASSWORD_RULES = [
+  { id: 'length',    label: 'At least 8 characters',           test: (p) => p.length >= 8 },
+  { id: 'upper',     label: 'One uppercase letter (A–Z)',       test: (p) => /[A-Z]/.test(p) },
+  { id: 'lower',     label: 'One lowercase letter (a–z)',       test: (p) => /[a-z]/.test(p) },
+  { id: 'digit',     label: 'One number (0–9)',                 test: (p) => /\d/.test(p) },
+  { id: 'special',   label: 'One special character (!@#$…)',    test: (p) => /[!@#$%^&*()?\-_=+[\]{};:'",.<>\/\\|`~]/.test(p) },
+];
+
+function getPasswordStrength(password) {
+  if (!password) return 0;
+  return PASSWORD_RULES.filter((r) => r.test(password)).length;
+}
+
+const STRENGTH_LABEL = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
+const STRENGTH_COLOR = [
+  '',
+  'bg-red-500',
+  'bg-orange-400',
+  'bg-yellow-400',
+  'bg-emerald-400',
+  'bg-emerald-500',
+];
+const STRENGTH_TEXT_COLOR = [
+  '',
+  'text-red-500',
+  'text-orange-500',
+  'text-yellow-600',
+  'text-emerald-600',
+  'text-emerald-600',
+];
+
+// ── Password strength meter sub-component ────────────────────────────────────
+function PasswordStrengthMeter({ password, show }) {
+  if (!show) return null;
+  const strength = getPasswordStrength(password);
+  const passed = PASSWORD_RULES.map((r) => ({ ...r, passed: r.test(password) }));
+  return (
+    <div className="space-y-2 pt-1">
+      {/* Segmented bar */}
+      <div className="flex gap-1">
+        {PASSWORD_RULES.map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+              i < strength ? STRENGTH_COLOR[strength] : 'bg-muted'
+            }`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <span className={`font-sans text-[11px] font-semibold transition-colors ${STRENGTH_TEXT_COLOR[strength] || 'text-muted-foreground'}`}>
+          {strength === 0 ? 'Enter a password' : STRENGTH_LABEL[strength]}
+        </span>
+      </div>
+      {/* Per-rule checklist */}
+      <ul className="space-y-0.5">
+        {passed.map((r) => (
+          <li key={r.id} className="flex items-center gap-1.5">
+            {r.passed
+              ? <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+              : <X className="h-3 w-3 text-muted-foreground/60 shrink-0" />}
+            <span className={`font-sans text-[11px] ${r.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+              {r.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Compact inline rules (for admin temp-password field) ──────────────────────
+function InlinePasswordRules({ password, show }) {
+  if (!show) return null;
+  return (
+    <ul className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(password);
+        return (
+          <li key={r.id} className="flex items-center gap-1">
+            {ok
+              ? <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+              : <X className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />}
+            <span className={`font-sans text-[10px] ${ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+              {r.label}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
@@ -144,10 +240,15 @@ function AdminRequestCard({ req, activeReplyId, setActiveReplyId, replyText, set
                   type="text"
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Enter new temporary password..."
-                  className="font-sans text-sm h-9 flex-1"
+                  placeholder="Enter temporary password..."
+                  className="font-sans text-sm h-9 flex-1 font-mono"
                 />
-                <Button size="sm" className="gap-1.5 h-9 bg-primary" disabled={isReplying || !replyText.trim()} onClick={() => onReply(req.id)}>
+                <Button
+                  size="sm"
+                  className="gap-1.5 h-9 bg-primary"
+                  disabled={isReplying || !PASSWORD_RULES.every((r) => r.test(replyText.trim()))}
+                  onClick={() => onReply(req.id)}
+                >
                   <Send className="h-3.5 w-3.5" />
                   {isReplying ? 'Sending...' : 'Send'}
                 </Button>
@@ -155,6 +256,7 @@ function AdminRequestCard({ req, activeReplyId, setActiveReplyId, replyText, set
                   Cancel
                 </Button>
               </div>
+              <InlinePasswordRules password={replyText.trim()} show={!!replyText} />
             </div>
           ) : (
             <Button size="sm" variant="outline" className="h-8 text-xs font-sans gap-1.5" onClick={() => { setActiveReplyId(req.id); setReplyText(''); }}>
@@ -182,15 +284,20 @@ export default function SettingsPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [showForgotSection, setShowForgotSection] = useState(false);
 
+  const [newPwFocused, setNewPwFocused] = useState(false);
+
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setPwStatus({ type: '', message: '' });
-    if (formData.newPassword !== formData.confirmPassword) {
-      setPwStatus({ type: 'error', message: 'New passwords do not match.' });
+
+    // Client-side complexity gate (mirrors backend Joi schema)
+    const failedRules = PASSWORD_RULES.filter((r) => !r.test(formData.newPassword));
+    if (failedRules.length > 0) {
+      setPwStatus({ type: 'error', message: `Password doesn\'t meet all requirements: ${failedRules.map((r) => r.label.toLowerCase()).join(', ')}.` });
       return;
     }
-    if (formData.newPassword.length < 6) {
-      setPwStatus({ type: 'error', message: 'Password must be at least 6 characters long.' });
+    if (formData.newPassword !== formData.confirmPassword) {
+      setPwStatus({ type: 'error', message: 'New passwords do not match.' });
       return;
     }
     try {
@@ -198,12 +305,16 @@ export default function SettingsPage() {
       await authService.changePassword({ currentPassword: formData.currentPassword, newPassword: formData.newPassword });
       setPwStatus({ type: 'success', message: 'Your password has been successfully updated.' });
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setNewPwFocused(false);
     } catch (error) {
       setPwStatus({ type: 'error', message: error?.response?.data?.message || 'Failed to update password. Please try again.' });
     } finally {
       setIsUpdating(false);
     }
   };
+
+  const newPasswordStrength = getPasswordStrength(formData.newPassword);
+  const isNewPasswordValid = newPasswordStrength === PASSWORD_RULES.length;
 
   // ── Non-admin: send request ──────────────────────────────────────────────
   const [requestMessage, setRequestMessage] = useState('');
@@ -374,15 +485,51 @@ export default function SettingsPage() {
             )}
             <div className="space-y-2">
               <Label htmlFor="newPassword" className="font-sans text-xs font-semibold">New Password</Label>
-              <Input id="newPassword" type="password" required value={formData.newPassword}
+              <Input
+                id="newPassword"
+                type="password"
+                required
+                value={formData.newPassword}
                 onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                className="font-sans text-sm" placeholder="At least 6 characters" />
+                onFocus={() => setNewPwFocused(true)}
+                className={`font-sans text-sm ${
+                  formData.newPassword && !isNewPasswordValid
+                    ? 'border-orange-400 focus-visible:ring-orange-300'
+                    : formData.newPassword && isNewPasswordValid
+                    ? 'border-emerald-400 focus-visible:ring-emerald-300'
+                    : ''
+                }`}
+                placeholder="At least 8 characters"
+              />
+              <PasswordStrengthMeter password={formData.newPassword} show={newPwFocused || !!formData.newPassword} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="font-sans text-xs font-semibold">Confirm New Password</Label>
-              <Input id="confirmPassword" type="password" required value={formData.confirmPassword}
+              <Input
+                id="confirmPassword"
+                type="password"
+                required
+                value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                className="font-sans text-sm" placeholder="Type new password again" />
+                className={`font-sans text-sm ${
+                  formData.confirmPassword && formData.confirmPassword !== formData.newPassword
+                    ? 'border-red-400 focus-visible:ring-red-300'
+                    : formData.confirmPassword && formData.confirmPassword === formData.newPassword
+                    ? 'border-emerald-400 focus-visible:ring-emerald-300'
+                    : ''
+                }`}
+                placeholder="Type new password again"
+              />
+              {formData.confirmPassword && formData.confirmPassword !== formData.newPassword && (
+                <p className="font-sans text-[11px] text-red-500 flex items-center gap-1">
+                  <X className="h-3 w-3" /> Passwords do not match
+                </p>
+              )}
+              {formData.confirmPassword && formData.confirmPassword === formData.newPassword && (
+                <p className="font-sans text-[11px] text-emerald-500 flex items-center gap-1">
+                  <Check className="h-3 w-3" /> Passwords match
+                </p>
+              )}
             </div>
           </CardContent>
           <CardFooter className="pt-2 pb-6 border-t border-border/50 bg-muted/10 mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-6">
@@ -393,7 +540,11 @@ export default function SettingsPage() {
                 Forgot your current password? Request a reset →
               </button>
             ) : <div />}
-            <Button type="submit" disabled={isUpdating} className="font-sans font-semibold bg-primary w-full sm:w-auto">
+            <Button
+              type="submit"
+              disabled={isUpdating || !isNewPasswordValid || formData.newPassword !== formData.confirmPassword}
+              className="font-sans font-semibold bg-primary w-full sm:w-auto"
+            >
               {isUpdating ? 'Updating...' : 'Update Password'}
             </Button>
           </CardFooter>
