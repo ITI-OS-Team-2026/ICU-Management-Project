@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import {
   Activity,
   AlertCircle,
@@ -263,6 +264,12 @@ export default function VitalsEntryPage() {
     return points.join(' ');
   };
 
+  const formatDateLabel = (timestampStr) => {
+    if (!timestampStr) return '';
+    const d = new Date(timestampStr);
+    return Number.isNaN(d.getTime()) ? '' : format(d, 'MMM d, HH:mm');
+  };
+
   // Trend line over the recorded vitals for `key`. This replaced a static SVG
   // path that drew the same fake ECG squiggle for every patient and every metric
   // — there is no telemetry hardware feed in this system, only discrete entries.
@@ -295,22 +302,34 @@ export default function VitalsEntryPage() {
       return `${x},${y}`;
     });
 
+    const firstDate = formatDateLabel(valid[0]?.recordedAt);
+    const midDate = valid.length > 2 ? formatDateLabel(valid[Math.floor(valid.length / 2)]?.recordedAt) : null;
+    const lastDate = formatDateLabel(valid[valid.length - 1]?.recordedAt);
+
     return (
-      <div className="relative">
-        <svg className={`h-16 w-full ${colorClass}`} viewBox={`0 0 ${width} ${height}`} fill="none" preserveAspectRatio="none">
-          <polyline
-            points={points.join(' ')}
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex flex-col justify-between py-0.5 text-[9px] font-mono font-tnum text-muted-foreground">
-          <span>{maxVal}</span>
-          <span>{minVal}</span>
+      <div className="space-y-1">
+        <div className="relative">
+          <svg className={`h-16 w-full ${colorClass}`} viewBox={`0 0 ${width} ${height}`} fill="none" preserveAspectRatio="none">
+            <polyline
+              points={points.join(' ')}
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex flex-col justify-between py-0.5 text-[9px] font-mono font-tnum text-muted-foreground">
+            <span>{maxVal}</span>
+            <span>{minVal}</span>
+          </div>
+        </div>
+        {/* Horizontal Axis (X-Axis) Date Labels */}
+        <div className="flex items-center justify-between border-t border-border/40 pt-1 text-[9px] font-mono font-tnum text-muted-foreground">
+          <span>{firstDate}</span>
+          {midDate && <span>{midDate}</span>}
+          <span>{lastDate}</span>
         </div>
       </div>
     );
