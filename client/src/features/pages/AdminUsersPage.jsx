@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { z } from 'zod';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   Users, 
   CheckCircle2, 
@@ -55,6 +58,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const userSchema = z.object({
+  first_name: z.string().min(2, 'First name must be at least 2 characters').max(50, 'First name is too long').regex(/^[A-Za-z\s'-]+$/, 'Only letters, spaces, hyphens and apostrophes are allowed'),
+  last_name: z.string().min(2, 'Last name must be at least 2 characters').max(50, 'Last name is too long').regex(/^[A-Za-z\s'-]+$/, 'Only letters, spaces, hyphens and apostrophes are allowed'),
+  email: z.string().email('Invalid email address'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+  role: z.enum(['admin', 'nurse', 'resident', 'specialist']),
+});
+
 export default function AdminUsersPage() {
   const currentUser = useAuthStore((state) => state.user);
   
@@ -70,28 +86,33 @@ export default function AdminUsersPage() {
 
   // Add User modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [addError, setAddError] = useState(null);
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    password: '',
-    role: 'resident'
+  
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      password: '',
+      role: 'resident',
+    }
   });
 
-  const handleAddSubmit = async (e) => {
-    e.preventDefault();
+  const onAddSubmit = async (data) => {
     setAddError(null);
     try {
-      setIsSubmitting(true);
-      await createUser(formData);
+      await createUser(data);
       setIsAddOpen(false);
-      setFormData({ first_name: '', last_name: '', email: '', password: '', role: 'resident' });
+      reset();
     } catch (err) {
       setAddError(err.response?.data?.message || err.message || 'An unknown error occurred');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -144,7 +165,7 @@ export default function AdminUsersPage() {
               <DialogHeader>
                 <DialogTitle className="font-sans">Add New User</DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleAddSubmit} className="space-y-4 pt-4">
+              <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4 pt-4">
                 {addError && (
                   <div className="bg-destructive/10 text-destructive text-sm font-sans p-3 rounded-md border border-destructive/20">
                     {addError}
@@ -155,21 +176,19 @@ export default function AdminUsersPage() {
                     <Label htmlFor="first_name" className="font-sans text-xs font-semibold">First Name</Label>
                     <Input 
                       id="first_name" 
-                      required 
-                      value={formData.first_name} 
-                      onChange={e => setFormData({...formData, first_name: e.target.value})} 
-                      className="font-sans text-sm" 
+                      {...register('first_name')}
+                      className={`font-sans text-sm ${errors.first_name ? 'border-destructive' : ''}`} 
                     />
+                    {errors.first_name && <p className="text-destructive text-xs font-sans">{errors.first_name.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="last_name" className="font-sans text-xs font-semibold">Last Name</Label>
                     <Input 
                       id="last_name" 
-                      required 
-                      value={formData.last_name} 
-                      onChange={e => setFormData({...formData, last_name: e.target.value})} 
-                      className="font-sans text-sm" 
+                      {...register('last_name')}
+                      className={`font-sans text-sm ${errors.last_name ? 'border-destructive' : ''}`} 
                     />
+                    {errors.last_name && <p className="text-destructive text-xs font-sans">{errors.last_name.message}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -177,39 +196,41 @@ export default function AdminUsersPage() {
                   <Input 
                     id="email" 
                     type="email" 
-                    required 
-                    value={formData.email} 
-                    onChange={e => setFormData({...formData, email: e.target.value})} 
-                    className="font-sans text-sm" 
+                    {...register('email')}
+                    className={`font-sans text-sm ${errors.email ? 'border-destructive' : ''}`} 
                   />
+                  {errors.email && <p className="text-destructive text-xs font-sans">{errors.email.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password" className="font-sans text-xs font-semibold">Password</Label>
                   <Input 
                     id="password" 
                     type="password" 
-                    required 
-                    value={formData.password} 
-                    onChange={e => setFormData({...formData, password: e.target.value})} 
-                    className="font-sans text-sm" 
+                    {...register('password')}
+                    className={`font-sans text-sm ${errors.password ? 'border-destructive' : ''}`} 
                   />
+                  {errors.password && <p className="text-destructive text-xs font-sans">{errors.password.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role" className="font-sans text-xs font-semibold">Role</Label>
-                  <Select 
-                    value={formData.role} 
-                    onValueChange={(val) => setFormData({...formData, role: val})}
-                  >
-                    <SelectTrigger className="w-full font-sans text-sm h-9">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin" className="font-sans">Administrator</SelectItem>
-                      <SelectItem value="nurse" className="font-sans">ICU Nurse</SelectItem>
-                      <SelectItem value="resident" className="font-sans">Medical Resident</SelectItem>
-                      <SelectItem value="specialist" className="font-sans">Specialist</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="role"
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className={`w-full font-sans text-sm h-9 ${errors.role ? 'border-destructive' : ''}`}>
+                          <SelectValue placeholder="Select a role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin" className="font-sans">Administrator</SelectItem>
+                          <SelectItem value="nurse" className="font-sans">ICU Nurse</SelectItem>
+                          <SelectItem value="resident" className="font-sans">Medical Resident</SelectItem>
+                          <SelectItem value="specialist" className="font-sans">Specialist</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.role && <p className="text-destructive text-xs font-sans">{errors.role.message}</p>}
                 </div>
                 <DialogFooter className="pt-4">
                   <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="font-sans">
