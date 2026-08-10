@@ -49,6 +49,7 @@ import { useVitalsHistory } from '../../hooks/useVitalsHistory';
 import {
   VitalTrendChart,
   BloodPressureTrendChart,
+  TimeRangeSelector,
 } from '../../components/VitalTrendChart';
 import {
   getChronologicalVitals,
@@ -668,6 +669,8 @@ export default function PatientVitalsPage() {
   const { admission } = useOutletContext();
   const admissionId = admission?.id;
 
+  const [globalTimeRange, setGlobalTimeRange] = useState('all');
+
   const { vitals, isLoading, error, refetch } = useVitals(admissionId, 50);
 
   const chronologicalVitals = useMemo(() => getChronologicalVitals(vitals), [vitals]);
@@ -735,17 +738,15 @@ export default function PatientVitalsPage() {
           </div>
         )}
 
-        <Separator className="bg-border" />
-
-        {/* ── Current Vitals Cards ─────────────────────────────────────── */}
-        <section aria-label="Current vital signs">
-          <h2 className="font-sans text-sm font-semibold text-foreground mb-3">
-            Current Reading
+        {/* ── Current Reading Summary ─────────────────────────────────── */}
+        <section aria-label="Current vitals summary">
+          <h2 className="font-sans text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            Current Status
           </h2>
           {isLoading ? (
             <VitalCardsSkeleton />
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               {VITAL_CONFIG.map((config) => (
                 <VitalCard
                   key={config.key}
@@ -762,11 +763,12 @@ export default function PatientVitalsPage() {
 
         {/* ── Vitals Trend Charts ──────────────────────────────────────── */}
         <section aria-label="Vitals trends">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
               <LineChart size={14} className="text-muted-foreground" />
               Vitals Trends
             </h2>
+            <TimeRangeSelector value={globalTimeRange} onChange={setGlobalTimeRange} />
           </div>
 
           {isLoading ? (
@@ -793,6 +795,8 @@ export default function PatientVitalsPage() {
                   data={vitals}
                   layout="stacked"
                   heightClass="h-[220px]"
+                  timeRange={globalTimeRange}
+                  onTimeRangeChange={setGlobalTimeRange}
                 />
               ))}
 

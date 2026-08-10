@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import DiagnosisContextStrip from '../components/diagnoses/DiagnosisContextStrip';
+import { TimeRangeSelector } from '../components/VitalTrendChart';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,6 +55,7 @@ export default function VitalsEntryPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isSummonModalOpen, setIsSummonModalOpen] = useState(false);
+  const [entryTimeRange, setEntryTimeRange] = useState('all');
 
   // React Hook Form for Vitals logging.
   // These fields mirror createVitalSignSchema on the server exactly. Anything not
@@ -264,19 +266,36 @@ export default function VitalsEntryPage() {
     return points.join(' ');
   };
 
-  const formatDateLabel = (timestampStr) => {
+  const formatDateLabel = (timestampStr, range) => {
     if (!timestampStr) return '';
     const d = new Date(timestampStr);
-    return Number.isNaN(d.getTime()) ? '' : format(d, 'MMM d, HH:mm');
+    if (Number.isNaN(d.getTime())) return '';
+    const pattern = range === '24h' ? 'HH:mm' : range === '30d' ? 'MMM d' : 'MMM d, HH:mm';
+    return format(d, pattern);
   };
 
   // Trend line over the recorded vitals for `key`. This replaced a static SVG
   // path that drew the same fake ECG squiggle for every patient and every metric
   // — there is no telemetry hardware feed in this system, only discrete entries.
   const renderTrend = (key, colorClass) => {
-    const valid = (vitalsHistory || [])
+    let valid = (vitalsHistory || [])
       .filter(h => h[key] !== null && h[key] !== undefined && !Number.isNaN(parseFloat(h[key])))
       .reverse();
+
+    if (entryTimeRange !== 'all' && valid.length > 0) {
+      const latestTime = new Date(valid[valid.length - 1]?.recordedAt).getTime();
+      let cutoffMs = 0;
+      if (entryTimeRange === '24h') cutoffMs = 24 * 60 * 60 * 1000;
+      else if (entryTimeRange === '7d') cutoffMs = 7 * 24 * 60 * 60 * 1000;
+      else if (entryTimeRange === '30d') cutoffMs = 30 * 24 * 60 * 60 * 1000;
+
+      if (cutoffMs && Number.isFinite(latestTime)) {
+        const filtered = valid.filter(h => new Date(h.recordedAt).getTime() >= latestTime - cutoffMs);
+        if (filtered.length >= 2) {
+          valid = filtered;
+        }
+      }
+    }
 
     if (valid.length < 2) {
       return (
@@ -302,9 +321,9 @@ export default function VitalsEntryPage() {
       return `${x},${y}`;
     });
 
-    const firstDate = formatDateLabel(valid[0]?.recordedAt);
-    const midDate = valid.length > 2 ? formatDateLabel(valid[Math.floor(valid.length / 2)]?.recordedAt) : null;
-    const lastDate = formatDateLabel(valid[valid.length - 1]?.recordedAt);
+    const firstDate = formatDateLabel(valid[0]?.recordedAt, entryTimeRange);
+    const midDate = valid.length > 2 ? formatDateLabel(valid[Math.floor(valid.length / 2)]?.recordedAt, entryTimeRange) : null;
+    const lastDate = formatDateLabel(valid[valid.length - 1]?.recordedAt, entryTimeRange);
 
     return (
       <div className="space-y-1">
@@ -903,13 +922,16 @@ export default function VitalsEntryPage() {
             {/* Real-time Telemetry sparkline panels */}
             <div className="lg:col-span-2 space-y-6">
               <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="font-display text-base font-semibold text-foreground">
-                    Recorded Vitals Trends
-                  </CardTitle>
-                  <p className="text-xs font-sans text-muted-foreground mt-1">
-                    Plotted from the last {vitalsHistory.length} logged {vitalsHistory.length === 1 ? 'entry' : 'entries'}, oldest to newest
-                  </p>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <CardTitle className="font-display text-base font-semibold text-foreground">
+                      Recorded Vitals Trends
+                    </CardTitle>
+                    <p className="text-xs font-sans text-muted-foreground mt-1">
+                      Plotted from logged entries ({entryTimeRange === 'all' ? 'all time' : entryTimeRange})
+                    </p>
+                  </div>
+                  <TimeRangeSelector value={entryTimeRange} onChange={setEntryTimeRange} />
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Heart Rate */}

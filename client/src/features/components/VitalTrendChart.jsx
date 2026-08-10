@@ -1,4 +1,5 @@
-import { memo, useMemo } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { memo, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   Area,
@@ -13,15 +14,73 @@ import {
 } from 'recharts';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getVitalStatus, getVitalValue } from '@/features/utils/vitalStatus';
 
 const MIN_POINTS = 3;
 
+export const TIME_RANGE_OPTIONS = [
+  { id: '24h', label: '24h', fullLabel: '24 Hours' },
+  { id: '7d', label: '7d', fullLabel: '7 Days' },
+  { id: '30d', label: '30d', fullLabel: '30 Days' },
+  { id: 'all', label: 'All', fullLabel: 'All Time' },
+];
+
+export function TimeRangeSelector({ value, onChange, className = '' }) {
+  return (
+    <div className={`inline-flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-md border border-border ${className}`}>
+      {TIME_RANGE_OPTIONS.map((opt) => {
+        const isSelected = value === opt.id;
+        return (
+          <Button
+            key={opt.id}
+            type="button"
+            variant={isSelected ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => onChange(opt.id)}
+            className={`h-5 px-1.5 text-[10px] font-medium transition-colors ${
+              isSelected
+                ? 'bg-background text-foreground shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            title={`Filter by ${opt.fullLabel}`}
+          >
+            {opt.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatTimestamp(timestamp, pattern) {
   const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? 'Unknown time' : format(date, pattern);
+}
+
+function getDefaultDateFormat(range) {
+  if (range === '24h') return 'HH:mm';
+  if (range === '7d') return 'MMM d, HH:mm';
+  if (range === '30d') return 'MMM d';
+  return 'MMM d, HH:mm';
+}
+
+function filterTrendData(allData, range) {
+  if (!allData || !allData.length || range === 'all') return allData;
+
+  const latestTime = Math.max(...allData.map((item) => item.timestamp));
+
+  let cutoffMs = 0;
+  if (range === '24h') cutoffMs = 24 * 60 * 60 * 1000;
+  else if (range === '7d') cutoffMs = 7 * 24 * 60 * 60 * 1000;
+  else if (range === '30d') cutoffMs = 30 * 24 * 60 * 60 * 1000;
+
+  if (!cutoffMs) return allData;
+
+  const filtered = allData.filter((item) => item.timestamp >= latestTime - cutoffMs);
+  return filtered.length >= MIN_POINTS ? filtered : allData;
 }
 
 function createTrendData(readings, getValue) {
@@ -62,7 +121,7 @@ function ClinicalChartTooltip({ active, payload, unit, formatValue, dataKey, fal
   );
 }
 
-function ChartHeader({ Icon, title, unit, status, readingCount }) {
+function ChartHeader({ Icon, title, unit, status, readingCount, timeRange, onTimeRangeChange, showTimeFilter = true }) {
   return (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -74,17 +133,22 @@ function ChartHeader({ Icon, title, unit, status, readingCount }) {
         </div>
         <span className="shrink-0 font-sans text-[10px] uppercase tracking-wide text-muted-foreground">{unit}</span>
       </div>
-      <div className="flex items-end justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <Badge variant={status.badgeVariant} className={`font-sans text-[10px] uppercase tracking-wide ${status.colorClass}`}>
           {status.label}
         </Badge>
-        <span className="shrink-0 font-sans text-[10px] text-muted-foreground">{readingCount} readings</span>
+        <div className="flex items-center gap-2">
+          {showTimeFilter && onTimeRangeChange && (
+            <TimeRangeSelector value={timeRange} onChange={onTimeRangeChange} />
+          )}
+          <span className="shrink-0 font-sans text-[10px] text-muted-foreground">{readingCount} readings</span>
+        </div>
       </div>
     </>
   );
 }
 
-function StackedChartHeader({ Icon, title, unit, status, latestValue, readingCount }) {
+function StackedChartHeader({ Icon, title, unit, status, latestValue, readingCount, timeRange, onTimeRangeChange, showTimeFilter = true }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
       <div className="flex items-center gap-2 min-w-0">
@@ -96,7 +160,10 @@ function StackedChartHeader({ Icon, title, unit, status, latestValue, readingCou
           {status.label}
         </Badge>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        {showTimeFilter && onTimeRangeChange && (
+          <TimeRangeSelector value={timeRange} onChange={onTimeRangeChange} />
+        )}
         <span className="font-sans text-xs text-muted-foreground">{readingCount} readings</span>
         <div className="flex items-baseline gap-1.5">
           <span className="font-sans text-xs text-muted-foreground">Latest:</span>
@@ -109,7 +176,7 @@ function StackedChartHeader({ Icon, title, unit, status, latestValue, readingCou
   );
 }
 
-function EmptyTrendCard({ Icon, title, unit, ariaLabel, layout = 'compact' }) {
+function EmptyTrendCard({ Icon, title, unit, ariaLabel, layout = 'compact', timeRange, onTimeRangeChange, showTimeFilter = true }) {
   return (
     <Card className="border-border" aria-label={ariaLabel}>
       <CardContent className="space-y-3 p-4">
@@ -121,6 +188,9 @@ function EmptyTrendCard({ Icon, title, unit, ariaLabel, layout = 'compact' }) {
             status={getVitalStatus('unknown')}
             latestValue="—"
             readingCount={0}
+            timeRange={timeRange}
+            onTimeRangeChange={onTimeRangeChange}
+            showTimeFilter={showTimeFilter}
           />
         ) : (
           <ChartHeader
@@ -129,6 +199,9 @@ function EmptyTrendCard({ Icon, title, unit, ariaLabel, layout = 'compact' }) {
             unit={unit}
             status={getVitalStatus('unknown')}
             readingCount={0}
+            timeRange={timeRange}
+            onTimeRangeChange={onTimeRangeChange}
+            showTimeFilter={showTimeFilter}
           />
         )}
         <Separator className="bg-border" />
@@ -149,19 +222,43 @@ export const VitalTrendChart = memo(function VitalTrendChart({
   ariaLabel,
   layout = 'compact',
   heightClass,
-  dateFormat = 'MMM d, HH:mm',
+  dateFormat,
+  timeRange: controlledTimeRange,
+  onTimeRangeChange,
+  showTimeFilter = true,
 }) {
-  const chartData = useMemo(
+  const [internalTimeRange, setInternalTimeRange] = useState('all');
+  const activeTimeRange = controlledTimeRange !== undefined ? controlledTimeRange : internalTimeRange;
+  const handleRangeChange = onTimeRangeChange || setInternalTimeRange;
+
+  const rawChartData = useMemo(
     () => createTrendData(data, (reading) => getVitalValue(reading, dataKey)),
     [data, dataKey],
+  );
+
+  const chartData = useMemo(
+    () => filterTrendData(rawChartData, activeTimeRange),
+    [rawChartData, activeTimeRange],
   );
 
   const latestPoint = chartData.at(-1);
   const latestStatus = getVitalStatus(dataKey, latestPoint?.value, latestPoint?.reading);
   const actualHeight = heightClass || (layout === 'stacked' ? 'h-[220px]' : 'h-[180px]');
+  const resolvedDateFormat = dateFormat || getDefaultDateFormat(activeTimeRange);
 
   if (chartData.length < MIN_POINTS) {
-    return <EmptyTrendCard Icon={icon} title={title} unit={unit} ariaLabel={ariaLabel} layout={layout} />;
+    return (
+      <EmptyTrendCard
+        Icon={icon}
+        title={title}
+        unit={unit}
+        ariaLabel={ariaLabel}
+        layout={layout}
+        timeRange={activeTimeRange}
+        onTimeRangeChange={handleRangeChange}
+        showTimeFilter={showTimeFilter}
+      />
+    );
   }
 
   const formattedValue = dataKey === 'temperature' ? latestPoint.value.toFixed(1) : latestPoint.value;
@@ -177,6 +274,9 @@ export const VitalTrendChart = memo(function VitalTrendChart({
             status={latestStatus}
             latestValue={formattedValue}
             readingCount={chartData.length}
+            timeRange={activeTimeRange}
+            onTimeRangeChange={handleRangeChange}
+            showTimeFilter={showTimeFilter}
           />
         ) : (
           <>
@@ -186,6 +286,9 @@ export const VitalTrendChart = memo(function VitalTrendChart({
               unit={unit}
               status={latestStatus}
               readingCount={chartData.length}
+              timeRange={activeTimeRange}
+              onTimeRangeChange={handleRangeChange}
+              showTimeFilter={showTimeFilter}
             />
             <div className={`font-tnum text-2xl font-bold leading-none ${latestStatus.colorClass}`}>
               {formattedValue}
@@ -201,7 +304,7 @@ export const VitalTrendChart = memo(function VitalTrendChart({
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, dateFormat)}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, resolvedDateFormat)}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                 axisLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
                 tickLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
@@ -248,9 +351,16 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
   ariaLabel,
   layout = 'compact',
   heightClass,
-  dateFormat = 'MMM d, HH:mm',
+  dateFormat,
+  timeRange: controlledTimeRange,
+  onTimeRangeChange,
+  showTimeFilter = true,
 }) {
-  const chartData = useMemo(
+  const [internalTimeRange, setInternalTimeRange] = useState('all');
+  const activeTimeRange = controlledTimeRange !== undefined ? controlledTimeRange : internalTimeRange;
+  const handleRangeChange = onTimeRangeChange || setInternalTimeRange;
+
+  const rawChartData = useMemo(
     () => createTrendData(data, (reading) => {
       const systolic = Number(reading?.systolicBp);
       const diastolic = Number(reading?.diastolicBp);
@@ -263,12 +373,28 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
     [data],
   );
 
+  const chartData = useMemo(
+    () => filterTrendData(rawChartData, activeTimeRange),
+    [rawChartData, activeTimeRange],
+  );
+
   const latestPoint = chartData.at(-1);
   const latestStatus = getVitalStatus('bloodPressure', null, latestPoint?.reading);
   const actualHeight = heightClass || (layout === 'stacked' ? 'h-[220px]' : 'h-[180px]');
+  const resolvedDateFormat = dateFormat || getDefaultDateFormat(activeTimeRange);
 
   if (chartData.length < MIN_POINTS) {
-    return <EmptyTrendCard title="Blood Pressure" unit="mmHg" ariaLabel={ariaLabel} layout={layout} />;
+    return (
+      <EmptyTrendCard
+        title="Blood Pressure"
+        unit="mmHg"
+        ariaLabel={ariaLabel}
+        layout={layout}
+        timeRange={activeTimeRange}
+        onTimeRangeChange={handleRangeChange}
+        showTimeFilter={showTimeFilter}
+      />
+    );
   }
 
   const bpValue = `${latestPoint.systolic}/${latestPoint.diastolic}`;
@@ -283,6 +409,9 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
             status={latestStatus}
             latestValue={bpValue}
             readingCount={chartData.length}
+            timeRange={activeTimeRange}
+            onTimeRangeChange={handleRangeChange}
+            showTimeFilter={showTimeFilter}
           />
         ) : (
           <>
@@ -291,6 +420,9 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
               unit="mmHg"
               status={latestStatus}
               readingCount={chartData.length}
+              timeRange={activeTimeRange}
+              onTimeRangeChange={handleRangeChange}
+              showTimeFilter={showTimeFilter}
             />
             <div className={`font-tnum text-2xl font-bold leading-none ${latestStatus.colorClass}`}>
               {bpValue}
@@ -307,7 +439,7 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(timestamp) => formatTimestamp(timestamp, dateFormat)}
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, resolvedDateFormat)}
                 tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
                 axisLine={{ stroke: 'var(--border)', strokeWidth: 1 }}
                 tickLine={{ stroke: 'var(--border)', strokeWidth: 1 }}

@@ -38,7 +38,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { patientsService } from '../../services/patientsService';
 import { useVitals } from '../../hooks/useVitals';
-import { VitalTrendChart, BloodPressureTrendChart } from '../../components/VitalTrendChart';
+import { VitalTrendChart, BloodPressureTrendChart, TimeRangeSelector } from '../../components/VitalTrendChart';
 
 const OVERVIEW_TREND_CONFIGS = [
   { title: 'Heart Rate', unit: 'bpm', icon: Heart, dataKey: 'pulse', ariaLabel: 'Heart rate trend chart' },
@@ -240,6 +240,8 @@ export default function PatientOverviewPage() {
     return () => { isMounted = false; };
   }, [admission?.id, admission?.patient_id]);
 
+  const [overviewTimeRange, setOverviewTimeRange] = useState('all');
+
   const patient = admission?.patient;
   const bed = admission?.bed;
   const doctor = admission?.doctor;
@@ -388,25 +390,39 @@ export default function PatientOverviewPage() {
 
         {/* ── Key Physiological Trends Section ──────────────────────────────── */}
         <section aria-label="Key physiological trends">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h2 className="font-sans text-sm font-semibold text-foreground flex items-center gap-2">
               <TrendingUp size={14} className="text-primary" />
               Key Physiological Trends
             </h2>
-            {vitals && vitals.length > 0 && (
-              <span className="font-sans text-xs text-muted-foreground">
-                {vitals.length} {vitals.length === 1 ? 'reading' : 'readings'}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              <TimeRangeSelector value={overviewTimeRange} onChange={setOverviewTimeRange} />
+              {vitals && vitals.length > 0 && (
+                <span className="font-sans text-xs text-muted-foreground hidden sm:inline">
+                  {vitals.length} {vitals.length === 1 ? 'reading' : 'readings'}
+                </span>
+              )}
+            </div>
           </div>
           {vitalsLoading ? (
             <TrendChartsSkeleton />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
               {OVERVIEW_TREND_CONFIGS.map((trend) => (
-                <VitalTrendChart key={trend.dataKey} {...trend} data={vitals} />
+                <VitalTrendChart
+                  key={trend.dataKey}
+                  {...trend}
+                  data={vitals}
+                  timeRange={overviewTimeRange}
+                  onTimeRangeChange={setOverviewTimeRange}
+                />
               ))}
-              <BloodPressureTrendChart data={vitals} ariaLabel="Blood pressure trend chart" />
+              <BloodPressureTrendChart
+                data={vitals}
+                ariaLabel="Blood pressure trend chart"
+                timeRange={overviewTimeRange}
+                onTimeRangeChange={setOverviewTimeRange}
+              />
             </div>
           )}
         </section>
