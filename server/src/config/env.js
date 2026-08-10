@@ -59,14 +59,15 @@ module.exports = {
   auditLogArchiveDir: process.env.AUDIT_LOG_ARCHIVE_DIR || "storage/audit-archive",
   aiQueryLogRetentionDays: Number(process.env.AI_QUERY_LOG_RETENTION_DAYS) || 180,
   loginAttemptRetentionDays: Number(process.env.LOGIN_ATTEMPT_RETENTION_DAYS) || 90,
-  // ── Email (password reset emails) ───────────────────────────────────────
-  // EMAIL_PROVIDER: "smtp" (local dev) | "resend" (production — Railway blocks SMTP ports)
-  emailProvider: (process.env.EMAIL_PROVIDER || "smtp").toLowerCase(),
+  passwordResetRetentionDays: Number(process.env.PASSWORD_RESET_RETENTION_DAYS) || 7,
+  // ── Email Configuration ──────────────────────────────────────────────────
+  emailProvider: (process.env.EMAIL_PROVIDER || (process.env.BREVO_API_KEY ? "brevo" : "smtp")).toLowerCase(),
+  brevoApiKey: process.env.BREVO_API_KEY || "",
+  emailFrom: process.env.EMAIL_FROM || "mohamedahmed010320@gmail.com",
+  emailFromName: process.env.EMAIL_FROM_NAME || "SmartCare ICU",
   smtpHost: process.env.SMTP_HOST || "",
-  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpPort: Number(process.env.SMTP_PORT) || 465,
   smtpUser: process.env.SMTP_USER || "",
   smtpPass: process.env.SMTP_PASS || "",
   smtpFrom: process.env.SMTP_FROM || "ICU SmartCare <noreply@smartcare.local>",
-  resendApiKey: process.env.RESEND_API_KEY || "",
-  resendFrom: process.env.RESEND_FROM || "ICU SmartCare <onboarding@resend.dev>",
 };
