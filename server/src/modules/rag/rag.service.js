@@ -4,7 +4,10 @@ const logger = require("../../utils/logger");
 const config = require("../../config/env");
 const { auditedTransaction } = require("../../middlewares/auditLog");
 const { callBedrock } = require("../../utils/bedrockClient");
-const { embedText, getEmbeddingModelName } = require("../../utils/embeddingClient");
+const {
+  embedText,
+  getEmbeddingModelName,
+} = require("../../utils/embeddingClient");
 const { retrieveContext, formatClockTime } = require("./retrieval.service");
 const chatService = require("./chat.service");
 
@@ -96,12 +99,15 @@ const describeAdmission = (admission) => {
   ];
 
   if (admission.bed?.bedNumber) lines.push(`Bed: ${admission.bed.bedNumber}`);
-  if (admission.chiefComplaint) lines.push(`Chief complaint: ${admission.chiefComplaint}`);
+  if (admission.chiefComplaint)
+    lines.push(`Chief complaint: ${admission.chiefComplaint}`);
   if (admission.provisionalDiagnosis) {
     lines.push(`Provisional diagnosis: ${admission.provisionalDiagnosis}`);
   }
   if (admission.doctor) {
-    lines.push(`Attending: Dr. ${admission.doctor.firstName} ${admission.doctor.lastName}`);
+    lines.push(
+      `Attending: Dr. ${admission.doctor.firstName} ${admission.doctor.lastName}`,
+    );
   }
 
   return lines.join("\n");
@@ -134,8 +140,8 @@ const buildContextBlock = (context) => {
     (chunk) =>
       `- [${chunkLabel(chunk)}] (relevance ${chunk.score.toFixed(2)})\n  ${chunk.chunk_text.replace(
         /\n/g,
-        "\n  "
-      )}`
+        "\n  ",
+      )}`,
   );
   appendSection("Retrieved document excerpts", documentLines);
 
@@ -170,7 +176,10 @@ const buildConversationBlock = (history) => {
   const turns = history
     .slice()
     .reverse()
-    .map((entry) => `Q: ${entry.question}\nA: ${String(entry.aiResponse).slice(0, 600)}`)
+    .map(
+      (entry) =>
+        `Q: ${entry.question}\nA: ${String(entry.aiResponse).slice(0, 600)}`,
+    )
     .join("\n\n");
 
   return `### Earlier questions in this conversation (for pronoun resolution only — never cite these as clinical sources)\n${turns}`;
@@ -200,8 +209,8 @@ const buildKnowledgeUserMessage = (question, context, history) => {
     (chunk) =>
       `- [${chunkLabel(chunk)}] (relevance ${chunk.score.toFixed(2)})\n  ${chunk.chunk_text.replace(
         /\n/g,
-        "\n  "
-      )}`
+        "\n  ",
+      )}`,
   );
 
   const parts = [
@@ -232,10 +241,7 @@ const buildKnowledgeUserMessage = (question, context, history) => {
  */
 const getDocumentVariants = (filename) => {
   const base = filename.replace(/\.[^/.]+$/, ""); // Remove extension
-  return [
-    base.toLowerCase(),
-    base.toLowerCase().replace(/_/g, " "),
-  ];
+  return [base.toLowerCase(), base.toLowerCase().replace(/_/g, " ")];
 };
 
 /**
@@ -283,13 +289,12 @@ const buildCitedSources = (context, answerText) => {
 
   for (const chunk of context.chunks) {
     const label = chunkLabel(chunk);
-    // A file the clinician attached to this chat is the reason they are asking:
-    // anything retrieved from it already cleared the relevance filter, so credit
-    // it rather than relying on the model happening to name the file. Shared
-    // library documents keep the stricter "was it referenced in the answer" rule.
-    const cited =
-      Boolean(chunk.is_chat_resource) ||
-      isCitedInAnswer(label, answer, "document_chunk", chunk.original_filename);
+    const cited = isCitedInAnswer(
+      label,
+      answer,
+      "document_chunk",
+      chunk.original_filename,
+    );
 
     if (cited) {
       citedSources.push({
@@ -333,7 +338,8 @@ const buildCitedSources = (context, answerText) => {
         type: "general_knowledge",
         id: "general-knowledge",
         label: "General medical knowledge",
-        excerpt: "This answer is based on the AI's general medical training, not the retrieved sources.",
+        excerpt:
+          "This answer is based on the AI's general medical training, not the retrieved sources.",
         cited: true,
       },
     ];
@@ -351,7 +357,8 @@ const buildCitedSources = (context, answerText) => {
  * exercise the real generation path from tests.
  */
 const isLlmConfigured = () => {
-  if (config.nodeEnv === "test" && process.env.RAG_LIVE_LLM !== "true") return false;
+  if (config.nodeEnv === "test" && process.env.RAG_LIVE_LLM !== "true")
+    return false;
   return Boolean(config.bedrockApiUrl && config.bedrockApiKey);
 };
 
@@ -379,7 +386,10 @@ const buildExtractiveAnswer = (context, question) => {
 
 const generateAnswer = async (context, question, history, mode = "patient") => {
   if (!isLlmConfigured()) {
-    return { answer: buildExtractiveAnswer(context, question), mode: "retrieval_only" };
+    return {
+      answer: buildExtractiveAnswer(context, question),
+      mode: "retrieval_only",
+    };
   }
 
   const isKnowledge = mode === "knowledge";
@@ -398,7 +408,9 @@ const generateAnswer = async (context, question, history, mode = "patient") => {
 // ─── Persistence ─────────────────────────────────────────────────────────────
 
 const assertAdmissionExists = async (admissionId) => {
-  const admission = await prisma.admission.findUnique({ where: { id: admissionId } });
+  const admission = await prisma.admission.findUnique({
+    where: { id: admissionId },
+  });
 
   if (!admission || admission.isArchived) {
     throw new APIError("Admission not found", 404);
@@ -451,7 +463,12 @@ const formatQueryLog = (row) => ({
  * is the only thing standing between two chats' private files, so the scope
  * filter lives in the SQL rather than in a post-filter.
  */
-const retrieveKnowledgeContext = async (question, questionVector, topK = 6, chatId = null) => {
+const retrieveKnowledgeContext = async (
+  question,
+  questionVector,
+  topK = 6,
+  chatId = null,
+) => {
   const { toVectorLiteral } = require("../../utils/embeddingClient");
   const config = require("../../config/env");
 
@@ -486,7 +503,7 @@ const retrieveKnowledgeContext = async (question, questionVector, topK = 6, chat
       LIMIT $2`,
     toVectorLiteral(questionVector),
     limit,
-    chatId
+    chatId,
   );
 
   const scored = rows
@@ -563,7 +580,11 @@ const answerQuestion = async (askedById, payload, req) => {
   // the admission's clinical record rather than personal chat history.
   const session =
     mode_type === "knowledge"
-      ? await chatService.resolveSessionForQuestion(validAskedById, payload.chat_id, question)
+      ? await chatService.resolveSessionForQuestion(
+          validAskedById,
+          payload.chat_id,
+          question,
+        )
       : null;
 
   let history = [];
@@ -580,9 +601,17 @@ const answerQuestion = async (askedById, payload, req) => {
   }
 
   const questionVector = await embedText(question);
-  const context = mode_type === "knowledge"
-    ? await retrieveKnowledgeContext(question, questionVector, payload.top_k, session?.id || null)
-    : await retrieveContext(admissionId, question, questionVector, { topK: payload.top_k });
+  const context =
+    mode_type === "knowledge"
+      ? await retrieveKnowledgeContext(
+          question,
+          questionVector,
+          payload.top_k,
+          session?.id || null,
+        )
+      : await retrieveContext(admissionId, question, questionVector, {
+          topK: payload.top_k,
+        });
 
   let answer;
   let llm_mode;
@@ -595,16 +624,23 @@ const answerQuestion = async (askedById, payload, req) => {
   } else if (!context.hasContext && !isLlmConfigured()) {
     // Knowledge mode with no LLM configured (CI/offline) has nothing to fall
     // back to — there is no retrieved context and no model to reason from.
-    answer = "No information found in the medical knowledge base for this question.";
+    answer =
+      "No information found in the medical knowledge base for this question.";
     llm_mode = "no_context";
   } else {
     // Knowledge mode: ground in retrieved excerpts when there are any, and
     // let the model draw on its own medical knowledge otherwise — generateAnswer
     // picks the prompt and clearly labels which source backs each sentence.
-    ({ answer, mode: llm_mode } = await generateAnswer(context, question, history, mode_type));
+    ({ answer, mode: llm_mode } = await generateAnswer(
+      context,
+      question,
+      history,
+      mode_type,
+    ));
   }
 
-  const citedSources = llm_mode === "no_context" ? [] : buildCitedSources(context, answer);
+  const citedSources =
+    llm_mode === "no_context" ? [] : buildCitedSources(context, answer);
   const durationMs = Date.now() - startedAt;
 
   // Only log to DB if patient mode
@@ -625,7 +661,7 @@ const answerQuestion = async (askedById, payload, req) => {
         });
 
         return { targetId: created.id, newValues: created, result: created };
-      }
+      },
     );
   }
 
@@ -635,7 +671,9 @@ const answerQuestion = async (askedById, payload, req) => {
     document_chunks_retrieved: context.chunks.length,
     clinical_records_retrieved: context.records.length,
     clinical_records_available: context.totalRecordCount,
-    top_score: context.chunks[0] ? Number(context.chunks[0].score.toFixed(4)) : null,
+    top_score: context.chunks[0]
+      ? Number(context.chunks[0].score.toFixed(4))
+      : null,
     duration_ms: durationMs,
   };
 
@@ -643,12 +681,13 @@ const answerQuestion = async (askedById, payload, req) => {
   let chatMessage = null;
   let userMessage = null;
   if (session) {
-    ({ userMessage, assistantMessage: chatMessage } = await chatService.appendTurn(session, {
-      question,
-      answer,
-      citedSources,
-      retrieval,
-    }));
+    ({ userMessage, assistantMessage: chatMessage } =
+      await chatService.appendTurn(session, {
+        question,
+        answer,
+        citedSources,
+        retrieval,
+      }));
   }
 
   if (mode_type === "patient") {
@@ -658,7 +697,7 @@ const answerQuestion = async (askedById, payload, req) => {
       durationMs,
       llm_mode,
       context.chunks.length,
-      context.records.length
+      context.records.length,
     );
   } else {
     logger.info(
@@ -666,7 +705,7 @@ const answerQuestion = async (askedById, payload, req) => {
       durationMs,
       llm_mode,
       context.chunks.length,
-      session?.id || "none"
+      session?.id || "none",
     );
   }
 
@@ -681,7 +720,8 @@ const answerQuestion = async (askedById, payload, req) => {
     question,
     ai_response: answer,
     cited_sources: citedSources,
-    created_at: log?.createdAt || chatMessage?.createdAt || new Date().toISOString(),
+    created_at:
+      log?.createdAt || chatMessage?.createdAt || new Date().toISOString(),
     retrieval,
   };
 };
@@ -697,7 +737,9 @@ const getHistory = async (admissionId, limit = 30) => {
     orderBy: { createdAt: "desc" },
     take,
     include: {
-      askedBy: { select: { id: true, firstName: true, lastName: true, role: true } },
+      askedBy: {
+        select: { id: true, firstName: true, lastName: true, role: true },
+      },
     },
   });
 
@@ -712,7 +754,9 @@ const clearHistory = async (admissionId, req) => {
     req,
     { action: "ARCHIVE", targetTable: "AiQueryLog" },
     async (tx) => {
-      const { count } = await tx.aiQueryLog.deleteMany({ where: { admissionId } });
+      const { count } = await tx.aiQueryLog.deleteMany({
+        where: { admissionId },
+      });
 
       return {
         targetId: admissionId,
@@ -723,7 +767,7 @@ const clearHistory = async (admissionId, req) => {
           deleted: count,
         },
       };
-    }
+    },
   );
 };
 

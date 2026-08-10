@@ -201,9 +201,9 @@ export const EMBEDDING_STATUS_META = {
     description: 'Indexed — the AI assistant can cite this document.',
   },
   SKIPPED: {
-    label: 'No text',
+    label: 'Not AI-searchable',
     tone: 'warning',
-    description: 'No machine-readable text (scanned images need OCR).',
+    description: 'No text found. X-rays, scans, and photos cannot be searched by the AI. Only images with printed or typed text (e.g. scanned forms) are indexable.',
   },
   FAILED: {
     label: 'Failed',

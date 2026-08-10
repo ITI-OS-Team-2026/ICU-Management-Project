@@ -58,14 +58,22 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
         },
       });
     }
-    return jwt.sign({ id: user.id, role: user.role }, config.jwtSecret || "secret", {
-      expiresIn: "12h",
-    });
+    return jwt.sign(
+      { id: user.id, role: user.role },
+      config.jwtSecret || "secret",
+      {
+        expiresIn: "12h",
+      },
+    );
   };
 
   const createAdmission = async (suffix) => {
     const patient = await prisma.patient.create({
-      data: { name: `RAG Patient ${suffix}`, age: 60, mrn: `MRN-RAG-${stamp}-${suffix}` },
+      data: {
+        name: `RAG Patient ${suffix}`,
+        age: 60,
+        mrn: `MRN-RAG-${stamp}-${suffix}`,
+      },
     });
     const bed = await prisma.bed.create({
       data: { bedNumber: `RAG${stamp}${suffix}`, status: "OCCUPIED" },
@@ -107,11 +115,19 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
   };
 
   beforeAll(async () => {
-    residentToken = await tokenFor("resident.rag@example.com", "MEDICAL_RESIDENT");
-    specialistToken = await tokenFor("specialist.rag@example.com", "ICU_SPECIALIST");
+    residentToken = await tokenFor(
+      "resident.rag@example.com",
+      "MEDICAL_RESIDENT",
+    );
+    specialistToken = await tokenFor(
+      "specialist.rag@example.com",
+      "ICU_SPECIALIST",
+    );
     nurseToken = await tokenFor("nurse.rag@example.com", "ICU_NURSE");
 
-    resident = await prisma.user.findUnique({ where: { email: "resident.rag@example.com" } });
+    resident = await prisma.user.findUnique({
+      where: { email: "resident.rag@example.com" },
+    });
 
     admission = await createAdmission("A");
     otherAdmission = await createAdmission("B");
@@ -140,8 +156,16 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       },
     });
 
-    document = await uploadDocument(admission, "cardiology-consult.txt", CARDIOLOGY_NOTE);
-    otherDocument = await uploadDocument(otherAdmission, "nephrology-review.txt", NEPHROLOGY_NOTE);
+    document = await uploadDocument(
+      admission,
+      "cardiology-consult.txt",
+      CARDIOLOGY_NOTE,
+    );
+    otherDocument = await uploadDocument(
+      otherAdmission,
+      "nephrology-review.txt",
+      NEPHROLOGY_NOTE,
+    );
 
     await indexAndWait(document.id);
     await indexAndWait(otherDocument.id);
@@ -159,11 +183,21 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
 
     const admissionIds = [admission.id, otherAdmission.id, emptyAdmission.id];
 
-    await prisma.aiQueryLog.deleteMany({ where: { admissionId: { in: admissionIds } } });
-    await prisma.documentEmbedding.deleteMany({ where: { admissionId: { in: admissionIds } } });
-    await prisma.medicalDocument.deleteMany({ where: { admissionId: { in: admissionIds } } });
-    await prisma.vitalSign.deleteMany({ where: { admissionId: { in: admissionIds } } });
-    await prisma.labResult.deleteMany({ where: { admissionId: { in: admissionIds } } });
+    await prisma.aiQueryLog.deleteMany({
+      where: { admissionId: { in: admissionIds } },
+    });
+    await prisma.documentEmbedding.deleteMany({
+      where: { admissionId: { in: admissionIds } },
+    });
+    await prisma.medicalDocument.deleteMany({
+      where: { admissionId: { in: admissionIds } },
+    });
+    await prisma.vitalSign.deleteMany({
+      where: { admissionId: { in: admissionIds } },
+    });
+    await prisma.labResult.deleteMany({
+      where: { admissionId: { in: admissionIds } },
+    });
 
     const admissions = await prisma.admission.findMany({
       where: { id: { in: admissionIds } },
@@ -171,13 +205,21 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
     });
 
     await prisma.admission.deleteMany({ where: { id: { in: admissionIds } } });
-    await prisma.bed.deleteMany({ where: { id: { in: admissions.map((a) => a.bedId) } } });
-    await prisma.patient.deleteMany({ where: { id: { in: admissions.map((a) => a.patientId) } } });
+    await prisma.bed.deleteMany({
+      where: { id: { in: admissions.map((a) => a.bedId) } },
+    });
+    await prisma.patient.deleteMany({
+      where: { id: { in: admissions.map((a) => a.patientId) } },
+    });
 
     await prisma.user.deleteMany({
       where: {
         email: {
-          in: ["resident.rag@example.com", "specialist.rag@example.com", "nurse.rag@example.com"],
+          in: [
+            "resident.rag@example.com",
+            "specialist.rag@example.com",
+            "nurse.rag@example.com",
+          ],
         },
       },
     });
@@ -191,7 +233,9 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
 
   describe("Document indexing", () => {
     it("embeds the uploaded document into searchable chunks", async () => {
-      const indexed = await prisma.medicalDocument.findUnique({ where: { id: document.id } });
+      const indexed = await prisma.medicalDocument.findUnique({
+        where: { id: document.id },
+      });
 
       expect(indexed.embeddingStatus).toBe("COMPLETED");
       expect(indexed.chunkCount).toBeGreaterThan(0);
@@ -212,7 +256,10 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(res.body.data.counts.completed).toBe(1);
       expect(res.body.data.is_searchable).toBe(true);
       expect(res.body.data.indexed_chunks).toBeGreaterThan(0);
-      expect(res.body.data.documents[0]).toHaveProperty("embedding_status", "COMPLETED");
+      expect(res.body.data.documents[0]).toHaveProperty(
+        "embedding_status",
+        "COMPLETED",
+      );
     });
 
     it("allows a nurse to read index status so they can confirm their upload landed", async () => {
@@ -231,7 +278,9 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.results).toBeGreaterThan(0);
       expect(res.body.data.chunks[0]).toHaveProperty("chunk_text");
-      expect(res.body.data.chunks[0].chunk_text).toEqual(expect.stringContaining("ejection fraction"));
+      expect(res.body.data.chunks[0].chunk_text).toEqual(
+        expect.stringContaining("ejection fraction"),
+      );
     });
 
     it("POST /api/rag/documents/:documentId/reindex re-embeds the document", async () => {
@@ -270,7 +319,8 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
         .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
         .send({
           admission_id: admission.id,
-          question: "What did the echocardiography show about ejection fraction?",
+          question:
+            "What did the echocardiography show about ejection fraction?",
         });
 
       expect(res.statusCode).toBe(200);
@@ -278,15 +328,22 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(res.body.data.ai_response).toEqual(expect.any(String));
       expect(Array.isArray(res.body.data.cited_sources)).toBe(true);
       expect(res.body.data.cited_sources.length).toBeGreaterThan(0);
-      expect(res.body.data.retrieval.document_chunks_retrieved).toBeGreaterThan(0);
-      expect(res.body.data.retrieval.embedding_model).toEqual(expect.any(String));
+      expect(res.body.data.retrieval.document_chunks_retrieved).toBeGreaterThan(
+        0,
+      );
+      expect(res.body.data.retrieval.embedding_model).toEqual(
+        expect.any(String),
+      );
     }, 30000);
 
     it("cites structured clinical records alongside document chunks", async () => {
       const res = await request(app)
         .post("/api/rag/query")
         .set("Cookie", `${COOKIE_NAME}=${specialistToken}`)
-        .send({ admission_id: admission.id, question: "What is the latest SpO2 reading?" });
+        .send({
+          admission_id: admission.id,
+          question: "What is the latest SpO2 reading?",
+        });
 
       expect(res.statusCode).toBe(200);
 
@@ -298,7 +355,10 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       const res = await request(app)
         .post("/api/rag/query")
         .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
-        .send({ admission_id: admission.id, question: "Was peritoneal dialysis started?" });
+        .send({
+          admission_id: admission.id,
+          question: "Was peritoneal dialysis started?",
+        });
 
       expect(res.statusCode).toBe(200);
 
@@ -307,19 +367,24 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
         .map((source) => source.document_id);
 
       expect(documentIds).not.toContain(otherDocument.id);
-      expect(res.body.data.ai_response).not.toEqual(expect.stringContaining("hyperkalaemia"));
+      expect(res.body.data.ai_response).not.toEqual(
+        expect.stringContaining("hyperkalaemia"),
+      );
     }, 30000);
 
     it("returns an explicit no-answer state when the admission has nothing recorded", async () => {
       const res = await request(app)
         .post("/api/rag/query")
         .set("Cookie", `${COOKIE_NAME}=${residentToken}`)
-        .send({ admission_id: emptyAdmission.id, question: "What are the latest vitals?" });
+        .send({
+          admission_id: emptyAdmission.id,
+          question: "What are the latest vitals?",
+        });
 
       expect(res.statusCode).toBe(200);
       expect(res.body.data.retrieval.mode).toBe("no_context");
       expect(res.body.data.ai_response).toEqual(
-        expect.stringContaining("Not enough recorded data")
+        expect.stringContaining("Not enough recorded data"),
       );
       expect(res.body.data.cited_sources).toEqual([]);
     }, 30000);
@@ -328,7 +393,10 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       const res = await request(app)
         .post("/api/rag/query")
         .set("Cookie", `${COOKIE_NAME}=${nurseToken}`)
-        .send({ admission_id: admission.id, question: "Any allergies recorded?" });
+        .send({
+          admission_id: admission.id,
+          question: "Any allergies recorded?",
+        });
 
       expect(res.statusCode).toBe(403);
     });
@@ -368,6 +436,44 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(res.body.data).toHaveProperty("ai_response");
       expect(res.body.data).toHaveProperty("cited_sources");
     }, 30000);
+
+    it("does not auto-cite retrieved attached documents unless the answer references them", () => {
+      const { buildCitedSources } = require("./rag.service");
+      const context = {
+        chunks: [
+          {
+            id: "chunk-1",
+            document_id: "doc-1",
+            chunk_index: 0,
+            chunk_text:
+              "The uploaded protocol states that fluid balance should be monitored.",
+            original_filename: "ICU_Guide.pdf",
+            is_chat_resource: true,
+            score: 0.92,
+          },
+        ],
+        records: [],
+      };
+
+      const answer =
+        "Maintain close monitoring of fluid balance and electrolytes.";
+      expect(buildCitedSources(context, answer)).toEqual([
+        {
+          type: "general_knowledge",
+          id: "general-knowledge",
+          label: "General medical knowledge",
+          excerpt:
+            "This answer is based on the AI's general medical training, not the retrieved sources.",
+          cited: true,
+        },
+      ]);
+
+      const answerWithReference =
+        "According to ICU Guide, fluid balance should be monitored closely.";
+      const cited = buildCitedSources(context, answerWithReference);
+      expect(cited).toHaveLength(1);
+      expect(cited[0].type).toBe("document_chunk");
+    });
   });
 
   // ── Conversation history ───────────────────────────────────────────────────
@@ -385,7 +491,9 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
       expect(res.body.data[0]).toHaveProperty("ai_response");
       expect(res.body.data[0]).toHaveProperty("cited_sources");
 
-      const timestamps = res.body.data.map((entry) => new Date(entry.created_at).getTime());
+      const timestamps = res.body.data.map((entry) =>
+        new Date(entry.created_at).getTime(),
+      );
       const sorted = [...timestamps].sort((a, b) => a - b);
       expect(timestamps).toEqual(sorted);
     });
@@ -446,7 +554,9 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
 
       const chat = res.body.data.find((entry) => entry.id === chatId);
       expect(chat).toBeDefined();
-      expect(chat.title).toBe("What is the pathophysiology of acute kidney injury?");
+      expect(chat.title).toBe(
+        "What is the pathophysiology of acute kidney injury?",
+      );
       expect(chat.message_count).toBe(2);
       expect(chat.last_message_at).toEqual(expect.any(String));
     });
@@ -545,12 +655,16 @@ describe("RAG Assistant API (retrieval-augmented generation)", () => {
 
       expect(after.statusCode).toBe(404);
 
-      const orphans = await prisma.aiChatMessage.count({ where: { sessionId: chatId } });
+      const orphans = await prisma.aiChatMessage.count({
+        where: { sessionId: chatId },
+      });
       expect(orphans).toBe(0);
     });
 
     it("DELETE /api/rag/chats removes every chat the clinician owns", async () => {
-      await askKnowledge(residentToken, { question: "What defines refractory hypoxaemia?" });
+      await askKnowledge(residentToken, {
+        question: "What defines refractory hypoxaemia?",
+      });
 
       const res = await request(app)
         .delete("/api/rag/chats")
@@ -604,7 +718,10 @@ consultant countersigns in the Kestrel register.`;
           .set("Cookie", `${COOKIE_NAME}=${token}`);
 
         const resource = res.body.data.find((entry) => entry.id === resourceId);
-        if (resource && !["PENDING", "PROCESSING"].includes(resource.embedding_status)) {
+        if (
+          resource &&
+          !["PENDING", "PROCESSING"].includes(resource.embedding_status)
+        ) {
           return resource;
         }
         // eslint-disable-next-line no-await-in-loop
@@ -629,7 +746,7 @@ consultant countersigns in the Kestrel register.`;
         chatId,
         "kestrel-protocol.txt",
         KESTREL_PROTOCOL,
-        "text/plain"
+        "text/plain",
       );
 
       expect(res.statusCode).toBe(201);
@@ -645,7 +762,9 @@ consultant countersigns in the Kestrel register.`;
     }, 40000);
 
     it("stores the resource against the chat, not an admission", async () => {
-      const row = await prisma.medicalDocument.findUnique({ where: { id: resourceId } });
+      const row = await prisma.medicalDocument.findUnique({
+        where: { id: resourceId },
+      });
 
       expect(row.chatSessionId).toBe(chatId);
       expect(row.admissionId).toBeNull();
@@ -657,7 +776,7 @@ consultant countersigns in the Kestrel register.`;
         chatId,
         "notes.exe",
         "MZ binary",
-        "application/octet-stream"
+        "application/octet-stream",
       );
 
       expect(res.statusCode).toBe(415);
@@ -678,7 +797,9 @@ consultant countersigns in the Kestrel register.`;
 
       const labels = res.body.data.cited_sources.map((source) => source.label);
       expect(labels).toEqual(
-        expect.arrayContaining([expect.stringContaining("Attached: kestrel-protocol.txt")])
+        expect.arrayContaining([
+          expect.stringContaining("Attached: kestrel-protocol.txt"),
+        ]),
       );
     }, 30000);
 
@@ -695,7 +816,9 @@ consultant countersigns in the Kestrel register.`;
       expect(res.statusCode).toBe(200);
 
       const labels = res.body.data.cited_sources.map((source) => source.label);
-      expect(labels.some((label) => label.includes("kestrel-protocol.txt"))).toBe(false);
+      expect(
+        labels.some((label) => label.includes("kestrel-protocol.txt")),
+      ).toBe(false);
     }, 30000);
 
     it("binds staged files to the message that sent them and returns them on the transcript", async () => {
@@ -703,7 +826,9 @@ consultant countersigns in the Kestrel register.`;
         .get(`/api/rag/chats/${chatId}`)
         .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
 
-      const userMessage = transcript.body.data.messages.find((m) => m.role === "user");
+      const userMessage = transcript.body.data.messages.find(
+        (m) => m.role === "user",
+      );
 
       // The client swaps its optimistic bubble's id for this one, so the two
       // must agree or a sent file would render against the wrong message.
@@ -711,7 +836,9 @@ consultant countersigns in the Kestrel register.`;
 
       expect(userMessage.attachments).toHaveLength(1);
       expect(userMessage.attachments[0].id).toBe(resourceId);
-      expect(userMessage.attachments[0].original_filename).toBe("kestrel-protocol.txt");
+      expect(userMessage.attachments[0].original_filename).toBe(
+        "kestrel-protocol.txt",
+      );
       expect(userMessage.attachments[0].is_image).toBe(false);
 
       // The composer only shows unbound files, so this must now be set.
@@ -719,7 +846,9 @@ consultant countersigns in the Kestrel register.`;
         .get(`/api/rag/chats/${chatId}/resources`)
         .set("Cookie", `${COOKIE_NAME}=${residentToken}`);
 
-      expect(list.body.data.find((r) => r.id === resourceId).message_id).toBe(userMessage.id);
+      expect(list.body.data.find((r) => r.id === resourceId).message_id).toBe(
+        userMessage.id,
+      );
     });
 
     it("serves the file inline for previews, to its owner only", async () => {
@@ -757,7 +886,7 @@ consultant countersigns in the Kestrel register.`;
         chatId,
         "intruder.txt",
         "should never land",
-        "text/plain"
+        "text/plain",
       );
 
       expect(upload.statusCode).toBe(404);
@@ -771,8 +900,14 @@ consultant countersigns in the Kestrel register.`;
       expect(res.statusCode).toBe(200);
       expect(res.body.deleted).toBe(1);
 
-      expect(await prisma.medicalDocument.count({ where: { id: resourceId } })).toBe(0);
-      expect(await prisma.documentEmbedding.count({ where: { documentId: resourceId } })).toBe(0);
+      expect(
+        await prisma.medicalDocument.count({ where: { id: resourceId } }),
+      ).toBe(0);
+      expect(
+        await prisma.documentEmbedding.count({
+          where: { documentId: resourceId },
+        }),
+      ).toBe(0);
     });
 
     it("deleting the chat deletes the resources it still holds", async () => {
@@ -781,7 +916,7 @@ consultant countersigns in the Kestrel register.`;
         chatId,
         "kestrel-protocol-v2.txt",
         KESTREL_PROTOCOL,
-        "text/plain"
+        "text/plain",
       );
       const secondId = attached.body.data.id;
       await waitForIndexing(residentToken, chatId, secondId);
@@ -793,9 +928,17 @@ consultant countersigns in the Kestrel register.`;
       expect(res.statusCode).toBe(200);
       expect(res.body.resources_deleted).toBe(1);
 
-      expect(await prisma.medicalDocument.count({ where: { id: secondId } })).toBe(0);
-      expect(await prisma.documentEmbedding.count({ where: { documentId: secondId } })).toBe(0);
-      expect(await prisma.aiChatSession.count({ where: { id: chatId } })).toBe(0);
+      expect(
+        await prisma.medicalDocument.count({ where: { id: secondId } }),
+      ).toBe(0);
+      expect(
+        await prisma.documentEmbedding.count({
+          where: { documentId: secondId },
+        }),
+      ).toBe(0);
+      expect(await prisma.aiChatSession.count({ where: { id: chatId } })).toBe(
+        0,
+      );
     }, 40000);
   });
 });
