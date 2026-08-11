@@ -29,6 +29,9 @@ const admissionQuerySchema = Joi.object({
   unit: Joi.string().trim().max(50).allow("").optional(),
   page: Joi.number().integer().min(1).default(1).optional(),
   limit: Joi.number().integer().min(1).max(100).default(10).optional(),
+  // When true: only return DISCHARGED admissions whose patient does NOT have
+  // a current ACTIVE admission (i.e. they haven't been readmitted yet).
+  readmitEligible: Joi.boolean().truthy("true").falsy("false").optional(),
 });
 
 const admissionCensusQuerySchema = Joi.object({

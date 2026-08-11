@@ -1,9 +1,26 @@
 import { useEffect, useState } from "react";
-import { useAuthStore } from "../../../store/authStore";
 import api from "../../../../lib/api";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
 function unwrapList(payload) {
@@ -13,10 +30,6 @@ function unwrapList(payload) {
 }
 
 export default function Step0Setup({ form }) {
-  const user = useAuthStore((s) => s.user);
-  const isResident = user?.role === "MEDICAL_RESIDENT";
-  const isSpecialist = user?.role === "ICU_SPECIALIST";
-
   const [beds, setBeds] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [nurses, setNurses] = useState([]);
@@ -30,10 +43,12 @@ export default function Step0Setup({ form }) {
       try {
         const [bedsRes, docsRes, nursesRes] = await Promise.all([
           api.get("/admin/beds", { params: { status: "AVAILABLE" } }),
-          isResident
-            ? api.get("/admin/users", { params: { role: "specialist", status: "ACTIVE", limit: 100 } })
-            : Promise.resolve({ data: { data: [] } }),
-          api.get("/admin/users", { params: { role: "nurse", status: "ACTIVE", limit: 100 } }),
+          api.get("/admin/users", {
+            params: { role: "specialist", status: "ACTIVE", limit: 100 },
+          }),
+          api.get("/admin/users", {
+            params: { role: "nurse", status: "ACTIVE", limit: 100 },
+          }),
         ]);
 
         if (cancelled) return;
@@ -43,7 +58,10 @@ export default function Step0Setup({ form }) {
       } catch (error) {
         if (cancelled) return;
         console.error("Failed to fetch setup data:", error);
-        setLoadError(error?.response?.data?.message || "Failed to load beds, specialists or nurses.");
+        setLoadError(
+          error?.response?.data?.message ||
+            "Failed to load beds, specialists or nurses.",
+        );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -52,22 +70,16 @@ export default function Step0Setup({ form }) {
     return () => {
       cancelled = true;
     };
-  }, [isResident]);
-
-  // Auto-assign attending specialist for ICU specialists
-  useEffect(() => {
-    if (isSpecialist && user?.id) {
-      form.setValue("doctor_id", user.id, { shouldValidate: true, shouldDirty: false });
-    }
-  }, [isSpecialist, user?.id, form]);
-
-  const specialistName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "You";
+  }, []);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Setup Admission</CardTitle>
-        <CardDescription>Select the bed, attending physician, and assigned nurse before proceeding.</CardDescription>
+        <CardDescription>
+          Select the bed, attending physician, and assigned nurse before
+          proceeding.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 relative">
         {loading && (
@@ -85,7 +97,9 @@ export default function Step0Setup({ form }) {
           name="bed_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Assign Bed <span className="text-destructive">*</span></FormLabel>
+              <FormLabel>
+                Assign Bed <span className="text-destructive">*</span>
+              </FormLabel>
               <Select
                 value={field.value || null}
                 onValueChange={(val) => field.onChange(val ?? "")}
@@ -119,72 +133,60 @@ export default function Step0Setup({ form }) {
           )}
         />
 
-        {isResident ? (
-          <FormField
-            control={form.control}
-            name="doctor_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Attending ICU Specialist <span className="text-destructive">*</span></FormLabel>
-                <Select
-                  value={field.value || null}
-                  onValueChange={(val) => field.onChange(val ?? "")}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select attending specialist">
-                        {(value) => {
-                          const doc = doctors.find((d) => d.id === value);
-                          return doc ? `Dr. ${doc.first_name} ${doc.last_name}` : null;
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {doctors.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        {loading ? "Loading specialists..." : "No specialists found"}
-                      </div>
-                    ) : (
-                      doctors.map((doc) => (
-                        <SelectItem key={doc.id} value={doc.id}>
-                          Dr. {doc.first_name} {doc.last_name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : (
-          <div className="space-y-2">
-            <label className="text-sm font-medium leading-none">
-              Attending ICU Specialist
-            </label>
-            <div className="p-3 border border-border rounded-md bg-muted/50 text-sm font-medium">
-              Dr. {specialistName}{" "}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">(Auto-assigned)</span>
-            </div>
-            <FormField
-              control={form.control}
-              name="doctor_id"
-              render={() => (
-                <FormItem>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        )}
+        <FormField
+          control={form.control}
+          name="doctor_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Attending ICU Specialist{" "}
+                <span className="text-destructive">*</span>
+              </FormLabel>
+              <Select
+                value={field.value || null}
+                onValueChange={(val) => field.onChange(val ?? "")}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select attending specialist">
+                      {(value) => {
+                        const doc = doctors.find((d) => d.id === value);
+                        return doc
+                          ? `Dr. ${doc.first_name} ${doc.last_name}`
+                          : null;
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {doctors.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      {loading
+                        ? "Loading specialists..."
+                        : "No specialists found"}
+                    </div>
+                  ) : (
+                    doctors.map((doc) => (
+                      <SelectItem key={doc.id} value={doc.id}>
+                        Dr. {doc.first_name} {doc.last_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
           name="nurse_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Assign Nurse <span className="text-destructive">*</span></FormLabel>
+              <FormLabel>
+                Assign Nurse <span className="text-destructive">*</span>
+              </FormLabel>
               <Select
                 value={field.value || null}
                 onValueChange={(val) => field.onChange(val ?? "")}
@@ -194,7 +196,9 @@ export default function Step0Setup({ form }) {
                     <SelectValue placeholder="Select an available nurse">
                       {(value) => {
                         const nurse = nurses.find((n) => n.id === value);
-                        return nurse ? `${nurse.first_name} ${nurse.last_name}, RN` : null;
+                        return nurse
+                          ? `${nurse.first_name} ${nurse.last_name}, RN`
+                          : null;
                       }}
                     </SelectValue>
                   </SelectTrigger>

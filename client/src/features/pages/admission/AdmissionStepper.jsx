@@ -6,23 +6,18 @@ export default function AdmissionStepper({ steps, currentStep, onStepClick }) {
       {steps.map((step, index) => {
         const isCompleted = currentStep > index;
         const isActive = currentStep === index;
-        
+
         return (
           <button
             key={index}
             type="button"
-            onClick={() => {
-              if (isCompleted || isActive) {
-                onStepClick(index);
-              }
-            }}
-            disabled={!isCompleted && !isActive}
+            onClick={() => onStepClick(index)}
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-left ${
               isActive
                 ? "bg-primary/10 text-primary font-medium"
                 : isCompleted
-                ? "hover:bg-muted text-foreground cursor-pointer"
-                : "text-muted-foreground opacity-50 cursor-not-allowed"
+                  ? "hover:bg-muted text-foreground cursor-pointer"
+                  : "text-muted-foreground hover:bg-muted/10 cursor-pointer"
             }`}
           >
             {isCompleted ? (

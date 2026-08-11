@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Bed, Clock, Search, X, RefreshCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Bed,
+  Clock,
+  Search,
+  X,
+  RefreshCcw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import api from "@/lib/api";
 import { patientsService } from "../services/patientsService";
 import { Button } from "@/components/ui/button";
@@ -45,6 +53,24 @@ export default function DischargePage() {
   const [isListLoading, setIsListLoading] = useState(true);
   const [listError, setListError] = useState(null);
 
+  const [dischargedAdmissions, setDischargedAdmissions] = useState([]);
+  const [dischargedMeta, setDischargedMeta] = useState({
+    total: 0,
+    page: 1,
+    limit: PAGE_SIZE,
+  });
+  const [dischargedPage, setDischargedPage] = useState(1);
+  const [dischargedSearchInput, setDischargedSearchInput] = useState("");
+  const [dischargedDebouncedSearch, setDischargedDebouncedSearch] =
+    useState("");
+  const [isDischargedListLoading, setIsDischargedListLoading] = useState(true);
+  const [dischargedListError, setDischargedListError] = useState(null);
+
+  // Which panel mode: 'active' shows discharge detail, 'discharged' shows readmit detail
+  const [panelMode, setPanelMode] = useState("active");
+  const [selectedDischargedAdmission, setSelectedDischargedAdmission] =
+    useState(null);
+
   // ── Selected patient detail (fetched independently of the list page) ────
   const [selectedAdmission, setSelectedAdmission] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
@@ -56,6 +82,12 @@ export default function DischargePage() {
   const [messageType, setMessageType] = useState("success");
 
   const totalPages = Math.max(1, Math.ceil((meta.total || 0) / PAGE_SIZE));
+  const totalDischargedPages = Math.max(
+    1,
+    Math.ceil((dischargedMeta.total || 0) / PAGE_SIZE),
+  );
+
+  const navigate = useNavigate();
 
   // Debounce free-text search input before hitting the server
   useEffect(() => {
@@ -72,9 +104,21 @@ export default function DischargePage() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = dischargedSearchInput.trim();
+      setDischargedDebouncedSearch((prev) => {
+        if (prev !== next) setDischargedPage(1);
+        return next;
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [dischargedSearchInput]);
+
   // Guards against out-of-order responses (e.g. a slow page-2 request
   // resolving after a faster page-1 request) clobbering fresher state.
   const requestIdRef = useRef(0);
+  const dischargedRequestIdRef = useRef(0);
 
   const fetchList = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -102,10 +146,54 @@ export default function DischargePage() {
     }
   }, [page, debouncedSearch]);
 
+  const fetchDischargedList = useCallback(async () => {
+    const requestId = ++dischargedRequestIdRef.current;
+    try {
+      setIsDischargedListLoading(true);
+      setDischargedListError(null);
+      const params = { page: dischargedPage, limit: PAGE_SIZE };
+      if (dischargedDebouncedSearch) params.search = dischargedDebouncedSearch;
+      const res =
+        await patientsService.getDischargedAdmissionsPaginated(params);
+      if (requestId !== dischargedRequestIdRef.current) return [];
+      const list = res?.data || [];
+      setDischargedAdmissions(list);
+      setDischargedMeta(
+        res?.meta || {
+          total: list.length,
+          page: dischargedPage,
+          limit: PAGE_SIZE,
+        },
+      );
+      return list;
+    } catch (err) {
+      if (requestId !== dischargedRequestIdRef.current) return [];
+      console.error("Failed to load discharged admissions", err);
+      setDischargedListError(
+        err.response?.data?.message || "Failed to load discharged patients.",
+      );
+      setDischargedAdmissions([]);
+      return [];
+    } finally {
+      if (requestId === dischargedRequestIdRef.current)
+        setIsDischargedListLoading(false);
+    }
+  }, [dischargedPage, dischargedDebouncedSearch]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchList();
   }, [fetchList]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDischargedList();
+  }, [fetchDischargedList]);
+
+  const refreshAll = () => {
+    fetchList();
+    fetchDischargedList();
+  };
 
   // Auto-select the first visible patient whenever nothing is selected yet
   useEffect(() => {
@@ -151,7 +239,23 @@ export default function DischargePage() {
 
   const handleSelect = (admission) => {
     setMessage("");
+    setSelectedDischargedAdmission(null);
+    setPanelMode("active");
     setSearchParams({ admissionId: admission.id });
+  };
+
+  const handleSelectDischarged = (admission) => {
+    setMessage("");
+    setSelectedDischargedAdmission(admission);
+    setPanelMode("discharged");
+    setSearchParams({});
+  };
+
+  const handleReadmit = (admission) => {
+    // Refresh the discharged list after navigating so the patient disappears
+    // from the list when the user returns (the server now excludes patients
+    // who already have an active admission).
+    navigate(`/patients/admit?readmitId=${admission.id}`);
   };
 
   const handleDischarge = async () => {
@@ -180,6 +284,11 @@ export default function DischargePage() {
       if (refreshed.length === 0 && page > 1) {
         setPage((p) => Math.max(1, p - 1));
       }
+      // Refresh the discharged list too — the newly discharged patient should
+      // appear there immediately, and the readmitEligible filter should now
+      // exclude them if they had a prior readmission pending.
+      fetchDischargedList();
+      setPanelMode("active");
     } catch (err) {
       console.error(err);
       setMessage(err.response?.data?.message || "Failed to discharge patient.");
@@ -205,13 +314,13 @@ export default function DischargePage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={fetchList}
-            disabled={isListLoading}
+            onClick={refreshAll}
+            disabled={isListLoading || isDischargedListLoading}
             className="h-9 w-9 shrink-0"
-            title="Refresh list"
+            title="Refresh lists"
           >
             <RefreshCcw
-              className={`h-4 w-4 ${isListLoading ? "animate-spin" : ""}`}
+              className={`h-4 w-4 ${isListLoading || isDischargedListLoading ? "animate-spin" : ""}`}
             />
           </Button>
         </div>
@@ -329,141 +438,358 @@ export default function DischargePage() {
                 </CardFooter>
               )}
             </Card>
+
           </div>
 
           {/* Patient Details - Right Content */}
           <div className="lg:col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle>Patient Information</CardTitle>
+                <CardTitle>
+                  {panelMode === "discharged"
+                    ? "Discharged Patient — Readmission"
+                    : "Patient Information"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                {isDetailLoading ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-24" />
+                {/* ── Discharged patient detail + Readmit action ── */}
+                {panelMode === "discharged" ? (
+                  !selectedDischargedAdmission ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="mb-2 text-4xl">📋</div>
+                      <p className="text-sm text-muted-foreground">
+                        Select a discharged patient to view details and readmit
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="border-b pb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                              <AvatarFallback className="font-bold">
+                                {getInitials(selectedDischargedAdmission.patient?.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h2 className="font-semibold text-lg">
+                                {selectedDischargedAdmission.patient?.name}
+                              </h2>
+                              <p className="text-sm text-muted-foreground">
+                                MRN: {selectedDischargedAdmission.patient?.mrn || "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 text-right">
+                            <div className="flex items-center justify-end gap-1.5 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span className="text-xs">
+                                Discharged:{" "}
+                                {selectedDischargedAdmission.discharged_at
+                                  ? new Date(
+                                      selectedDischargedAdmission.discharged_at,
+                                    ).toLocaleString()
+                                  : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Chief Complaint
+                          </p>
+                          <p className="text-sm">
+                            {selectedDischargedAdmission.chief_complaint || "—"}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Provisional Diagnosis
+                          </p>
+                          <p className="text-sm">
+                            {selectedDischargedAdmission.provisional_diagnosis || "—"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Readmit action — prominently placed in the detail panel */}
+                      <div className="border-t pt-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          This patient has been discharged. You can readmit them,
+                          which will open the Admission form pre-filled with their
+                          previous clinical history. A new admission record will be
+                          created; all previous records remain associated with the
+                          original admission.
+                        </p>
+                        <Button
+                          onClick={() =>
+                            handleReadmit(selectedDischargedAdmission)
+                          }
+                          className="w-full sm:w-auto"
+                        >
+                          Readmit Patient
+                        </Button>
                       </div>
                     </div>
-                    <Skeleton className="h-20 w-full" />
+                  )
+                ) : (
+                  /* ── Active patient detail + Discharge action ── */
+                  isDetailLoading ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-20 w-full" />
+                    </div>
+                  ) : detailError ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+                      <p className="text-sm text-destructive">{detailError}</p>
+                    </div>
+                  ) : !selectedAdmission ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="mb-2 text-4xl">👤</div>
+                      <p className="text-sm text-muted-foreground">
+                        Select an active patient to discharge, or a discharged
+                        patient to readmit
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="border-b pb-4">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                              <AvatarFallback className="font-bold">
+                                {getInitials(selectedAdmission.patient?.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h2 className="font-semibold text-lg">
+                                {selectedAdmission.patient?.name}
+                              </h2>
+                              <p className="text-sm text-muted-foreground">
+                                MRN: {selectedAdmission.patient?.mrn || "—"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 text-right">
+                            <div className="flex items-center justify-end gap-1.5 text-sm">
+                              <Bed className="h-4 w-4" />
+                              <span className="font-medium">
+                                {selectedAdmission.bed?.bed_number || "—"}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-end gap-1.5 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span className="text-xs">
+                                {selectedAdmission.admitted_at
+                                  ? new Date(
+                                      selectedAdmission.admitted_at,
+                                    ).toLocaleString()
+                                  : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Chief Complaint
+                          </p>
+                          <p className="text-sm">
+                            {selectedAdmission.chief_complaint || "—"}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Provisional Diagnosis
+                          </p>
+                          <p className="text-sm">
+                            {selectedAdmission.provisional_diagnosis || "—"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4 space-y-4">
+                        {message && (
+                          <div
+                            className={`flex items-start justify-between gap-3 p-3 rounded-md text-sm border ${
+                              messageType === "success"
+                                ? "bg-status-available/10 text-status-available border-status-available/30"
+                                : "bg-destructive/10 text-destructive border-destructive/20"
+                            }`}
+                          >
+                            <span>{message}</span>
+                            <button
+                              type="button"
+                              onClick={() => setMessage("")}
+                              className="shrink-0 opacity-70 hover:opacity-100"
+                              aria-label="Dismiss message"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                        {isSpecialist ? (
+                          <Button
+                            variant="destructive"
+                            onClick={handleDischarge}
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto"
+                          >
+                            {isSubmitting ? "Processing..." : "Discharge Patient"}
+                          </Button>
+                        ) : (
+                          <Button
+                            disabled
+                            className="w-full sm:w-auto"
+                            title="Only ICU Specialists can discharge patients"
+                          >
+                            Discharge (Specialist Only)
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                )}
+              </CardContent>
+            </Card>
+            <Card className="flex flex-col mt-4">
+              <CardHeader className="pb-3 gap-3">
+                <div>
+                  <CardTitle className="text-base">
+                    Discharged Patients
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {dischargedMeta.total} patient
+                    {dischargedMeta.total !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={dischargedSearchInput}
+                    onChange={(e) => setDischargedSearchInput(e.target.value)}
+                    placeholder="Search name or MRN..."
+                    className="pl-8 h-9 text-sm pr-8"
+                  />
+                  {dischargedSearchInput && (
+                    <button
+                      type="button"
+                      onClick={() => setDischargedSearchInput("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col pt-0">
+                {isDischargedListLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
                   </div>
-                ) : detailError ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
-                    <p className="text-sm text-destructive">{detailError}</p>
+                ) : dischargedListError ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+                    <p className="text-sm text-destructive">
+                      {dischargedListError}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchDischargedList}
+                    >
+                      Try again
+                    </Button>
                   </div>
-                ) : !selectedAdmission ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="mb-2 text-4xl">👤</div>
-                    <p className="text-sm text-muted-foreground">
-                      Select a patient to view details and process discharge
+                ) : dischargedAdmissions.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <p className="text-sm text-muted-foreground text-center">
+                      {dischargedDebouncedSearch
+                        ? "No discharged patients match your search."
+                        : "No discharged admissions."}
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-6">
-                    {/* Patient Header */}
-                    <div className="border-b pb-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12">
-                            <AvatarFallback className="font-bold">
-                              {getInitials(selectedAdmission.patient?.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h2 className="font-semibold text-lg">
-                              {selectedAdmission.patient?.name}
-                            </h2>
-                            <p className="text-sm text-muted-foreground">
-                              MRN: {selectedAdmission.patient?.mrn || "—"}
-                            </p>
+                  <div className="space-y-2 max-h-72 lg:max-h-[55vh] overflow-y-auto pr-1">
+                    {dischargedAdmissions.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => handleSelectDischarged(a)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                          selectedDischargedAdmission?.id === a.id
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted/50 hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback className="text-xs font-bold">
+                            {getInitials(a.patient?.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">
+                            {a.patient?.name || "Unknown"}
+                          </div>
+                          <div className="text-xs opacity-75 truncate">
+                            {a.patient?.mrn ? `${a.patient.mrn} · ` : ""}
+                            {a.discharged_at
+                              ? new Date(a.discharged_at).toLocaleDateString()
+                              : "Discharged"}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 text-right">
-                          <div className="flex items-center justify-end gap-1.5 text-sm">
-                            <Bed className="h-4 w-4" />
-                            <span className="font-medium">
-                              {selectedAdmission.bed?.bed_number || "—"}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-end gap-1.5 text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span className="text-xs">
-                              {selectedAdmission.admitted_at
-                                ? new Date(
-                                    selectedAdmission.admitted_at,
-                                  ).toLocaleString()
-                                : "—"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Clinical Information */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          Chief Complaint
-                        </p>
-                        <p className="text-sm">
-                          {selectedAdmission.chief_complaint || "—"}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          Provisional Diagnosis
-                        </p>
-                        <p className="text-sm">
-                          {selectedAdmission.provisional_diagnosis || "—"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Discharge Actions */}
-                    <div className="border-t pt-4 space-y-4">
-                      {message && (
-                        <div
-                          className={`flex items-start justify-between gap-3 p-3 rounded-md text-sm border ${
-                            messageType === "success"
-                              ? "bg-status-available/10 text-status-available border-status-available/30"
-                              : "bg-destructive/10 text-destructive border-destructive/20"
-                          }`}
-                        >
-                          <span>{message}</span>
-                          <button
-                            type="button"
-                            onClick={() => setMessage("")}
-                            className="shrink-0 opacity-70 hover:opacity-100"
-                            aria-label="Dismiss message"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                      {isSpecialist ? (
-                        <Button
-                          variant="destructive"
-                          onClick={handleDischarge}
-                          disabled={isSubmitting}
-                          className="w-full sm:w-auto"
-                        >
-                          {isSubmitting ? "Processing..." : "Discharge Patient"}
-                        </Button>
-                      ) : (
-                        <Button
-                          disabled
-                          className="w-full sm:w-auto"
-                          title="Only ICU Specialists can discharge patients"
-                        >
-                          Discharge (Specialist Only)
-                        </Button>
-                      )}
-                    </div>
+                      </button>
+                    ))}
                   </div>
                 )}
               </CardContent>
+              {!isDischargedListLoading &&
+                !dischargedListError &&
+                totalDischargedPages > 1 && (
+                  <CardFooter className="flex items-center justify-between pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        setDischargedPage((p) => Math.max(1, p - 1))
+                      }
+                      disabled={dischargedPage === 1}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      Page {dischargedPage} of {totalDischargedPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() =>
+                        setDischargedPage((p) =>
+                          Math.min(totalDischargedPages, p + 1),
+                        )
+                      }
+                      disabled={dischargedPage === totalDischargedPages}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                )}
             </Card>
           </div>
         </div>
