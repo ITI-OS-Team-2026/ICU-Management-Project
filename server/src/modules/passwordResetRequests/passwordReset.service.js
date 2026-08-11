@@ -22,7 +22,8 @@ const notifyAdminsOfNewRequest = async (request, requester) => {
       select: { id: true },
     });
 
-    const requesterName = `${requester.firstName} ${requester.lastName}`.trim() || requester.email;
+    const requesterName =
+      `${requester.firstName} ${requester.lastName}`.trim() || requester.email;
 
     await Promise.all(
       admins.map((admin) =>
@@ -31,12 +32,17 @@ const notifyAdminsOfNewRequest = async (request, requester) => {
           title: "Password reset requested",
           message: `${requesterName} (${requester.role}) requested a password reset.`,
           type: "ALERT",
-          metadata: { entityType: "PASSWORD_RESET_REQUEST", entityId: request.id },
-        })
-      )
+          metadata: {
+            entityType: "PASSWORD_RESET_REQUEST",
+            entityId: request.id,
+          },
+        }),
+      ),
     );
   } catch (err) {
-    logger.error(`Failed to notify admins of password reset request ${request.id}: ${err.message}`);
+    logger.error(
+      `Failed to notify admins of password reset request ${request.id}: ${err.message}`,
+    );
   }
 };
 
@@ -48,7 +54,10 @@ const createRequest = async (userId, message) => {
     where: { requesterId: userId, status: "PENDING" },
   });
   if (existing) {
-    throw new APIError("You already have a pending password reset request. Please wait for the admin to respond.", 409);
+    throw new APIError(
+      "You already have a pending password reset request. Please wait for the admin to respond.",
+      409,
+    );
   }
 
   const requester = await prisma.user.findUnique({
@@ -86,22 +95,37 @@ const createRequest = async (userId, message) => {
  * the way a public consumer signup form would.
  */
 const createPublicRequest = async (email, message) => {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
 
   const user = await prisma.user.findUnique({
     where: { email: normalizedEmail },
-    select: { id: true, firstName: true, lastName: true, email: true, role: true, status: true },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      role: true,
+      status: true,
+    },
   });
 
   if (!user || user.status !== "ACTIVE") {
-    throw new APIError("No active account was found for that email address.", 404);
+    throw new APIError(
+      "No active account was found for that email address.",
+      404,
+    );
   }
 
   const existing = await prisma.passwordResetRequest.findFirst({
     where: { requesterId: user.id, status: "PENDING" },
   });
   if (existing) {
-    throw new APIError("A reset request for this account is already pending. Please wait for the admin to respond.", 409);
+    throw new APIError(
+      "A reset request for this account is already pending. Please wait for the admin to respond.",
+      409,
+    );
   }
 
   const request = await prisma.passwordResetRequest.create({
@@ -191,7 +215,13 @@ const getAllRequests = async ({ status, page = 1, limit = 10, search }) => {
         createdAt: true,
         resolvedAt: true,
         requester: {
-          select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+          },
         },
         resolvedBy: {
           select: { firstName: true, lastName: true },
@@ -244,10 +274,39 @@ const countPendingRequests = async () => {
 const resolveRequest = async (adminId, requestId, adminReply) => {
   const request = await prisma.passwordResetRequest.findUnique({
     where: { id: requestId },
-    include: { requester: { select: { email: true, firstName: true } } },
+    include: {
+      requester: {
+        select: { id: true, email: true, firstName: true, role: true },
+      },
+    },
   });
   if (!request) throw new APIError("Request not found", 404);
-  if (request.status === "RESOLVED") throw new APIError("This request is already resolved", 409);
+  if (request.status === "RESOLVED")
+    throw new APIError("This request is already resolved", 409);
+
+  if (request.requester.role === "SYSTEM_ADMIN") {
+    if (adminId === request.requester.id) {
+      throw new APIError(
+        "A SYSTEM_ADMIN password reset request must be approved by a different active SYSTEM_ADMIN.",
+        403,
+      );
+    }
+
+    const otherAdmins = await prisma.user.count({
+      where: {
+        role: "SYSTEM_ADMIN",
+        status: "ACTIVE",
+        id: { not: request.requester.id },
+      },
+    });
+
+    if (otherAdmins === 0) {
+      throw new APIError(
+        "Cannot resolve a SYSTEM_ADMIN password reset request in-app when no other active SYSTEM_ADMIN exists. Use emergency support to reset this account.",
+        403,
+      );
+    }
+  }
 
   // Hash the new temp password
   const passwordHash = await bcrypt.hash(adminReply, 10);
@@ -293,7 +352,9 @@ const resolveRequest = async (adminId, requestId, adminReply) => {
       </div>
     `,
   }).catch((err) =>
-    logger.error(`Failed to email temp password to ${request.requester.email}: ${err.message}`)
+    logger.error(
+      `Failed to email temp password to ${request.requester.email}: ${err.message}`,
+    ),
   );
 
   return updated;
