@@ -1,24 +1,43 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
 
 export const patientsService = {
   async getActiveAdmissions(params = {}) {
-    const { data } = await api.get('/admissions', {
-      params: { status: 'ACTIVE', limit: 100, ...params },
+    const { data } = await api.get("/admissions", {
+      params: { status: "ACTIVE", limit: 100, ...params },
     });
     return data.data || [];
   },
 
-  async getActiveAdmissionsPaginated(params = {}) {
-    const { data } = await api.get('/admissions', {
-      params: { status: 'ACTIVE', ...params },
+  async getAdmissionsPaginated(params = {}) {
+    const { data } = await api.get("/admissions", {
+      params,
     });
     return data;
   },
 
+  async getActiveAdmissionsPaginated(params = {}) {
+    return this.getAdmissionsPaginated({ status: "ACTIVE", ...params });
+  },
+
+  async getDischargedAdmissionsPaginated(params = {}) {
+    return this.getAdmissionsPaginated({
+      status: "DISCHARGED",
+      readmitEligible: true,
+      ...params,
+    });
+  },
+
   /** Ward-wide acuity counts and the list of bed units currently in use. */
-  async getAdmissionCensus(status = 'ACTIVE') {
-    const { data } = await api.get('/admissions/census', { params: { status } });
-    return data?.data || { stats: { total: 0, critical: 0, watchful: 0, stable: 0 }, units: [] };
+  async getAdmissionCensus(status = "ACTIVE") {
+    const { data } = await api.get("/admissions/census", {
+      params: { status },
+    });
+    return (
+      data?.data || {
+        stats: { total: 0, critical: 0, watchful: 0, stable: 0 },
+        units: [],
+      }
+    );
   },
 
   async getAdmissionById(id) {
@@ -72,7 +91,10 @@ export const patientsService = {
   },
 
   async createClinicalNote(admissionId, content) {
-    const { data } = await api.post(`/admissions/${admissionId}/notes/clinical`, { content });
+    const { data } = await api.post(
+      `/admissions/${admissionId}/notes/clinical`,
+      { content },
+    );
     return data?.data;
   },
 

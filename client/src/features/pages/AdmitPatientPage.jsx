@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../lib/api";
+import { patientsService } from "../services/patientsService";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -32,13 +33,17 @@ const optionalNumberInRange = (min, max, label, { integer = false } = {}) =>
   z
     .string()
     .optional()
-    .refine((val) => {
-      if (val === undefined || val === null || String(val).trim() === "") return true;
-      const num = integer ? parseInt(val, 10) : parseFloat(val);
-      if (Number.isNaN(num)) return false;
-      if (integer && String(val).includes(".")) return false;
-      return num >= min && num <= max;
-    }, `${label} must be between ${min} and ${max}${integer ? " (whole number)" : ""}`);
+    .refine(
+      (val) => {
+        if (val === undefined || val === null || String(val).trim() === "")
+          return true;
+        const num = integer ? parseInt(val, 10) : parseFloat(val);
+        if (Number.isNaN(num)) return false;
+        if (integer && String(val).includes(".")) return false;
+        return num >= min && num <= max;
+      },
+      `${label} must be between ${min} and ${max}${integer ? " (whole number)" : ""}`,
+    );
 
 // Aligned with server fullAdmissionCreateSchema + vitalSign.schema.js
 const admissionSchema = z
@@ -77,7 +82,13 @@ const admissionSchema = z
     gender: optionalEnum(["MALE", "FEMALE"]),
     residence: z.string().optional(),
     occupation: z.string().optional(),
-    marital_status: optionalEnum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER"]),
+    marital_status: optionalEnum([
+      "SINGLE",
+      "MARRIED",
+      "DIVORCED",
+      "WIDOWED",
+      "OTHER",
+    ]),
     handedness: optionalEnum(["RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN"]),
     children_count: z.string().optional(),
     youngest_child_age: z.string().optional(),
@@ -103,7 +114,9 @@ const admissionSchema = z
     previous_operations: z.boolean().default(false),
     has_allergies: z.boolean().default(false),
     traveled_abroad: z.boolean().default(false),
-    custom_fields: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
+    custom_fields: z
+      .array(z.object({ label: z.string(), value: z.string() }))
+      .default([]),
     // The allergens behind the has_allergies switch. Blank rows are dropped on
     // submit, so an empty row the user added and abandoned is not an error.
     allergies: z
@@ -111,90 +124,118 @@ const admissionSchema = z
         z.object({
           allergen: z.string().optional(),
           severity: z.string().optional(),
-        })
+        }),
       )
       .default([]),
     consanguinity: z.boolean().default(false),
     family_similar_conditions: z.string().optional(),
     inherited_diseases: z.string().optional(),
-    
-    menstrual_history: z.object({
-      menarche: z.string().optional(),
-      cycle_rhythm: z.string().optional(),
-      cycle_length: z.string().optional(),
-      duration_of_flow: z.string().optional(),
-      character_of_flow: z.string().optional(),
-      dysmenorrhea: z.boolean().default(false),
-      dysmenorrhea_details: z.string().optional(),
-      inter_menstrual_period: z.string().optional(),
-      contraception: z.string().optional(),
-      lnmp: z.string().optional(),
-    }).optional(),
 
-    obstetric_history: z.object({
-      gravidity: z.string().optional(),
-      parity: z.string().optional(),
-      full_term_normal_deliveries: z.string().optional(),
-      pre_term: z.string().optional(),
-      still_birth: z.string().optional(),
-      difficult_labors: z.string().optional(),
-      cesarean_section: z.boolean().default(false),
-      cesarean_details: z.string().optional(),
-      last_delivery_date: z.string().optional(),
-      abortions: z.boolean().default(false),
-      abortions_details: z.string().optional(),
-      previous_pregnancies_complications: z.string().optional(),
-      previous_puerperal_complications: z.string().optional(),
-    }).optional(),
+    menstrual_history: z
+      .object({
+        menarche: z.string().optional(),
+        cycle_rhythm: z.string().optional(),
+        cycle_length: z.string().optional(),
+        duration_of_flow: z.string().optional(),
+        character_of_flow: z.string().optional(),
+        dysmenorrhea: z.boolean().default(false),
+        dysmenorrhea_details: z.string().optional(),
+        inter_menstrual_period: z.string().optional(),
+        contraception: z.string().optional(),
+        lnmp: z.string().optional(),
+      })
+      .optional(),
+
+    obstetric_history: z
+      .object({
+        gravidity: z.string().optional(),
+        parity: z.string().optional(),
+        full_term_normal_deliveries: z.string().optional(),
+        pre_term: z.string().optional(),
+        still_birth: z.string().optional(),
+        difficult_labors: z.string().optional(),
+        cesarean_section: z.boolean().default(false),
+        cesarean_details: z.string().optional(),
+        last_delivery_date: z.string().optional(),
+        abortions: z.boolean().default(false),
+        abortions_details: z.string().optional(),
+        previous_pregnancies_complications: z.string().optional(),
+        previous_puerperal_complications: z.string().optional(),
+      })
+      .optional(),
 
     temperature: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.temperature.min,
       VITAL_ABSOLUTE_RANGES.temperature.max,
-      "Temperature"
+      "Temperature",
     ),
     pulse: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.pulse.min,
       VITAL_ABSOLUTE_RANGES.pulse.max,
       "Heart rate",
-      { integer: true }
+      { integer: true },
     ),
     systolic_bp: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.systolic_bp.min,
       VITAL_ABSOLUTE_RANGES.systolic_bp.max,
       "Systolic BP",
-      { integer: true }
+      { integer: true },
     ),
     diastolic_bp: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.diastolic_bp.min,
       VITAL_ABSOLUTE_RANGES.diastolic_bp.max,
       "Diastolic BP",
-      { integer: true }
+      { integer: true },
     ),
     respiratory_rate: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.respiratory_rate.min,
       VITAL_ABSOLUTE_RANGES.respiratory_rate.max,
       "Respiratory rate",
-      { integer: true }
+      { integer: true },
     ),
     spo2: optionalNumberInRange(
       VITAL_ABSOLUTE_RANGES.spo2.min,
       VITAL_ABSOLUTE_RANGES.spo2.max,
       "SpO2",
-      { integer: true }
+      { integer: true },
     ),
     is_override: z.boolean().default(false),
     override_reason: z.string().optional(),
 
     general_exam: z.object({
-      appearance_consciousness: z.object({ result: z.string(), notes: z.string().optional() }),
-      built_nutrition: z.object({ result: z.string(), notes: z.string().optional() }),
-      complexion: z.object({ result: z.string(), notes: z.string().optional() }),
-      decubitus_attitude: z.object({ result: z.string(), notes: z.string().optional() }),
+      appearance_consciousness: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      built_nutrition: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      complexion: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      decubitus_attitude: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
       head_neck: z.object({ result: z.string(), notes: z.string().optional() }),
-      upper_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
-      lower_limbs: z.object({ result: z.string(), notes: z.string().optional() }),
-      skin_lymph_nodes: z.object({ result: z.string(), notes: z.string().optional() }),
-      other_systems: z.object({ result: z.string(), notes: z.string().optional() }),
+      upper_limbs: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      lower_limbs: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      skin_lymph_nodes: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
+      other_systems: z.object({
+        result: z.string(),
+        notes: z.string().optional(),
+      }),
     }),
 
     local_exam: z.object({
@@ -215,7 +256,7 @@ const admissionSchema = z
           type: z.string().min(1, "Classification is required"),
           status: z.string().min(1, "Certainty is required"),
           clinical_notes: z.string().optional(),
-        })
+        }),
       )
       .default([]),
 
@@ -223,7 +264,7 @@ const admissionSchema = z
       .array(
         z.object({
           type: z.string().min(1, "Type is required"),
-        })
+        }),
       )
       .default([]),
 
@@ -250,14 +291,18 @@ const admissionSchema = z
                 message: "Describe the dosing schedule",
               });
             }
-            if (med.start_date && med.end_date && new Date(med.end_date) < new Date(med.start_date)) {
+            if (
+              med.start_date &&
+              med.end_date &&
+              new Date(med.end_date) < new Date(med.start_date)
+            ) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["end_date"],
                 message: "End date cannot be before the start date",
               });
             }
-          })
+          }),
       )
       .default([]),
   })
@@ -453,7 +498,12 @@ const steps = [
       "obstetric_history",
     ],
   },
-  { title: "Vital Signs", component: Step3VitalSigns, fields: VITAL_FIELDS, owns: VITAL_FIELDS },
+  {
+    title: "Vital Signs",
+    component: Step3VitalSigns,
+    fields: VITAL_FIELDS,
+    owns: VITAL_FIELDS,
+  },
   {
     title: "General Examination",
     component: Step4GeneralExamination,
@@ -472,8 +522,18 @@ const steps = [
     fields: [],
     owns: ["provisional_diagnosis", "diagnoses"],
   },
-  { title: "Investigations", component: Step7Investigations, fields: [], owns: ["investigations"] },
-  { title: "Treatment Plan", component: Step8TreatmentPlan, fields: [], owns: ["medications"] },
+  {
+    title: "Investigations",
+    component: Step7Investigations,
+    fields: [],
+    owns: ["investigations"],
+  },
+  {
+    title: "Treatment Plan",
+    component: Step8TreatmentPlan,
+    fields: [],
+    owns: ["medications"],
+  },
 ];
 
 /** The earliest step that renders any of the errored fields, or null. */
@@ -485,13 +545,15 @@ function findStepForFields(fieldNames) {
 }
 
 function parseOptionalInt(value) {
-  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  if (value === undefined || value === null || String(value).trim() === "")
+    return undefined;
   const n = parseInt(value, 10);
   return Number.isNaN(n) ? undefined : n;
 }
 
 function parseOptionalFloat(value) {
-  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  if (value === undefined || value === null || String(value).trim() === "")
+    return undefined;
   const n = parseFloat(value);
   return Number.isNaN(n) ? undefined : n;
 }
@@ -506,17 +568,21 @@ const DRAFT_KEY = "smartcare:admit-patient-draft";
 // abandoned form never resurfaces under a new patient.
 const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
-function clearDraft() {
+function getDraftKey(readmitId) {
+  return readmitId ? `${DRAFT_KEY}:readmit:${readmitId}` : DRAFT_KEY;
+}
+
+function clearDraft(readmitId) {
   try {
-    sessionStorage.removeItem(DRAFT_KEY);
+    sessionStorage.removeItem(getDraftKey(readmitId));
   } catch {
     // ignore
   }
 }
 
-function loadDraft() {
+function loadDraft(readmitId) {
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
+    const raw = sessionStorage.getItem(getDraftKey(readmitId));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.values || typeof parsed.values !== "object") return null;
@@ -525,7 +591,7 @@ function loadDraft() {
     // ago. Silently repopulating it into a new admission risks carrying one
     // patient's history into another's record.
     if (parsed.savedAt && Date.now() - parsed.savedAt > DRAFT_MAX_AGE_MS) {
-      clearDraft();
+      clearDraft(readmitId);
       return null;
     }
 
@@ -542,27 +608,35 @@ function loadDraft() {
   }
 }
 
-function saveDraft(values, step) {
+function saveDraft(values, step, readmitId) {
   try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values, step, savedAt: Date.now() }));
+    sessionStorage.setItem(
+      getDraftKey(readmitId),
+      JSON.stringify({ values, step, savedAt: Date.now() }),
+    );
   } catch {
     // ignore quota / private mode
   }
 }
 
 export default function AdmitPatientPage() {
-  const draft = useRef(loadDraft()).current;
+  const [searchParams] = useSearchParams();
+  const readmitId = searchParams.get("readmitId");
+  const prevReadmitId = useRef(readmitId);
+  const [draft, setDraft] = useState(() => loadDraft(readmitId));
   const [currentStep, setCurrentStep] = useState(draft?.step ?? 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [prefillValues, setPrefillValues] = useState(null);
+  const [readmitAdmission, setReadmitAdmission] = useState(null);
   const submittingRef = useRef(false);
 
   const navigate = useNavigate();
 
   const form = useForm({
     resolver: zodResolver(admissionSchema),
-    defaultValues: draft?.values ?? defaultValues,
+    defaultValues: prefillValues ?? draft?.values ?? defaultValues,
     mode: "onTouched",
     shouldUnregister: false,
   });
@@ -570,18 +644,112 @@ export default function AdmitPatientPage() {
   // Keep draft in sync so submit errors / accidental navigation don't lose data
   useEffect(() => {
     const subscription = form.watch((values) => {
-      saveDraft(values, currentStep);
+      saveDraft(values, currentStep, readmitId);
     });
     return () => subscription.unsubscribe();
-  }, [form, currentStep]);
+  }, [form, currentStep, readmitId]);
 
   useEffect(() => {
-    saveDraft(form.getValues(), currentStep);
-  }, [currentStep, form]);
+    saveDraft(form.getValues(), currentStep, readmitId);
+  }, [currentStep, form, readmitId]);
+
+  // When the user leaves the page without submitting, discard the plain (non-readmit)
+  // draft entirely so the form always starts in a clean state on the next visit.
+  // Readmit drafts are keyed differently and are intentionally preserved so a
+  // partially-filled readmit can be resumed if the user navigates back.
+  useEffect(() => {
+    return () => {
+      // Only clear the plain draft; readmit drafts survive navigation.
+      clearDraft(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!readmitId) {
+      setPrefillValues(null);
+      setReadmitAdmission(null);
+
+      // The unmount cleanup already cleared the plain draft, so always start
+      // with a blank form whenever readmitId is absent (covers both the
+      // initial render and when the user navigates back from a readmit flow).
+      clearDraft(null);
+      setDraft({ values: defaultValues, step: 0 });
+      form.reset(defaultValues);
+      setCurrentStep(0);
+      prevReadmitId.current = null;
+      return;
+    }
+
+    if (!prevReadmitId.current) {
+      clearDraft(null);
+    }
+    prevReadmitId.current = readmitId;
+    const loadReadmit = async () => {
+      try {
+        const admission = await patientsService.getAdmissionById(readmitId);
+        if (!admission) return;
+
+        const admissionValues = {
+          ...defaultValues,
+          national_id:
+            admission.patient?.national_id || admission.patient?.mrn || "",
+          name: admission.patient?.name || "",
+          age: admission.patient?.age ? String(admission.patient.age) : "",
+          gender: admission.patient?.gender || "",
+          residence: admission.patient?.residence || "",
+          occupation: admission.patient?.occupation || "",
+          marital_status: admission.patient?.marital_status || "",
+          handedness: admission.patient?.handedness || "",
+          children_count: admission.patient?.childrenCount
+            ? String(admission.patient.childrenCount)
+            : "",
+          youngest_child_age: admission.patient?.youngestChildAge || "",
+          chief_complaint: admission.chief_complaint || "",
+          complaint_analysis: admission.complaint_analysis || "",
+          related_system_symptoms: admission.symptoms_related_system || "",
+          other_system_symptoms: admission.symptoms_other_systems || "",
+          previous_investigations: admission.previous_investigations || {
+            labs: "",
+            radiology: "",
+          },
+          previous_treatments: admission.previous_treatments || "",
+          provisional_diagnosis: admission.provisional_diagnosis || "",
+          diagnoses:
+            admission.diagnosesList?.map((d) => ({
+              condition_name: d.condition_name || "",
+              type: d.type || "",
+              status: d.status || "",
+              clinical_notes: d.clinical_notes || "",
+            })) || [],
+          investigations:
+            admission.pendingInvestigations?.map((order) => ({
+              type: order.orderName || order.order_name || "",
+            })) || [],
+          // Keep the patient history defaults intact, but readmit should not auto-select bed/nurse/doctor.
+        };
+
+        setPrefillValues(admissionValues);
+        setReadmitAdmission(admission);
+        setCurrentStep(0);
+      } catch (err) {
+        console.error("Failed to load readmit details", err);
+      }
+    };
+
+    loadReadmit();
+  }, [readmitId, form]);
+
+  useEffect(() => {
+    if (!prefillValues) return;
+    form.reset(prefillValues);
+  }, [prefillValues, form]);
 
   const scrollToFirstError = () => {
     requestAnimationFrame(() => {
-      const el = document.querySelector("[data-slot=form-message], [aria-invalid=true]");
+      const el = document.querySelector(
+        "[data-slot=form-message], [aria-invalid=true]",
+      );
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   };
@@ -597,13 +765,14 @@ export default function AdmitPatientPage() {
       setCurrentStep(targetStep);
       window.scrollTo(0, 0);
       setSubmitError(
-        `Please fix the highlighted problem in "${steps[targetStep].title}" before submitting.`
+        `Please fix the highlighted problem in "${steps[targetStep].title}" before submitting.`,
       );
     } else if (targetStep === null && errored.length > 0) {
       // A cross-field rule (the critical-vitals override) that belongs to no
       // single step — say so rather than failing silently.
       setSubmitError(
-        Object.values(errors)[0]?.message || "Please review the form before submitting."
+        Object.values(errors)[0]?.message ||
+          "Please review the form before submitting.",
       );
     }
 
@@ -644,7 +813,9 @@ export default function AdmitPatientPage() {
           : await form.trigger(fieldsToValidate, { shouldFocus: true });
 
       if (!isValid) {
-        setTimeout(() => { scrollToFirstError(); }, 50);
+        setTimeout(() => {
+          scrollToFirstError();
+        }, 50);
         return;
       }
 
@@ -683,7 +854,9 @@ export default function AdmitPatientPage() {
         respiratory_rate: parseOptionalInt(data.respiratory_rate),
         spo2: parseOptionalInt(data.spo2),
       };
-      const hasVitals = Object.values(vitalPayload).some((v) => v !== undefined);
+      const hasVitals = Object.values(vitalPayload).some(
+        (v) => v !== undefined,
+      );
 
       const fullPayload = {
         patient: {
@@ -696,7 +869,9 @@ export default function AdmitPatientPage() {
           occupation: emptyToUndefined(data.occupation),
           marital_status: emptyToUndefined(data.marital_status),
           handedness: emptyToUndefined(data.handedness),
-          children_count: data.children_count ? parseInt(data.children_count, 10) : undefined,
+          children_count: data.children_count
+            ? parseInt(data.children_count, 10)
+            : undefined,
           youngest_child_age: emptyToUndefined(data.youngest_child_age),
         },
         medical_history: {
@@ -705,19 +880,29 @@ export default function AdmitPatientPage() {
           past_similar_conditions: data.similar_conditions
             ? emptyToUndefined(data.similar_conditions_detail)
             : undefined,
-          past_diseases: data.past_diseases?.length > 0 ? data.past_diseases : undefined,
+          past_diseases:
+            data.past_diseases?.length > 0 ? data.past_diseases : undefined,
           previous_operations: !!data.previous_operations,
           has_allergies: !!data.has_allergies,
           traveled_abroad: !!data.traveled_abroad,
           consanguinity: !!data.consanguinity,
-          family_similar_conditions: emptyToUndefined(data.family_similar_conditions),
-          inherited_diseases: data.inherited_diseases ? [data.inherited_diseases] : undefined,
+          family_similar_conditions: emptyToUndefined(
+            data.family_similar_conditions,
+          ),
+          inherited_diseases: data.inherited_diseases
+            ? [data.inherited_diseases]
+            : undefined,
           free_text: emptyToUndefined(data.past_history_paragraph),
-          custom_fields: Object.keys(customFieldsObj).length > 0 ? customFieldsObj : undefined,
+          custom_fields:
+            Object.keys(customFieldsObj).length > 0
+              ? customFieldsObj
+              : undefined,
           special_habits: emptyToUndefined(data.special_habits),
           blood_transfusion: !!data.blood_transfusion,
-          menstrual_history: data.gender === "FEMALE" ? data.menstrual_history : undefined,
-          obstetric_history: data.gender === "FEMALE" ? data.obstetric_history : undefined,
+          menstrual_history:
+            data.gender === "FEMALE" ? data.menstrual_history : undefined,
+          obstetric_history:
+            data.gender === "FEMALE" ? data.obstetric_history : undefined,
         },
         admission: {
           bed_id: data.bed_id,
@@ -728,10 +913,13 @@ export default function AdmitPatientPage() {
           transfer_doctor_name: emptyToUndefined(data.transfer_doctor_name),
           chief_complaint: data.chief_complaint,
           complaint_analysis: emptyToUndefined(data.complaint_analysis),
-          symptoms_related_system: emptyToUndefined(data.related_system_symptoms),
+          symptoms_related_system: emptyToUndefined(
+            data.related_system_symptoms,
+          ),
           symptoms_other_systems: emptyToUndefined(data.other_system_symptoms),
           previous_investigations:
-            data.previous_investigations?.labs || data.previous_investigations?.radiology
+            data.previous_investigations?.labs ||
+            data.previous_investigations?.radiology
               ? data.previous_investigations
               : undefined,
           previous_treatments: emptyToUndefined(data.previous_treatments),
@@ -788,7 +976,9 @@ export default function AdmitPatientPage() {
             dosage: med.dosage.trim(),
             frequency: med.frequency,
             frequency_text:
-              med.frequency === "OTHER" ? emptyToUndefined(med.frequency_text) : undefined,
+              med.frequency === "OTHER"
+                ? emptyToUndefined(med.frequency_text)
+                : undefined,
             route: med.route,
             instructions: emptyToUndefined(med.instructions),
             start_date: dateInputToIso(med.start_date),
@@ -808,7 +998,7 @@ export default function AdmitPatientPage() {
       // medications and allergies — was written in that one transaction. There
       // is no follow-up request that can leave the record half-built.
 
-      clearDraft();
+      clearDraft(readmitId);
       navigate(`/patients`);
     } catch (err) {
       submittingRef.current = false;
@@ -824,13 +1014,28 @@ export default function AdmitPatientPage() {
 
       // Surface common field-level server validation messages on the form
       const lower = String(serverMessage).toLowerCase();
-      if (lower.includes("bed")) form.setError("bed_id", { type: "server", message: serverMessage });
-      if (lower.includes("doctor")) form.setError("doctor_id", { type: "server", message: serverMessage });
-      if (lower.includes("age")) form.setError("age", { type: "server", message: serverMessage });
-      if (lower.includes("marital")) form.setError("marital_status", { type: "server", message: serverMessage });
-      if (lower.includes("handedness")) form.setError("handedness", { type: "server", message: serverMessage });
-      if (lower.includes("vital") || lower.includes("critical") || lower.includes("override")) {
-        form.setError("temperature", { type: "server", message: serverMessage });
+      if (lower.includes("bed"))
+        form.setError("bed_id", { type: "server", message: serverMessage });
+      if (lower.includes("doctor"))
+        form.setError("doctor_id", { type: "server", message: serverMessage });
+      if (lower.includes("age"))
+        form.setError("age", { type: "server", message: serverMessage });
+      if (lower.includes("marital"))
+        form.setError("marital_status", {
+          type: "server",
+          message: serverMessage,
+        });
+      if (lower.includes("handedness"))
+        form.setError("handedness", { type: "server", message: serverMessage });
+      if (
+        lower.includes("vital") ||
+        lower.includes("critical") ||
+        lower.includes("override")
+      ) {
+        form.setError("temperature", {
+          type: "server",
+          message: serverMessage,
+        });
       }
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -870,6 +1075,21 @@ export default function AdmitPatientPage() {
         </Alert>
       )}
 
+      {readmitAdmission && (
+        <Alert
+          variant="secondary"
+          className="border-border bg-muted text-foreground"
+        >
+          <AlertTitle>Readmit prefill applied</AlertTitle>
+          <AlertDescription>
+            This admission form was prefilled from discharged admission
+            <span className="font-medium"> #{readmitAdmission.id}</span>.
+            Assignment fields like bed, nurse, and doctor must still be selected
+            manually.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex flex-col md:flex-row gap-8">
         <AdmissionStepper
           steps={steps}
@@ -900,7 +1120,9 @@ export default function AdmitPatientPage() {
                     type="button"
                     className="cursor-pointer"
                     disabled={isSubmitting}
-                    onClick={() => form.handleSubmit(onSubmit, handleInvalidSubmit)()}
+                    onClick={() =>
+                      form.handleSubmit(onSubmit, handleInvalidSubmit)()
+                    }
                   >
                     {isSubmitting ? "Submitting..." : "Submit Admission"}
                   </Button>
@@ -911,7 +1133,7 @@ export default function AdmitPatientPage() {
                     disabled={isValidating}
                     onClick={handleNext}
                   >
-                    {isValidating ? 'Validating...' : 'Next'}
+                    {isValidating ? "Validating..." : "Next"}
                   </Button>
                 )}
               </div>

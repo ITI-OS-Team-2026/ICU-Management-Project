@@ -6,7 +6,7 @@ export default function AdmissionStepper({ steps, currentStep, onStepClick }) {
       {steps.map((step, index) => {
         const isCompleted = currentStep > index;
         const isActive = currentStep === index;
-        
+
         return (
           <button
             key={index}
@@ -16,8 +16,8 @@ export default function AdmissionStepper({ steps, currentStep, onStepClick }) {
               isActive
                 ? "bg-primary/10 text-primary font-medium"
                 : isCompleted
-                ? "hover:bg-muted text-foreground cursor-pointer"
-                : "text-muted-foreground hover:bg-muted/10 cursor-pointer"
+                  ? "hover:bg-muted text-foreground cursor-pointer"
+                  : "text-muted-foreground hover:bg-muted/10 cursor-pointer"
             }`}
           >
             {isCompleted ? (
