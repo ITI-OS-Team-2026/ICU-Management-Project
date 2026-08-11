@@ -33,11 +33,14 @@ const generateTokenForRole = async (email, role) => {
   };
 };
 
+const testPatientFilter = { mrn: { startsWith: "VS-TEST-" } };
+const testAdmissionFilter = { patient: testPatientFilter };
+
 async function cleanupTestData() {
-  await prisma.vitalSign.deleteMany({});
-  await prisma.admissionNurse.deleteMany({});
-  await prisma.admission.deleteMany({});
-  await prisma.patient.deleteMany({ where: { mrn: { startsWith: "VS-TEST-" } } });
+  await prisma.vitalSign.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admissionNurse.deleteMany({ where: { admission: testAdmissionFilter } });
+  await prisma.admission.deleteMany({ where: testAdmissionFilter });
+  await prisma.patient.deleteMany({ where: testPatientFilter });
   await prisma.bed.deleteMany({ where: { bedNumber: { startsWith: "VS-" } } });
 }
 

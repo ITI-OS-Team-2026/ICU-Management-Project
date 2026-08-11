@@ -19,7 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getVitalStatus, getVitalValue } from '@/features/utils/vitalStatus';
 
-const MIN_POINTS = 3;
+const MIN_POINTS = 1;
 
 export const TIME_RANGE_OPTIONS = [
   { id: '24h', label: '24h', fullLabel: '24 Hours' },
@@ -70,7 +70,7 @@ function getDefaultDateFormat(range) {
 function filterTrendData(allData, range) {
   if (!allData || !allData.length || range === 'all') return allData;
 
-  const latestTime = Math.max(...allData.map((item) => item.timestamp));
+  const latestTime = Date.now();
 
   let cutoffMs = 0;
   if (range === '24h') cutoffMs = 24 * 60 * 60 * 1000;
@@ -79,8 +79,7 @@ function filterTrendData(allData, range) {
 
   if (!cutoffMs) return allData;
 
-  const filtered = allData.filter((item) => item.timestamp >= latestTime - cutoffMs);
-  return filtered.length >= MIN_POINTS ? filtered : allData;
+  return allData.filter((item) => item.timestamp >= latestTime - cutoffMs);
 }
 
 function createTrendData(readings, getValue) {
@@ -206,7 +205,7 @@ function EmptyTrendCard({ Icon, title, unit, ariaLabel, layout = 'compact', time
         )}
         <Separator className="bg-border" />
         <div className="flex h-[120px] items-center justify-center font-sans text-xs text-muted-foreground">
-          Insufficient data for trend
+          Not Enough Entries
         </div>
       </CardContent>
     </Card>
@@ -335,7 +334,7 @@ export const VitalTrendChart = memo(function VitalTrendChart({
                 fill={latestStatus.stroke}
                 fillOpacity={0.12}
                 strokeWidth={2}
-                dot={false}
+                dot={chartData.length < 2}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--background)' }}
               />
             </AreaChart>
@@ -468,7 +467,7 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
                 dataKey="systolic"
                 stroke={latestStatus.stroke}
                 strokeWidth={2}
-                dot={false}
+                dot={chartData.length < 2}
                 activeDot={{ r: 3, strokeWidth: 1.5, stroke: 'var(--background)' }}
               />
               <Line
@@ -477,7 +476,7 @@ export const BloodPressureTrendChart = memo(function BloodPressureTrendChart({
                 stroke={latestStatus.stroke}
                 strokeDasharray="4 3"
                 strokeWidth={2}
-                dot={false}
+                dot={chartData.length < 2}
                 activeDot={{ r: 3, strokeWidth: 1.5, stroke: 'var(--background)' }}
               />
             </LineChart>

@@ -58,7 +58,7 @@ describe("SOAP Follow-ups API", () => {
   });
 
   afterAll(async () => {
-    await prisma.followUp.deleteMany();
+    await prisma.followUp.deleteMany({ where: { admissionId: testAdmission.id } });
     await prisma.admission.deleteMany({ where: { id: testAdmission.id } });
     await prisma.bed.deleteMany({ where: { bedNumber: "BED-FOLLOWUP-1" } });
     await prisma.patient.deleteMany({ where: { mrn: "MRN-FOLLOWUP-123" } });
