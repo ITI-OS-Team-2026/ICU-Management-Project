@@ -890,6 +890,7 @@ const unassignNurse = async (req, admissionId, nurseId) => {
 const getClinicalLogs = async (admissionId = null) => {
   const clinicalTables = [
     'Medication',
+    'MedicationAdministration',
     'Diagnosis',
     'VitalSign',
     'LabResult',
@@ -899,7 +900,9 @@ const getClinicalLogs = async (admissionId = null) => {
     'Patient',
     'Admission',
     'FollowUp',
-    'MedicalDocument'
+    'MedicalDocument',
+    'ClinicalNote',
+    'NursingNote'
   ];
 
   const whereClause = {

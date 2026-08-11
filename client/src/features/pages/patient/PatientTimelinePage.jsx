@@ -178,6 +178,8 @@ export default function PatientTimelinePage() {
         else if (log.action === 'UPDATE') dotColor = 'bg-status-maintenance';
         
         if (log.targetTable === 'Medication') dotColor = 'bg-primary';
+        if (log.targetTable === 'MedicationAdministration') dotColor = 'bg-status-available';
+        if (log.targetTable === 'ClinicalNote' || log.targetTable === 'NursingNote') dotColor = 'bg-muted-foreground';
         if (log.targetTable === 'Diagnosis') dotColor = 'bg-status-occupied';
         if (log.targetTable === 'LabResult' || log.targetTable === 'InvestigationOrder') dotColor = 'bg-status-reserved';
 
@@ -185,10 +187,19 @@ export default function PatientTimelinePage() {
         
         let title = `${log.targetTable} ${log.action.toLowerCase()}d`;
         if (log.targetTable === 'VitalSign') title = `Vitals ${log.action.toLowerCase()}d`;
+        if (log.targetTable === 'MedicationAdministration') title = `Medication Administered`;
+        if (log.targetTable === 'ClinicalNote') title = `Clinical Note ${log.action.toLowerCase()}d`;
+        if (log.targetTable === 'NursingNote') title = `Nursing Note ${log.action.toLowerCase()}d`;
         
         let desc = `By ${log.user?.name || 'System'}`;
         if (log.targetTable === 'Medication' && log.newValues?.drugName) {
           desc += ` — ${log.newValues.drugName}`;
+        }
+        if (log.targetTable === 'ClinicalNote' && log.newValues?.content) {
+          desc += ` — ${log.newValues.content.substring(0, 50)}${log.newValues.content.length > 50 ? '...' : ''}`;
+        }
+        if (log.targetTable === 'NursingNote' && log.newValues?.note) {
+          desc += ` — ${log.newValues.note.substring(0, 50)}${log.newValues.note.length > 50 ? '...' : ''}`;
         }
         
         return {

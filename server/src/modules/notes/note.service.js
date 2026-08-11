@@ -1,7 +1,8 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
+const { auditedTransaction } = require("../../middlewares/auditLog");
 
-const createClinicalNote = async (admissionId, authorId, content) => {
+const createClinicalNote = async (req, admissionId, authorId, content) => {
   const admission = await prisma.admission.findUnique({
     where: { id: admissionId },
   });
@@ -14,12 +15,19 @@ const createClinicalNote = async (admissionId, authorId, content) => {
     throw new APIError("Cannot add note to non-active admission", 400);
   }
 
-  return await prisma.clinicalNote.create({
-    data: {
-      admissionId,
-      authorId,
-      content,
-    },
+  return auditedTransaction(req, { action: "CREATE", targetTable: "ClinicalNote" }, async (tx) => {
+    const note = await tx.clinicalNote.create({
+      data: {
+        admissionId,
+        authorId,
+        content,
+      },
+    });
+    return {
+      targetId: note.id,
+      newValues: note,
+      result: note,
+    };
   });
 };
 
@@ -35,7 +43,7 @@ const getClinicalNotes = async (admissionId) => {
   });
 };
 
-const deleteClinicalNote = async (noteId) => {
+const deleteClinicalNote = async (req, noteId) => {
   const note = await prisma.clinicalNote.findUnique({
     where: { id: noteId },
   });
@@ -44,12 +52,20 @@ const deleteClinicalNote = async (noteId) => {
     throw new APIError("Clinical note not found", 404);
   }
 
-  await prisma.clinicalNote.delete({
-    where: { id: noteId },
+  return auditedTransaction(req, { action: "ARCHIVE", targetTable: "ClinicalNote" }, async (tx) => {
+    await tx.clinicalNote.delete({
+      where: { id: noteId },
+    });
+    return {
+      targetId: noteId,
+      oldValues: note,
+      newValues: null,
+      result: true,
+    };
   });
 };
 
-const createNursingNote = async (admissionId, authorId, noteContent) => {
+const createNursingNote = async (req, admissionId, authorId, noteContent) => {
   const admission = await prisma.admission.findUnique({
     where: { id: admissionId },
   });
@@ -62,12 +78,19 @@ const createNursingNote = async (admissionId, authorId, noteContent) => {
     throw new APIError("Cannot add note to non-active admission", 400);
   }
 
-  return await prisma.nursingNote.create({
-    data: {
-      admissionId,
-      authorId,
-      note: noteContent,
-    },
+  return auditedTransaction(req, { action: "CREATE", targetTable: "NursingNote" }, async (tx) => {
+    const note = await tx.nursingNote.create({
+      data: {
+        admissionId,
+        authorId,
+        note: noteContent,
+      },
+    });
+    return {
+      targetId: note.id,
+      newValues: note,
+      result: note,
+    };
   });
 };
 
@@ -83,7 +106,7 @@ const getNursingNotes = async (admissionId) => {
   });
 };
 
-const deleteNursingNote = async (noteId) => {
+const deleteNursingNote = async (req, noteId) => {
   const note = await prisma.nursingNote.findUnique({
     where: { id: noteId },
   });
@@ -92,8 +115,16 @@ const deleteNursingNote = async (noteId) => {
     throw new APIError("Nursing note not found", 404);
   }
 
-  await prisma.nursingNote.delete({
-    where: { id: noteId },
+  return auditedTransaction(req, { action: "ARCHIVE", targetTable: "NursingNote" }, async (tx) => {
+    await tx.nursingNote.delete({
+      where: { id: noteId },
+    });
+    return {
+      targetId: noteId,
+      oldValues: note,
+      newValues: null,
+      result: true,
+    };
   });
 };
 

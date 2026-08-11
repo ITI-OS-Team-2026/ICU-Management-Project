@@ -60,8 +60,8 @@ describe("Clinical & Nursing Notes API", () => {
   });
 
   afterAll(async () => {
-    await prisma.clinicalNote.deleteMany();
-    await prisma.nursingNote.deleteMany();
+    await prisma.clinicalNote.deleteMany({ where: { admissionId: testAdmission.id } });
+    await prisma.nursingNote.deleteMany({ where: { admissionId: testAdmission.id } });
     await prisma.admission.deleteMany({ where: { id: testAdmission.id } });
     await prisma.bed.deleteMany({ where: { bedNumber: "BED-NOTES-1" } });
     await prisma.patient.deleteMany({ where: { mrn: "MRN-NOTES-123" } });

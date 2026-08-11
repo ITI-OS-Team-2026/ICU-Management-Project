@@ -47,6 +47,8 @@ const AUDIT_TARGET_TABLES = [
   'LabResult',
   'InvestigationOrder',
   'ClinicalExamination',
+  'ClinicalNote',
+  'NursingNote',
 ];
 
 const AUDIT_CATEGORY_TABLES = {
@@ -54,7 +56,7 @@ const AUDIT_CATEGORY_TABLES = {
   Admissions: ['Admission', 'AdmissionNurse'],
   Documents: ['MedicalDocument'],
   // Care-plan decisions: what was proposed, approved, and followed up.
-  Treatments: ['TreatmentApproval', 'FollowUp', 'Medication', 'Diagnosis', 'VitalSign', 'LabResult', 'InvestigationOrder', 'ClinicalExamination'],
+  Treatments: ['TreatmentApproval', 'FollowUp', 'Medication', 'Diagnosis', 'VitalSign', 'LabResult', 'InvestigationOrder', 'ClinicalExamination', 'ClinicalNote', 'NursingNote'],
   // Every interaction with the assistants, kept auditable because clinicians
   // act on what these answer.
   AI: ['AiQueryLog', 'AiSummary', 'AiChatSession'],

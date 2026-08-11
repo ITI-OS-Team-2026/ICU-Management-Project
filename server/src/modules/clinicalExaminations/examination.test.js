@@ -60,7 +60,7 @@ describe("Clinical Examinations API", () => {
   });
 
   afterAll(async () => {
-    await prisma.clinicalExamination.deleteMany();
+    await prisma.clinicalExamination.deleteMany({ where: { admissionId: testAdmission.id } });
     await prisma.admission.deleteMany({ where: { id: testAdmission.id } });
     await prisma.bed.deleteMany({ where: { bedNumber: "BED-EXAM-1" } });
     await prisma.patient.deleteMany({ where: { mrn: "MRN-EXAM-123" } });

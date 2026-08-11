@@ -6,7 +6,7 @@ const createClinicalNote = async (req, res, next) => {
     const authorId = req.user.id;
     const { content } = req.body;
 
-    const note = await noteService.createClinicalNote(admissionId, authorId, content);
+    const note = await noteService.createClinicalNote(req, admissionId, authorId, content);
 
     res.status(201).json({
       status: "success",
@@ -37,7 +37,7 @@ const deleteClinicalNote = async (req, res, next) => {
   try {
     const { id: noteId } = req.params;
 
-    await noteService.deleteClinicalNote(noteId);
+    await noteService.deleteClinicalNote(req, noteId);
 
     res.status(204).send();
   } catch (error) {
@@ -51,7 +51,7 @@ const createNursingNote = async (req, res, next) => {
     const authorId = req.user.id;
     const { note: noteContent } = req.body;
 
-    const note = await noteService.createNursingNote(admissionId, authorId, noteContent);
+    const note = await noteService.createNursingNote(req, admissionId, authorId, noteContent);
 
     res.status(201).json({
       status: "success",
@@ -82,7 +82,7 @@ const deleteNursingNote = async (req, res, next) => {
   try {
     const { id: noteId } = req.params;
 
-    await noteService.deleteNursingNote(noteId);
+    await noteService.deleteNursingNote(req, noteId);
 
     res.status(204).send();
   } catch (error) {

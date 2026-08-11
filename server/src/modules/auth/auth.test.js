@@ -86,6 +86,9 @@ async function cleanupTestData() {
   await prisma.auditLog.deleteMany({
     where: { userId: { notIn: protectedIds } },
   });
+  await prisma.medicalDocument.deleteMany({
+    where: { uploadedBy: { notIn: protectedIds } },
+  });
   await prisma.loginAttempt.deleteMany({
     where: {
       OR: [

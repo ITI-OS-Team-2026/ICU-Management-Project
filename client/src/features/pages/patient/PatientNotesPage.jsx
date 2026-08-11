@@ -64,62 +64,7 @@ function getAvatarColor(role) {
   }
 }
 
-/* ================================================================
-   SOAP Section — renders a single SOAP segment with colored border + badge
-   Uses inline styles to guarantee Tailwind doesn't purge the colors.
-   ================================================================ */
-const SOAP_META = {
-  S: { label: 'Subjective', color: '#7c3aed' },   // violet-600
-  O: { label: 'Objective',  color: '#0891b2' },   // cyan-600
-  A: { label: 'Assessment', color: '#ea580c' },   // orange-600
-  P: { label: 'Plan',       color: '#16a34a' },   // green-600
-};
-
-function SOAPSection({ letter, content }) {
-  const meta = SOAP_META[letter];
-  if (!meta || !content) return null;
-
-  // Hex color → rgba background at 12% opacity
-  const bgColor = `${meta.color}1f`;
-
-  return (
-    <div
-      className="border-l-[3px] pl-3 py-1"
-      style={{ borderLeftColor: meta.color }}
-    >
-      {/* Colored pill badge */}
-      <span
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-1"
-        style={{ color: meta.color, backgroundColor: bgColor }}
-      >
-        {letter} — {meta.label}
-      </span>
-      <p className="font-sans text-sm text-foreground leading-relaxed">{content}</p>
-    </div>
-  );
-}
-
-/* ================================================================
-   Parse SOAP from a clinical note's content string.
-   Supports two formats:
-     1. Structured: lines starting with "[S]", "[O]", "[A]", "[P]"
-     2. Freeform: render as plain text
-   ================================================================ */
-function parseSoap(content) {
-  if (!content) return null;
-  // Try structured format: each segment on its own line prefixed by [S], [O], [A], [P]
-  const regex = /\[([SOAP])\]\s*([\s\S]*?)(?=\n?\[([SOAP])\]|$)/gi;
-  const matches = [...content.matchAll(regex)];
-  if (matches.length >= 2) {
-    const result = {};
-    for (const m of matches) {
-      result[m[1].toUpperCase()] = m[2].trim();
-    }
-    return result;
-  }
-  // Fallback: freeform plain text
-  return { _plain: content };
-}
+// Removed SOAP formatting functions as notes are now just plain text.
 
 /* ================================================================
    Clinical Note Card
@@ -129,7 +74,6 @@ function ClinicalNoteCard({ note, canDelete, onDelete }) {
   const initials    = getInitials(note.author?.firstName, note.author?.lastName);
   const roleLabel   = getRoleLabel(note.author?.role);
   const avatarColor = getAvatarColor(note.author?.role);
-  const soap        = parseSoap(note.content);
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
@@ -160,17 +104,8 @@ function ClinicalNoteCard({ note, canDelete, onDelete }) {
       </div>
 
       {/* ─ Content ─ */}
-      <div className="px-4 pb-4 pt-2 space-y-2.5">
-        {soap?._plain ? (
-          <p className="font-sans text-sm text-foreground leading-relaxed whitespace-pre-wrap">{soap._plain}</p>
-        ) : (
-          <>
-            <SOAPSection letter="S" content={soap?.S} />
-            <SOAPSection letter="O" content={soap?.O} />
-            <SOAPSection letter="A" content={soap?.A} />
-            <SOAPSection letter="P" content={soap?.P} />
-          </>
-        )}
+      <div className="px-4 pb-4 pt-1">
+        <p className="font-sans text-sm text-foreground leading-relaxed whitespace-pre-wrap">{note.content}</p>
       </div>
     </div>
   );
@@ -221,33 +156,25 @@ function NursingNoteCard({ note, canDelete, onDelete }) {
 }
 
 /* ================================================================
-   New Clinical Note Dialog (SOAP)
+   New Clinical Note Dialog
    ================================================================ */
 function NewClinicalNoteDialog({ open, onClose, onSave, isSaving }) {
-  const [subjective,  setSubjective]  = useState('');
-  const [objective,   setObjective]   = useState('');
-  const [assessment,  setAssessment]  = useState('');
-  const [plan,        setPlan]        = useState('');
-  const [error,       setError]       = useState('');
+  const [content, setContent] = useState('');
+  const [error, setError]     = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!subjective.trim() && !objective.trim() && !assessment.trim() && !plan.trim()) {
-      setError('Please fill in at least one SOAP field.');
+    if (!content.trim()) {
+      setError('Please enter note content.');
       return;
     }
     setError('');
-    // Serialize into structured format parseable by parseSoap()
-    const parts = [];
-    if (subjective.trim())  parts.push(`[S] ${subjective.trim()}`);
-    if (objective.trim())   parts.push(`[O] ${objective.trim()}`);
-    if (assessment.trim())  parts.push(`[A] ${assessment.trim()}`);
-    if (plan.trim())        parts.push(`[P] ${plan.trim()}`);
-    onSave(parts.join('\n'));
+    onSave(content.trim());
   };
 
   const handleClose = () => {
-    setSubjective(''); setObjective(''); setAssessment(''); setPlan(''); setError('');
+    setContent('');
+    setError('');
     onClose();
   };
 
@@ -257,64 +184,22 @@ function NewClinicalNoteDialog({ open, onClose, onSave, isSaving }) {
         <DialogHeader>
           <DialogTitle className="font-display text-lg font-bold text-foreground flex items-center gap-2">
             <Stethoscope size={18} className="text-primary" />
-            New Progress Note (SOAP)
+            New Progress Note
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {/* Subjective */}
+          {/* Content */}
           <div className="space-y-1.5">
-            <Label htmlFor="cn-subjective" className="text-[11px] font-bold uppercase tracking-widest" style={{ color: SOAP_META.S.color }}>
-              S — Subjective
+            <Label htmlFor="cn-content" className="text-[11px] font-bold uppercase tracking-widest text-primary">
+              Note Details
             </Label>
             <Textarea
-              id="cn-subjective"
-              placeholder="Patient's complaints, symptoms, history as reported…"
-              value={subjective}
-              onChange={(e) => setSubjective(e.target.value)}
-              className="min-h-[70px] text-sm font-sans bg-background resize-none"
-            />
-          </div>
-
-          {/* Objective */}
-          <div className="space-y-1.5">
-            <Label htmlFor="cn-objective" className="text-[11px] font-bold uppercase tracking-widest" style={{ color: SOAP_META.O.color }}>
-              O — Objective
-            </Label>
-            <Textarea
-              id="cn-objective"
-              placeholder="Vitals, lab results, examination findings…"
-              value={objective}
-              onChange={(e) => setObjective(e.target.value)}
-              className="min-h-[70px] text-sm font-sans bg-background resize-none"
-            />
-          </div>
-
-          {/* Assessment */}
-          <div className="space-y-1.5">
-            <Label htmlFor="cn-assessment" className="text-[11px] font-bold uppercase tracking-widest" style={{ color: SOAP_META.A.color }}>
-              A — Assessment
-            </Label>
-            <Textarea
-              id="cn-assessment"
-              placeholder="Diagnosis, clinical impression…"
-              value={assessment}
-              onChange={(e) => setAssessment(e.target.value)}
-              className="min-h-[70px] text-sm font-sans bg-background resize-none"
-            />
-          </div>
-
-          {/* Plan */}
-          <div className="space-y-1.5">
-            <Label htmlFor="cn-plan" className="text-[11px] font-bold uppercase tracking-widest" style={{ color: SOAP_META.P.color }}>
-              P — Plan
-            </Label>
-            <Textarea
-              id="cn-plan"
-              placeholder="Treatment plan, orders, follow-up…"
-              value={plan}
-              onChange={(e) => setPlan(e.target.value)}
-              className="min-h-[70px] text-sm font-sans bg-background resize-none"
+              id="cn-content"
+              placeholder="Enter progress note details..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="min-h-[160px] text-sm font-sans bg-background resize-none"
             />
           </div>
 
