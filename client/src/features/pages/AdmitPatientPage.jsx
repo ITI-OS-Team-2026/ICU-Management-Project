@@ -740,8 +740,7 @@ export default function AdmitPatientPage() {
 
         const admissionValues = {
           ...defaultValues,
-          national_id:
-            admission.patient?.national_id || admission.patient?.mrn || "",
+          national_id: admission.patient?.national_id || "30304071302452",
           name: admission.patient?.name || "",
           age: admission.patient?.age ? String(admission.patient.age) : "",
           gender: admission.patient?.gender?.toUpperCase() || "",
@@ -908,7 +907,7 @@ export default function AdmitPatientPage() {
 
       const fullPayload = {
         patient: {
-          mrn: data.national_id,
+          mrn: readmitAdmission?.patient?.mrn || data.national_id,
           national_id: emptyToUndefined(data.national_id),
           name: data.name,
           age: parseInt(data.age, 10),
