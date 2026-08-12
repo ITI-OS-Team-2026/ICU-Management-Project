@@ -6,7 +6,7 @@ const createVitalSign = async (req, res, next) => {
     const data = req.body;
     const userId = req.user.id;
 
-    const vitalSign = await vitalSignService.logVitalSign(admissionId, data, userId);
+    const vitalSign = await vitalSignService.logVitalSign(req, admissionId, data, userId);
 
     res.status(201).json(vitalSign);
   } catch (error) {
@@ -33,7 +33,7 @@ const updateVitalSign = async (req, res, next) => {
     const data = req.body;
     const userId = req.user.id;
 
-    const updatedVitalSign = await vitalSignService.updateVitalSign(id, data, userId);
+    const updatedVitalSign = await vitalSignService.updateVitalSign(req, id, data, userId);
 
     res.status(200).json(updatedVitalSign);
   } catch (error) {
@@ -44,8 +44,9 @@ const updateVitalSign = async (req, res, next) => {
 const deleteVitalSign = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    await vitalSignService.deleteVitalSign(id);
+    await vitalSignService.deleteVitalSign(req, id, userId);
 
     res.status(204).send();
   } catch (error) {
