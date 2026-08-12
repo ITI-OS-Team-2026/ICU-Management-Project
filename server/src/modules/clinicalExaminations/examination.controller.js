@@ -6,7 +6,7 @@ const createExamination = async (req, res, next) => {
     const data = req.body;
     const examinerId = req.user.id;
 
-    const examination = await examinationService.createExamination(admissionId, examinerId, data);
+    const examination = await examinationService.createExamination(req, admissionId, examinerId, data);
 
     res.status(201).json(examination);
   } catch (error) {

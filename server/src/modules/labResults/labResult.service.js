@@ -1,9 +1,8 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
+const { auditedTransaction } = require("../../middlewares/auditLog");
 
-// POST — record a lab result against an admission.
-// Only allowed while the admission is ACTIVE (same guard as diagnoses/vitals/medications/investigationOrders).
-const createLabResult = async (admissionId, data, userId) => {
+const createLabResult = async (req, admissionId, data, userId) => {
   const admission = await prisma.admission.findUnique({
     where: { id: admissionId },
   });
@@ -16,23 +15,35 @@ const createLabResult = async (admissionId, data, userId) => {
     throw new APIError("Cannot record lab results for an inactive admission", 409);
   }
 
-  return prisma.labResult.create({
-    data: {
-      admissionId: admission.id,
-      recordedById: userId,
-      testName: data.test_name,
-      resultValue: data.result_value,
-      abnormal: data.abnormal,
-    },
-    include: {
-      recordedBy: {
-        select: { id: true, firstName: true, lastName: true, role: true },
+  return await auditedTransaction(req, { action: "CREATE", targetTable: "LabResult" }, async (tx) => {
+    const result = await tx.labResult.create({
+      data: {
+        admissionId: admission.id,
+        recordedById: userId,
+        testName: data.test_name,
+        resultValue: data.result_value,
+        abnormal: data.abnormal,
       },
-    },
+      include: {
+        recordedBy: {
+          select: { id: true, firstName: true, lastName: true, role: true },
+        },
+      },
+    });
+
+    return {
+      result,
+      targetId: result.id,
+      userId,
+      newValues: {
+        testName: result.testName,
+        resultValue: result.resultValue,
+        abnormal: result.abnormal,
+      }
+    };
   });
 };
 
-// GET — list lab results for an admission, filtered by date range and/or abnormal flag.
 const getLabResults = async (admissionId, query) => {
   const admission = await prisma.admission.findUnique({
     where: { id: admissionId },
@@ -70,8 +81,7 @@ const getLabResults = async (admissionId, query) => {
   });
 };
 
-// DELETE — soft-archive a lab result (lab_results has is_archived/archived_at per ERD).
-const deleteLabResult = async (id) => {
+const deleteLabResult = async (req, id, userId) => {
   const labResult = await prisma.labResult.findUnique({
     where: { id },
   });
@@ -84,12 +94,25 @@ const deleteLabResult = async (id) => {
     throw new APIError("Lab result is already archived", 409);
   }
 
-  await prisma.labResult.update({
-    where: { id },
-    data: {
-      isArchived: true,
-      archivedAt: new Date(),
-    },
+  await auditedTransaction(req, { action: "ARCHIVE", targetTable: "LabResult" }, async (tx) => {
+    const result = await tx.labResult.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+      },
+    });
+
+    return {
+      result,
+      targetId: id,
+      userId,
+      oldValues: {
+        testName: labResult.testName,
+        resultValue: labResult.resultValue,
+        abnormal: labResult.abnormal,
+      }
+    };
   });
 };
 

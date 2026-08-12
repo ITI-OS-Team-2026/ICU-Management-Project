@@ -4,6 +4,7 @@ const createLabResult = async (req, res, next) => {
   try {
     const { id: admissionId } = req.params;
     const labResult = await labResultService.createLabResult(
+      req,
       admissionId,
       req.body,
       req.user.id,
@@ -27,7 +28,8 @@ const getLabResults = async (req, res, next) => {
 const deleteLabResult = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await labResultService.deleteLabResult(id);
+    const userId = req.user.id;
+    await labResultService.deleteLabResult(req, id, userId);
     res.status(204).send();
   } catch (error) {
     next(error);
