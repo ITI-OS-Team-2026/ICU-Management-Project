@@ -97,6 +97,9 @@ export function useDashboard() {
         if (log.targetTable === 'VitalSign') title = `Vitals ${log.action.toLowerCase()}d`;
         
         let desc = `By ${log.user?.name || 'System'}`;
+        if (log.patientName) {
+          desc += ` for ${log.patientName}`;
+        }
         if (log.targetTable === 'Medication' && log.newValues?.drugName) {
           desc += ` — ${log.newValues.drugName}`;
         }
