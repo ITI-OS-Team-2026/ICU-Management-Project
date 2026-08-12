@@ -1008,11 +1008,66 @@ const getClinicalLogs = async (admissionId = null) => {
   };
 
   if (admissionId) {
+    const admission = await prisma.admission.findUnique({
+      where: { id: admissionId },
+      select: { patientId: true }
+    });
+
+    const [
+      meds,
+      medAdmins,
+      diagnoses,
+      vitals,
+      labs,
+      investigations,
+      exams,
+      approvals,
+      followUps,
+      docs
+    ] = await Promise.all([
+      prisma.medication.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.medicationAdministration.findMany({ where: { medication: { admissionId } }, select: { id: true } }),
+      prisma.diagnosis.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.vitalSign.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.labResult.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.investigationOrder.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.clinicalExamination.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.treatmentApproval.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.followUp.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.medicalDocument.findMany({ where: { admissionId }, select: { id: true } })
+    ]);
+
     whereClause.OR = [
       { targetTable: "Admission", targetId: admissionId },
+      // Fallback for tables that do store admissionId in newValues (like notes)
       { newValues: { path: ["admissionId"], equals: admissionId } },
       { oldValues: { path: ["admissionId"], equals: admissionId } },
     ];
+
+    if (admission) {
+      whereClause.OR.push({ targetTable: "Patient", targetId: admission.patientId });
+    }
+    
+    const mapIds = (items) => items.map(i => i.id);
+
+    const targetIdMap = {
+      Medication: mapIds(meds),
+      MedicationAdministration: mapIds(medAdmins),
+      Diagnosis: mapIds(diagnoses),
+      VitalSign: mapIds(vitals),
+      LabResult: mapIds(labs),
+      InvestigationOrder: mapIds(investigations),
+      ClinicalExamination: mapIds(exams),
+      TreatmentApproval: mapIds(approvals),
+      FollowUp: mapIds(followUps),
+      MedicalDocument: mapIds(docs)
+    };
+
+    for (const [table, ids] of Object.entries(targetIdMap)) {
+      if (ids.length > 0) {
+        whereClause.OR.push({ targetTable: table, targetId: { in: ids } });
+      }
+    }
   }
 
   const logs = await prisma.auditLog.findMany({
