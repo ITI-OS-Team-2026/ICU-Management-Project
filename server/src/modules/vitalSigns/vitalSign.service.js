@@ -1,7 +1,9 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
 
-const logVitalSign = async (admissionId, data, userId) => {
+const { auditedTransaction } = require("../../middlewares/auditLog");
+
+const logVitalSign = async (req, admissionId, data, userId) => {
   const admission = await prisma.admission.findUnique({
     where: { id: admissionId },
   });
@@ -14,20 +16,42 @@ const logVitalSign = async (admissionId, data, userId) => {
     throw new APIError("Cannot log vitals for an inactive admission", 409);
   }
 
-  const vitalSign = await prisma.vitalSign.create({
-    data: {
-      admissionId,
-      recordedById: userId,
-      temperature: data.temperature,
-      pulse: data.pulse,
-      systolicBp: data.systolic_bp,
-      diastolicBp: data.diastolic_bp,
-      respiratoryRate: data.respiratory_rate,
-      spo2: data.spo2,
-      isOverride: data.is_override || false,
-      overrideReason: data.override_reason,
-    },
-  });
+  const vitalSign = await auditedTransaction(
+    req,
+    { action: "CREATE", targetTable: "VitalSign" },
+    async (tx) => {
+      const created = await tx.vitalSign.create({
+        data: {
+          admissionId,
+          recordedById: userId,
+          temperature: data.temperature,
+          pulse: data.pulse,
+          systolicBp: data.systolic_bp,
+          diastolicBp: data.diastolic_bp,
+          respiratoryRate: data.respiratory_rate,
+          spo2: data.spo2,
+          isOverride: data.is_override || false,
+          overrideReason: data.override_reason,
+        },
+      });
+
+      return {
+        result: created,
+        targetId: created.id,
+        userId,
+        newValues: {
+          temperature: created.temperature,
+          pulse: created.pulse,
+          systolicBp: created.systolicBp,
+          diastolicBp: created.diastolicBp,
+          respiratoryRate: created.respiratoryRate,
+          spo2: created.spo2,
+          isOverride: created.isOverride,
+          overrideReason: created.overrideReason,
+        }
+      };
+    }
+  );
 
   return vitalSign;
 };
@@ -75,7 +99,7 @@ const getVitalSigns = async (admissionId, query) => {
   return vitalSigns;
 };
 
-const updateVitalSign = async (id, data, userId) => {
+const updateVitalSign = async (req, id, data, userId) => {
   const existing = await prisma.vitalSign.findUnique({
     where: { id },
   });
@@ -84,43 +108,70 @@ const updateVitalSign = async (id, data, userId) => {
     throw new APIError("Vital sign record not found", 404);
   }
 
-  // Transaction for append-only behavior
-  return await prisma.$transaction(async (tx) => {
-    // Soft delete old record
-    await tx.vitalSign.update({
-      where: { id },
-      data: {
-        isArchived: true,
-        archivedAt: new Date(),
-      },
-    });
-
-    // Create new record
-    const newRecord = await tx.vitalSign.create({
-      data: {
-        admissionId: existing.admissionId,
-        recordedById: userId, // User making the correction
-        temperature: data.temperature !== undefined ? data.temperature : existing.temperature,
-        pulse: data.pulse !== undefined ? data.pulse : existing.pulse,
-        systolicBp: data.systolic_bp !== undefined ? data.systolic_bp : existing.systolicBp,
-        diastolicBp: data.diastolic_bp !== undefined ? data.diastolic_bp : existing.diastolicBp,
-        respiratoryRate: data.respiratory_rate !== undefined ? data.respiratory_rate : existing.respiratoryRate,
-        spo2: data.spo2 !== undefined ? data.spo2 : existing.spo2,
-        isOverride: data.is_override !== undefined ? data.is_override : existing.isOverride,
-        overrideReason: data.override_reason !== undefined ? data.override_reason : existing.overrideReason,
-      },
-      include: {
-        recordedBy: {
-          select: { id: true, firstName: true, lastName: true, role: true },
+  return await auditedTransaction(
+    req,
+    { action: "UPDATE", targetTable: "VitalSign" },
+    async (tx) => {
+      await tx.vitalSign.update({
+        where: { id },
+        data: {
+          isArchived: true,
+          archivedAt: new Date(),
         },
-      },
-    });
+      });
 
-    return newRecord;
-  });
+      const newRecord = await tx.vitalSign.create({
+        data: {
+          admissionId: existing.admissionId,
+          recordedById: userId,
+          temperature: data.temperature !== undefined ? data.temperature : existing.temperature,
+          pulse: data.pulse !== undefined ? data.pulse : existing.pulse,
+          systolicBp: data.systolic_bp !== undefined ? data.systolic_bp : existing.systolicBp,
+          diastolicBp: data.diastolic_bp !== undefined ? data.diastolic_bp : existing.diastolicBp,
+          respiratoryRate: data.respiratory_rate !== undefined ? data.respiratory_rate : existing.respiratoryRate,
+          spo2: data.spo2 !== undefined ? data.spo2 : existing.spo2,
+          isOverride: data.is_override !== undefined ? data.is_override : existing.isOverride,
+          overrideReason: data.override_reason !== undefined ? data.override_reason : existing.overrideReason,
+        },
+        include: {
+          recordedBy: {
+            select: { id: true, firstName: true, lastName: true, role: true },
+          },
+        },
+      });
+
+      return {
+        result: newRecord,
+        targetId: newRecord.id,
+        userId,
+        oldValues: {
+          id: existing.id,
+          temperature: existing.temperature,
+          pulse: existing.pulse,
+          systolicBp: existing.systolicBp,
+          diastolicBp: existing.diastolicBp,
+          respiratoryRate: existing.respiratoryRate,
+          spo2: existing.spo2,
+          isOverride: existing.isOverride,
+          overrideReason: existing.overrideReason,
+        },
+        newValues: {
+          id: newRecord.id,
+          temperature: newRecord.temperature,
+          pulse: newRecord.pulse,
+          systolicBp: newRecord.systolicBp,
+          diastolicBp: newRecord.diastolicBp,
+          respiratoryRate: newRecord.respiratoryRate,
+          spo2: newRecord.spo2,
+          isOverride: newRecord.isOverride,
+          overrideReason: newRecord.overrideReason,
+        }
+      };
+    }
+  );
 };
 
-const deleteVitalSign = async (id) => {
+const deleteVitalSign = async (req, id, userId) => {
   const vitalSign = await prisma.vitalSign.findUnique({
     where: { id },
   });
@@ -133,13 +184,33 @@ const deleteVitalSign = async (id) => {
     throw new APIError("Vital sign is already archived", 409);
   }
 
-  await prisma.vitalSign.update({
-    where: { id },
-    data: {
-      isArchived: true,
-      archivedAt: new Date(),
-    },
-  });
+  await auditedTransaction(
+    req,
+    { action: "ARCHIVE", targetTable: "VitalSign" },
+    async (tx) => {
+      const result = await tx.vitalSign.update({
+        where: { id },
+        data: {
+          isArchived: true,
+          archivedAt: new Date(),
+        },
+      });
+
+      return {
+        result,
+        targetId: id,
+        userId,
+        oldValues: {
+          temperature: vitalSign.temperature,
+          pulse: vitalSign.pulse,
+          systolicBp: vitalSign.systolicBp,
+          diastolicBp: vitalSign.diastolicBp,
+          respiratoryRate: vitalSign.respiratoryRate,
+          spo2: vitalSign.spo2,
+        }
+      };
+    }
+  );
 };
 
 module.exports = {

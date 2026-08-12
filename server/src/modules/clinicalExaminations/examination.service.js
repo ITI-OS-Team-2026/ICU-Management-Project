@@ -1,36 +1,55 @@
 const prisma = require("../../utils/prismaClient");
 const APIError = require("../../utils/APIError");
+const { auditedTransaction } = require("../../middlewares/auditLog");
 
-const createExamination = async (admissionId, examinerId, data) => {
-  // Verify admission exists and is active
+const createExamination = async (req, admissionId, examinerId, data) => {
   const admission = await prisma.admission.findUnique({
-    where: { id: admissionId }
+    where: { id: admissionId },
   });
 
   if (!admission) {
     throw new APIError("Admission not found", 404);
   }
+
   if (admission.status !== "ACTIVE") {
-    throw new APIError("Cannot add examination to an inactive admission", 400);
+    throw new APIError("Cannot add examination to an inactive admission", 409);
   }
 
-  // Create clinical examination
-  const examination = await prisma.clinicalExamination.create({
-    data: {
-      admissionId,
-      examinerId,
-      generalExams: data.general_exams,
-      localExams: data.local_exams
-    }
-  });
+  return await auditedTransaction(req, { action: "CREATE", targetTable: "ClinicalExamination" }, async (tx) => {
+    const result = await tx.clinicalExamination.create({
+      data: {
+        admissionId: admission.id,
+        examinerId,
+        generalExams: data.general_exams,
+        localExams: data.local_exams,
+      },
+      include: {
+        examiner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+          },
+        },
+      },
+    });
 
-  return examination;
+    return {
+      result,
+      targetId: result.id,
+      userId: examinerId,
+      newValues: {
+        generalExams: result.generalExams,
+        localExams: result.localExams,
+      }
+    };
+  });
 };
 
 const getExaminations = async (admissionId) => {
-  // Verify admission exists
   const admission = await prisma.admission.findUnique({
-    where: { id: admissionId }
+    where: { id: admissionId },
   });
 
   if (!admission) {
@@ -38,23 +57,18 @@ const getExaminations = async (admissionId) => {
   }
 
   const examinations = await prisma.clinicalExamination.findMany({
-    where: {
-      admissionId,
-      isArchived: false
-    },
+    where: { admissionId },
+    orderBy: { examinedAt: "desc" },
     include: {
       examiner: {
         select: {
           id: true,
           firstName: true,
           lastName: true,
-          role: true
-        }
-      }
+          role: true,
+        },
+      },
     },
-    orderBy: {
-      createdAt: "desc"
-    }
   });
 
   return examinations;

@@ -4,6 +4,7 @@ const createInvestigationOrder = async (req, res, next) => {
   try {
     const { id: admissionId } = req.params;
     const order = await investigationOrderService.createInvestigationOrder(
+      req,
       admissionId,
       req.body,
       req.user.id,
@@ -27,7 +28,7 @@ const getInvestigationOrders = async (req, res, next) => {
 const updateInvestigationOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const updated = await investigationOrderService.updateInvestigationOrder(id, req.body);
+    const updated = await investigationOrderService.updateInvestigationOrder(req, id, req.body, req.user.id);
     res.status(200).json(updated);
   } catch (error) {
     next(error);

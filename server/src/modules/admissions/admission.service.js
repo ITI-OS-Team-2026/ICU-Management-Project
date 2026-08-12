@@ -1008,11 +1008,66 @@ const getClinicalLogs = async (admissionId = null) => {
   };
 
   if (admissionId) {
+    const admission = await prisma.admission.findUnique({
+      where: { id: admissionId },
+      select: { patientId: true }
+    });
+
+    const [
+      meds,
+      medAdmins,
+      diagnoses,
+      vitals,
+      labs,
+      investigations,
+      exams,
+      approvals,
+      followUps,
+      docs
+    ] = await Promise.all([
+      prisma.medication.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.medicationAdministration.findMany({ where: { medication: { admissionId } }, select: { id: true } }),
+      prisma.diagnosis.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.vitalSign.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.labResult.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.investigationOrder.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.clinicalExamination.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.treatmentApproval.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.followUp.findMany({ where: { admissionId }, select: { id: true } }),
+      prisma.medicalDocument.findMany({ where: { admissionId }, select: { id: true } })
+    ]);
+
     whereClause.OR = [
       { targetTable: "Admission", targetId: admissionId },
+      // Fallback for tables that do store admissionId in newValues (like notes)
       { newValues: { path: ["admissionId"], equals: admissionId } },
       { oldValues: { path: ["admissionId"], equals: admissionId } },
     ];
+
+    if (admission) {
+      whereClause.OR.push({ targetTable: "Patient", targetId: admission.patientId });
+    }
+    
+    const mapIds = (items) => items.map(i => i.id);
+
+    const targetIdMap = {
+      Medication: mapIds(meds),
+      MedicationAdministration: mapIds(medAdmins),
+      Diagnosis: mapIds(diagnoses),
+      VitalSign: mapIds(vitals),
+      LabResult: mapIds(labs),
+      InvestigationOrder: mapIds(investigations),
+      ClinicalExamination: mapIds(exams),
+      TreatmentApproval: mapIds(approvals),
+      FollowUp: mapIds(followUps),
+      MedicalDocument: mapIds(docs)
+    };
+
+    for (const [table, ids] of Object.entries(targetIdMap)) {
+      if (ids.length > 0) {
+        whereClause.OR.push({ targetTable: table, targetId: { in: ids } });
+      }
+    }
   }
 
   const logs = await prisma.auditLog.findMany({
@@ -1030,20 +1085,107 @@ const getClinicalLogs = async (admissionId = null) => {
       },
     },
   });
-  return logs.map((log) => ({
-    id: log.id,
-    action: log.action,
-    targetTable: log.targetTable,
-    targetId: log.targetId,
-    createdAt: log.createdAt,
-    oldValues: log.oldValues,
-    newValues: log.newValues,
-    user: log.user
-      ? {
-          name: `${log.user.firstName} ${log.user.lastName}`,
-          role: log.user.role,
+
+  return await Promise.all(logs.map(async (log) => {
+    let resolvedAdmissionId = log.newValues?.admissionId || log.oldValues?.admissionId || null;
+    let resolvedPatientName = null;
+
+    if (!resolvedAdmissionId) {
+      try {
+        switch (log.targetTable) {
+          case 'Admission':
+            resolvedAdmissionId = log.targetId;
+            break;
+          case 'Medication': {
+            const res = await prisma.medication.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'MedicationAdministration': {
+            const res = await prisma.medicationAdministration.findUnique({ where: { id: log.targetId }, select: { medication: { select: { admissionId: true } } } });
+            if (res) resolvedAdmissionId = res.medication.admissionId;
+            break;
+          }
+          case 'Diagnosis': {
+            const res = await prisma.diagnosis.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'VitalSign': {
+            const res = await prisma.vitalSign.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'LabResult': {
+            const res = await prisma.labResult.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'InvestigationOrder': {
+            const res = await prisma.investigationOrder.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'ClinicalExamination': {
+            const res = await prisma.clinicalExamination.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'TreatmentApproval': {
+            const res = await prisma.treatmentApproval.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'FollowUp': {
+            const res = await prisma.followUp.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'MedicalDocument': {
+            const res = await prisma.medicalDocument.findUnique({ where: { id: log.targetId }, select: { admissionId: true } });
+            if (res) resolvedAdmissionId = res.admissionId;
+            break;
+          }
+          case 'Patient': {
+            const res = await prisma.admission.findFirst({ where: { patientId: log.targetId, status: 'ACTIVE' }, select: { id: true, patient: { select: { name: true } } } });
+            if (res) {
+              resolvedAdmissionId = res.id;
+              resolvedPatientName = res.patient.name;
+            }
+            break;
+          }
         }
-      : null,
+      } catch (err) {
+        // Record might be deleted
+      }
+    }
+
+    if (resolvedAdmissionId && !resolvedPatientName) {
+      try {
+        const adm = await prisma.admission.findUnique({ where: { id: resolvedAdmissionId }, select: { patient: { select: { name: true } } } });
+        if (adm) resolvedPatientName = adm.patient.name;
+      } catch (err) {
+        // Ignore
+      }
+    }
+
+    return {
+      id: log.id,
+      action: log.action,
+      targetTable: log.targetTable,
+      targetId: log.targetId,
+      createdAt: log.createdAt,
+      oldValues: log.oldValues,
+      newValues: log.newValues,
+      admissionId: resolvedAdmissionId,
+      patientName: resolvedPatientName,
+      user: log.user
+        ? {
+            name: `${log.user.firstName} ${log.user.lastName}`,
+            role: log.user.role,
+          }
+        : null,
+    };
   }));
 };
 
