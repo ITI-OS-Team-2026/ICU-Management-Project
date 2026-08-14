@@ -23,10 +23,15 @@ import {
   History,
   TrendingUp,
   Droplets,
+  Pencil,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import {
   Tooltip,
@@ -36,6 +41,24 @@ import {
 } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { patientsService } from '../../services/patientsService';
 import { useVitals } from '../../hooks/useVitals';
 import { VitalTrendChart, BloodPressureTrendChart, TimeRangeSelector } from '../../components/VitalTrendChart';
@@ -189,7 +212,7 @@ function TrendChartsSkeleton() {
    Main Page Component
    ================================================================ */
 export default function PatientOverviewPage() {
-  const { admission } = useOutletContext();
+  const { admission, refetch } = useOutletContext();
   const { vitals, isLoading: vitalsLoading } = useVitals(admission?.id, 50);
   
   const [extraData, setExtraData] = useState({
@@ -199,6 +222,18 @@ export default function PatientOverviewPage() {
     allergies: [],
     history: null,
     isLoading: true,
+  });
+
+  // Reconcile / Edit Patient Identity Dialog state
+  const [isReconcileOpen, setIsReconcileOpen] = useState(false);
+  const [isSavingPatient, setIsSavingPatient] = useState(false);
+  const [reconcileError, setReconcileError] = useState(null);
+  const [reconcileForm, setReconcileForm] = useState({
+    name: '',
+    national_id: '',
+    age: '',
+    gender: '',
+    residence: '',
   });
 
   // Everything still in the differential — confirmed conditions plus the ones
@@ -248,6 +283,99 @@ export default function PatientOverviewPage() {
   const nurses = admission?.nurses;
 
   const los = computeLOS(admission?.admitted_at, admission?.discharged_at);
+
+  const handleOpenReconcile = () => {
+    setReconcileError(null);
+    setReconcileForm({
+      name: patient?.name || '',
+      national_id: patient?.national_id || '',
+      age: patient?.age != null ? String(patient.age) : '',
+      gender: patient?.gender || '',
+      residence: patient?.residence || '',
+    });
+    setIsReconcileOpen(true);
+  };
+
+  const handleNationalIdInput = (val) => {
+    const digitsOnly = val.replace(/\D/g, '').slice(0, 14);
+    let derivedGender = reconcileForm.gender;
+    let derivedAge = reconcileForm.age;
+
+    if (digitsOnly.length === 14) {
+      const genderDigit = parseInt(digitsOnly[12], 10);
+      if (!isNaN(genderDigit)) {
+        derivedGender = genderDigit % 2 === 0 ? 'FEMALE' : 'MALE';
+      }
+
+      const centuryDigit = parseInt(digitsOnly[0], 10);
+      const yearStr = digitsOnly.substring(1, 3);
+      const monthStr = digitsOnly.substring(3, 5);
+      const dayStr = digitsOnly.substring(5, 7);
+
+      if (!isNaN(centuryDigit) && centuryDigit >= 2 && centuryDigit <= 3) {
+        const century = centuryDigit === 2 ? 1900 : 2000;
+        const year = century + parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1;
+        const day = parseInt(dayStr, 10);
+
+        const birthDate = new Date(year, month, day);
+        const today = new Date();
+
+        let calcAge = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          calcAge--;
+        }
+
+        if (calcAge >= 0 && calcAge <= 150) {
+          derivedAge = String(calcAge);
+        }
+      }
+    }
+
+    setReconcileForm((prev) => ({
+      ...prev,
+      national_id: digitsOnly,
+      gender: derivedGender,
+      age: derivedAge,
+    }));
+  };
+
+  const handleSaveReconcile = async () => {
+    if (!patient?.id) return;
+    if (!reconcileForm.name.trim()) {
+      setReconcileError('Patient full name is required.');
+      return;
+    }
+    if (reconcileForm.national_id && reconcileForm.national_id.length !== 14) {
+      setReconcileError('If provided, National ID must be exactly 14 digits.');
+      return;
+    }
+
+    try {
+      setIsSavingPatient(true);
+      setReconcileError(null);
+
+      const payload = {
+        name: reconcileForm.name.trim(),
+        national_id: reconcileForm.national_id ? reconcileForm.national_id.trim() : null,
+        age: reconcileForm.age ? parseInt(reconcileForm.age, 10) : undefined,
+        gender: reconcileForm.gender || null,
+        residence: reconcileForm.residence ? reconcileForm.residence.trim() : null,
+      };
+
+      await patientsService.updatePatient(patient.id, payload);
+      if (typeof refetch === 'function') {
+        await refetch();
+      }
+      setIsReconcileOpen(false);
+    } catch (err) {
+      console.error('Failed to update patient identity:', err);
+      setReconcileError(err?.response?.data?.message || err?.message || 'Failed to update patient details.');
+    } finally {
+      setIsSavingPatient(false);
+    }
+  };
   const doctorName = doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : null;
 
   return (
@@ -292,16 +420,44 @@ export default function PatientOverviewPage() {
           
           {/* Patient Demographics */}
           <Card className="border-border">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="font-display text-sm font-bold text-foreground flex items-center gap-2">
                 <User size={14} className="text-muted-foreground" />
                 Patient Information
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleOpenReconcile}
+                className="h-6 px-2 text-[11px] font-sans text-muted-foreground hover:text-primary gap-1"
+                title="Update / Reconcile Patient Identity"
+              >
+                <Pencil size={11} />
+                {patient?.national_id ? 'Edit ID' : 'Reconcile ID'}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-1 pt-0">
               <InfoRow icon={User} label="Full Name" value={patient?.name} />
               <InfoRow icon={Hash} label="MRN" value={patient?.mrn} mono />
-              <InfoRow icon={IdCard} label="National ID" value={patient?.national_id} mono />
+              {patient?.national_id ? (
+                <InfoRow icon={IdCard} label="National ID" value={patient?.national_id} mono />
+              ) : (
+                <div className="flex items-start gap-3 py-2">
+                  <div className="flex items-center justify-center h-5 w-5 shrink-0 mt-0.5">
+                    <IdCard size={13} className="text-amber-500" />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-sans text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      National ID
+                    </span>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline" className="text-[10px] font-sans border-amber-500/30 text-amber-600 bg-amber-500/10">
+                        Emergency Unknown ID · Pending
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              )}
               <InfoRow
                 icon={User}
                 label="Age / Gender"
@@ -690,6 +846,151 @@ export default function PatientOverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Reconcile / Edit Patient Identity Dialog ─────────────────────────── */}
+      <Dialog open={isReconcileOpen} onOpenChange={(open) => !isSavingPatient && setIsReconcileOpen(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <IdCard className="h-4 w-4" />
+              </div>
+              <DialogTitle className="font-display text-base font-bold text-foreground">
+                {patient?.national_id ? 'Update Patient Demographics' : 'Reconcile Patient Identity'}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="font-sans text-xs text-muted-foreground pt-1 leading-relaxed">
+              Link the patient's verified National ID and update identity records. All ICU telemetry and clinical history will remain preserved.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reconcileError && (
+            <Alert variant="destructive" className="py-2 text-xs">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <AlertTitle className="font-bold text-xs">Update Failed</AlertTitle>
+              <AlertDescription className="text-xs">{reconcileError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-3.5 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="rec-name" className="font-sans text-xs font-semibold text-foreground">
+                Patient Verified Full Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="rec-name"
+                value={reconcileForm.name}
+                onChange={(e) => setReconcileForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter verified official name"
+                className="font-sans text-xs"
+                disabled={isSavingPatient}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rec-natid" className="font-sans text-xs font-semibold text-foreground">
+                14-Digit National ID
+              </Label>
+              <Input
+                id="rec-natid"
+                inputMode="numeric"
+                maxLength={14}
+                value={reconcileForm.national_id}
+                onChange={(e) => handleNationalIdInput(e.target.value)}
+                placeholder="Enter 14-digit National ID"
+                className="font-mono text-xs font-tnum"
+                disabled={isSavingPatient}
+              />
+              <p className="font-sans text-[10px] text-muted-foreground">
+                Entering 14 digits automatically computes Age and Gender from Egyptian Civil Registry format.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-age" className="font-sans text-xs font-semibold text-foreground">
+                  Age (Years)
+                </Label>
+                <Input
+                  id="rec-age"
+                  type="number"
+                  min={0}
+                  max={150}
+                  value={reconcileForm.age}
+                  onChange={(e) => setReconcileForm((prev) => ({ ...prev, age: e.target.value }))}
+                  placeholder="e.g. 45"
+                  className="font-sans text-xs font-tnum"
+                  disabled={isSavingPatient}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="rec-gender" className="font-sans text-xs font-semibold text-foreground">
+                  Gender
+                </Label>
+                <Select
+                  value={reconcileForm.gender || 'UNKNOWN'}
+                  onValueChange={(val) => setReconcileForm((prev) => ({ ...prev, gender: val === 'UNKNOWN' ? '' : val }))}
+                  disabled={isSavingPatient}
+                >
+                  <SelectTrigger id="rec-gender" className="font-sans text-xs">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MALE">Male</SelectItem>
+                    <SelectItem value="FEMALE">Female</SelectItem>
+                    <SelectItem value="UNKNOWN">Not Specified</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="rec-residence" className="font-sans text-xs font-semibold text-foreground">
+                Residence / Address (Optional)
+              </Label>
+              <Input
+                id="rec-residence"
+                value={reconcileForm.residence}
+                onChange={(e) => setReconcileForm((prev) => ({ ...prev, residence: e.target.value }))}
+                placeholder="City, Governorate, or Address"
+                className="font-sans text-xs"
+                disabled={isSavingPatient}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsReconcileOpen(false)}
+              disabled={isSavingPatient}
+              className="font-sans text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveReconcile}
+              disabled={isSavingPatient}
+              className="font-sans text-xs font-semibold gap-1.5"
+            >
+              {isSavingPatient ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving Identity...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Save Identity
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

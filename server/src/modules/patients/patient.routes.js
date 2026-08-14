@@ -5,6 +5,7 @@ const restrictTo = require("../../middlewares/restrictTo");
 const patientController = require("./patient.controller");
 const {
   patientCreateSchema,
+  patientUpdateSchema,
   patientQuerySchema,
   allergyCreateSchema,
   medicalHistoryCreateSchema,
@@ -102,6 +103,14 @@ router.get(
   verifyToken,
   restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
   patientController.getPatientById
+);
+
+router.patch(
+  "/:id",
+  verifyToken,
+  restrictTo(["MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  validate({ body: patientUpdateSchema }),
+  patientController.updatePatient
 );
 
 router.delete(

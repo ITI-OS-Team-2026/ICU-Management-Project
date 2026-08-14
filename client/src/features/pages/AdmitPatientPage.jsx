@@ -61,10 +61,8 @@ const admissionSchema = z
       .min(1, "Nurse assignment is required")
       .uuid("Select a valid nurse"),
 
-    national_id: z
-      .string()
-      .min(1, "National ID is required")
-      .regex(/^\d{14}$/, "National ID must be exactly 14 digits"),
+    national_id: z.string().optional(),
+    is_emergency_unknown: z.boolean().default(false),
     name: z.string().min(1, "Patient name is required"),
     place_of_transfer: z.string().optional(),
     transfer_doctor_name: z.string().optional(),
@@ -92,7 +90,7 @@ const admissionSchema = z
     handedness: optionalEnum(["RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN"]),
     children_count: z.string().optional(),
     youngest_child_age: z.string().optional(),
-    chief_complaint: z.string().min(1, "Chief complaint is required"),
+    chief_complaint: z.string().optional(),
     complaint_analysis: z.string().optional(),
     related_system_symptoms: z.string().optional(),
     other_system_symptoms: z.string().optional(),
@@ -307,6 +305,22 @@ const admissionSchema = z
       .default([]),
   })
   .superRefine((data, ctx) => {
+    if (!data.is_emergency_unknown) {
+      if (!data.national_id || !data.national_id.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["national_id"],
+          message: "National ID is required (or enable Emergency / Unknown ID)",
+        });
+      } else if (!/^\d{14}$/.test(data.national_id.trim())) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["national_id"],
+          message: "National ID must be exactly 14 digits",
+        });
+      }
+    }
+
     const critical = getCriticalVitalFields(data);
     if (critical.length === 0) return;
 
@@ -333,6 +347,7 @@ const defaultValues = {
   doctor_id: "",
   nurse_id: "",
   national_id: "",
+  is_emergency_unknown: false,
   name: "",
   place_of_transfer: "",
   transfer_doctor_name: "",
@@ -450,9 +465,10 @@ const steps = [
   {
     title: "Admission Info",
     component: Step1AdmissionInfo,
-    fields: ["national_id", "name"],
+    fields: ["name"],
     owns: [
       "national_id",
+      "is_emergency_unknown",
       "name",
       "place_of_transfer",
       "transfer_doctor_name",
@@ -462,7 +478,7 @@ const steps = [
   {
     title: "History Taking",
     component: Step2HistoryTaking,
-    fields: ["age", "chief_complaint"],
+    fields: ["age"],
     owns: [
       "age",
       "gender",
@@ -832,6 +848,21 @@ export default function AdmitPatientPage() {
     try {
       const fieldsToValidate = steps[currentStep].fields;
 
+      if (currentStep === 1) {
+        const values = form.getValues();
+        if (!values.is_emergency_unknown) {
+          if (!values.national_id || !/^\d{14}$/.test(values.national_id.trim())) {
+            form.setError("national_id", {
+              type: "manual",
+              message: "National ID must be exactly 14 digits (or enable Emergency / Unknown ID)",
+            });
+            scrollToFirstError();
+            return;
+          }
+          form.clearErrors("national_id");
+        }
+      }
+
       if (currentStep === 3) {
         const values = form.getValues();
         const hasOneVital = [
@@ -905,9 +936,16 @@ export default function AdmitPatientPage() {
         (v) => v !== undefined,
       );
 
+      const emergencyMrn = `EMERG-${Date.now().toString().slice(-6)}`;
+      const patientMrn =
+        readmitAdmission?.patient?.mrn ||
+        (data.national_id && data.national_id.trim()
+          ? data.national_id.trim()
+          : emergencyMrn);
+
       const fullPayload = {
         patient: {
-          mrn: readmitAdmission?.patient?.mrn || data.national_id,
+          mrn: patientMrn,
           national_id: emptyToUndefined(data.national_id),
           name: data.name,
           age: parseInt(data.age, 10),
@@ -958,7 +996,12 @@ export default function AdmitPatientPage() {
           transfer_reason: emptyToUndefined(data.transfer_reason),
           place_of_transfer: emptyToUndefined(data.place_of_transfer),
           transfer_doctor_name: emptyToUndefined(data.transfer_doctor_name),
-          chief_complaint: data.chief_complaint,
+          chief_complaint:
+            data.chief_complaint?.trim() ||
+            emptyToUndefined(data.transfer_reason) ||
+            (data.is_emergency_unknown
+              ? "Emergency admission (Unable to obtain directly from patient)"
+              : undefined),
           complaint_analysis: emptyToUndefined(data.complaint_analysis),
           symptoms_related_system: emptyToUndefined(
             data.related_system_symptoms,

@@ -14,6 +14,19 @@ const patientCreateSchema = Joi.object({
   youngest_child_age: Joi.string().allow(null, "").optional(),
 });
 
+const patientUpdateSchema = Joi.object({
+  national_id: Joi.string().allow(null, "").optional(),
+  name: Joi.string().optional(),
+  age: Joi.number().integer().min(0).optional(),
+  gender: Joi.string().allow(null, "").optional(),
+  residence: Joi.string().allow(null, "").optional(),
+  occupation: Joi.string().allow(null, "").optional(),
+  marital_status: Joi.string().valid("SINGLE", "MARRIED", "DIVORCED", "WIDOWED", "OTHER").allow(null, "").optional(),
+  handedness: Joi.string().valid("RIGHT", "LEFT", "AMBIDEXTROUS", "UNKNOWN").allow(null, "").optional(),
+  children_count: Joi.number().integer().min(0).allow(null).optional(),
+  youngest_child_age: Joi.string().allow(null, "").optional(),
+}).min(1);
+
 const patientQuerySchema = Joi.object({
   mrn: Joi.string().optional(),
   name: Joi.string().optional(),
@@ -69,6 +82,7 @@ const medicalHistoryUpdateSchema = Joi.object({
 
 module.exports = {
   patientCreateSchema,
+  patientUpdateSchema,
   patientQuerySchema,
   allergyCreateSchema,
   medicalHistoryCreateSchema,

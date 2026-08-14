@@ -27,6 +27,15 @@ const getPatientById = async (req, res, next) => {
   }
 };
 
+const updatePatient = async (req, res, next) => {
+  try {
+    const result = await patientService.updatePatient(req, req.params.id, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deletePatient = async (req, res, next) => {
   try {
     await patientService.deletePatient(req, req.params.id);
@@ -94,11 +103,12 @@ module.exports = {
   createPatient,
   getPatients,
   getPatientById,
+  updatePatient,
   deletePatient,
   createAllergy,
   getAllergies,
   deleteAllergy,
   createMedicalHistory,
   getMedicalHistory,
-  updateMedicalHistory
+  updateMedicalHistory,
 };
