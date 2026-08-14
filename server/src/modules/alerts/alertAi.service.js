@@ -5,27 +5,27 @@ const PARAMETER_META = {
   spo2: {
     name: 'SpO2',
     formatVal: (v) => `${v}%`,
-    normal: '≥96%',
+    normal: '95–100%',
   },
   pulse: {
     name: 'Heart rate',
     formatVal: (v) => `${v} bpm`,
-    normal: '51–90',
+    normal: '60–100 bpm',
   },
   systolicBp: {
     name: 'Systolic BP',
     formatVal: (v) => `${v} mmHg`,
-    normal: '111–219',
+    normal: '90–120 mmHg',
   },
   respiratoryRate: {
     name: 'Respiratory rate',
     formatVal: (v) => `${v} /min`,
-    normal: '12–20',
+    normal: '12–20 /min',
   },
   temperature: {
     name: 'Temperature',
     formatVal: (v) => `${v} °C`,
-    normal: '36.1–38.0',
+    normal: '36.5–37.4 °C',
   },
 };
 

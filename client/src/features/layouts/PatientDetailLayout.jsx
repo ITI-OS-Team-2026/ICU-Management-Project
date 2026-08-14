@@ -49,12 +49,13 @@ function getAcuityMeta(vitals) {
   const pulse = parseInt(vitals.pulse, 10) || 75;
   const spo2  = parseInt(vitals.spo2,  10) || 98;
   const sBp   = parseInt(vitals.systolicBp, 10) || 120;
+  const dBp   = parseInt(vitals.diastolicBp, 10) || 80;
   const temp  = parseFloat(vitals.temperature) || 37.0;
   let c = 0, w = 0;
-  if (spo2 < 90) c += 2; else if (spo2 < 95) w++;
-  if (pulse > 130 || pulse < 45) c++; else if (pulse > 100 || pulse < 55) w++;
-  if (temp > 39.0 || temp < 35.5) c++; else if (temp > 38.0 || temp < 36.0) w++;
-  if (sBp > 180 || sBp < 85) c++; else if (sBp > 140 || sBp < 95) w++;
+  if (spo2 <= 90) c += 2; else if (spo2 <= 94) w++;
+  if (pulse > 140 || pulse < 40) c++; else if (pulse > 100 || pulse < 60) w++;
+  if (temp >= 40.6 || temp < 35.0) c++; else if (temp >= 37.5 || temp < 36.5) w++;
+  if (sBp >= 180 || sBp < 80 || dBp >= 110 || dBp < 50) c++; else if (sBp > 120 || sBp < 90 || dBp > 80 || dBp < 60) w++;
   if (c > 0) return { acuity: 'Critical', dot: '#ef4444', riskColor: 'text-red-500 border-red-300 bg-red-50 dark:bg-red-950/30' };
   if (w > 0) return { acuity: 'Watchful', dot: '#f59e0b', riskColor: 'text-amber-500 border-amber-300 bg-amber-50 dark:bg-amber-950/30' };
   return { acuity: 'Stable', dot: '#22c55e', riskColor: 'text-emerald-500 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30' };

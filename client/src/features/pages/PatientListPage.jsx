@@ -59,20 +59,24 @@ const calculateAcuityAndRisk = (vitals) => {
   let watchfulCount = 0;
 
   // SpO2
-  if (spo2 < 90) criticalCount += 2;
-  else if (spo2 < 95) watchfulCount++;
+  if (spo2 <= 90) criticalCount += 2;
+  else if (spo2 <= 94) watchfulCount++;
 
   // Pulse
-  if (pulse > 130 || pulse < 45) criticalCount++;
-  else if (pulse > 100 || pulse < 55) watchfulCount++;
+  if (pulse > 140 || pulse < 40) criticalCount++;
+  else if (pulse > 100 || pulse < 60) watchfulCount++;
 
   // Temperature
-  if (temp > 39.0 || temp < 35.5) criticalCount++;
-  else if (temp > 38.0 || temp < 36.0) watchfulCount++;
+  if (temp >= 40.6 || temp < 35.0) criticalCount++;
+  else if (temp >= 37.5 || temp < 36.5) watchfulCount++;
 
   // BP
-  if (sBp > 180 || sBp < 85) criticalCount++;
-  else if (sBp > 140 || sBp < 95) watchfulCount++;
+  if (sBp >= 180 || sBp < 80 || dBp >= 110 || dBp < 50) criticalCount++;
+  else if (sBp > 120 || sBp < 90 || dBp > 80 || dBp < 60) watchfulCount++;
+
+  // Respiratory Rate
+  if (rr >= 25 || rr < 8) criticalCount++;
+  else if (rr > 20 || rr < 12) watchfulCount++;
 
   if (criticalCount > 0) {
     const riskScore = Math.min(80 + (criticalCount * 5) + (watchfulCount * 2), 99);
