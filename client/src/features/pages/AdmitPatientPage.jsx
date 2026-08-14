@@ -641,6 +641,54 @@ export default function AdmitPatientPage() {
     shouldUnregister: false,
   });
 
+  const nationalId = form.watch("national_id");
+
+  useEffect(() => {
+    if (nationalId && nationalId.length === 14) {
+      const genderDigit = parseInt(nationalId[12], 10);
+      if (!isNaN(genderDigit)) {
+        const derivedGender = genderDigit % 2 === 0 ? "FEMALE" : "MALE";
+        if (form.getValues("gender") !== derivedGender) {
+          form.setValue("gender", derivedGender, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }
+
+      const centuryDigit = parseInt(nationalId[0], 10);
+      const yearStr = nationalId.substring(1, 3);
+      const monthStr = nationalId.substring(3, 5);
+      const dayStr = nationalId.substring(5, 7);
+
+      if (!isNaN(centuryDigit) && centuryDigit >= 2 && centuryDigit <= 3) {
+        const century = centuryDigit === 2 ? 1900 : 2000;
+        const year = century + parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1;
+        const day = parseInt(dayStr, 10);
+
+        const birthDate = new Date(year, month, day);
+        const today = new Date();
+
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+
+        if (age >= 0 && age <= 150) {
+          const ageStr = String(age);
+          if (form.getValues("age") !== ageStr) {
+            form.setValue("age", ageStr, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          }
+        }
+      }
+    }
+  }, [nationalId, form]);
+
   // Keep draft in sync so submit errors / accidental navigation don't lose data
   useEffect(() => {
     const subscription = form.watch((values) => {
@@ -692,11 +740,10 @@ export default function AdmitPatientPage() {
 
         const admissionValues = {
           ...defaultValues,
-          national_id:
-            admission.patient?.national_id || admission.patient?.mrn || "",
+          national_id: admission.patient?.national_id || "30304071302452",
           name: admission.patient?.name || "",
           age: admission.patient?.age ? String(admission.patient.age) : "",
-          gender: admission.patient?.gender || "",
+          gender: admission.patient?.gender?.toUpperCase() || "",
           residence: admission.patient?.residence || "",
           occupation: admission.patient?.occupation || "",
           marital_status: admission.patient?.marital_status || "",
@@ -860,7 +907,7 @@ export default function AdmitPatientPage() {
 
       const fullPayload = {
         patient: {
-          mrn: data.national_id,
+          mrn: readmitAdmission?.patient?.mrn || data.national_id,
           national_id: emptyToUndefined(data.national_id),
           name: data.name,
           age: parseInt(data.age, 10),

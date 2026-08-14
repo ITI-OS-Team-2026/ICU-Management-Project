@@ -20,7 +20,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
   const patientProfiles = [
     {
       mrn: "MRN-SEPSIS-101",
-      nationalId: "NID-984210491",
+      nationalId: "25805120112344",
       name: "Martha Vance",
       age: 68,
       gender: "Female",
@@ -126,7 +126,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-ARDS-102",
-      nationalId: "NID-105829302",
+      nationalId: "27105120112354",
       name: "Robert 'Bob' Chen",
       age: 55,
       gender: "Male",
@@ -225,7 +225,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-CARDIAC-103",
-      nationalId: "NID-391028403",
+      nationalId: "26205120112354",
       name: "Arthur Pendelton",
       age: 64,
       gender: "Male",
@@ -324,7 +324,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-TRAUMA-104",
-      nationalId: "NID-840192804",
+      nationalId: "30005120112354",
       name: "Marcus Brody",
       age: 26,
       gender: "Male",
@@ -422,7 +422,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-COPD-105",
-      nationalId: "NID-572910405",
+      nationalId: "25405120112344",
       name: "Eleanor Vance",
       age: 72,
       gender: "Female",
@@ -516,7 +516,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-DKA-106",
-      nationalId: "NID-294019206",
+      nationalId: "30405120112344",
       name: "Maya Lin",
       age: 22,
       gender: "Female",
@@ -611,7 +611,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-GIBLEED-107",
-      nationalId: "NID-194029407",
+      nationalId: "26805120112354",
       name: "Carlos Santana-Rios",
       age: 58,
       gender: "Male",
@@ -703,7 +703,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-PANCREAS-108",
-      nationalId: "NID-901827308",
+      nationalId: "28205120112354",
       name: "David O'Connor",
       age: 44,
       gender: "Male",
@@ -795,7 +795,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-STROKE-109",
-      nationalId: "NID-781029309",
+      nationalId: "25605120112354",
       name: "Harold Jenkins",
       age: 70,
       gender: "Male",
@@ -886,7 +886,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-POSTOP-110",
-      nationalId: "NID-681920310",
+      nationalId: "25905120112344",
       name: "Margaret Thatcher-Smith",
       age: 67,
       gender: "Female",
@@ -977,7 +977,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-AKI-111",
-      nationalId: "NID-581920411",
+      nationalId: "24705120112354",
       name: "Samuel Goldwyn",
       age: 79,
       gender: "Male",
@@ -1068,7 +1068,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-LIVER-112",
-      nationalId: "NID-481920512",
+      nationalId: "27505120112344",
       name: "Nadia Kowalski",
       age: 51,
       gender: "Female",
@@ -1159,7 +1159,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-BURN-113",
-      nationalId: "NID-381920613",
+      nationalId: "29305120112354",
       name: "Tyler Durden-Vance",
       age: 33,
       gender: "Male",
@@ -1250,7 +1250,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-OVERDOSE-114",
-      nationalId: "NID-281920714",
+      nationalId: "29705120112344",
       name: "Chloe Bennett",
       age: 29,
       gender: "Female",
@@ -1340,7 +1340,7 @@ async function seedICUPatients({ specialistUser, specialist2User, residentUser, 
 
     {
       mrn: "MRN-RECOVERED-115",
-      nationalId: "NID-181920815",
+      nationalId: "26505120112354",
       name: "Arthur Weasley",
       age: 61,
       gender: "Male",

@@ -55,7 +55,7 @@ export default function PersonalHistorySection({ form }) {
               <FormItem>
                 <FormLabel>Gender</FormLabel>
                 <Select
-                  value={field.value || null}
+                  value={field.value || undefined}
                   onValueChange={(val) => field.onChange(val ?? "")}
                 >
                   <FormControl>
@@ -79,7 +79,7 @@ export default function PersonalHistorySection({ form }) {
               <FormItem>
                 <FormLabel>Marital Status</FormLabel>
                 <Select
-                  value={field.value || null}
+                  value={field.value || undefined}
                   onValueChange={(val) => field.onChange(val ?? "")}
                 >
                   <FormControl>
@@ -106,7 +106,7 @@ export default function PersonalHistorySection({ form }) {
               <FormItem>
                 <FormLabel>Handedness</FormLabel>
                 <Select
-                  value={field.value || null}
+                  value={field.value || undefined}
                   onValueChange={(val) => field.onChange(val ?? "")}
                 >
                   <FormControl>
