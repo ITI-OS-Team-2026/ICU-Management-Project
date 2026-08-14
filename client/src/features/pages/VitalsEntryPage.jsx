@@ -33,7 +33,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { VITAL_NORMAL_RANGES } from '@/features/utils/vitalStatus';
+import { VITAL_NORMAL_RANGES, calibrateTemperature } from '@/features/utils/vitalStatus';
 import { SummonDoctorModal } from '@/components/notifications/SummonDoctorModal';
 
 export default function VitalsEntryPage() {
@@ -56,6 +56,7 @@ export default function VitalsEntryPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [isSummonModalOpen, setIsSummonModalOpen] = useState(false);
   const [entryTimeRange, setEntryTimeRange] = useState('all');
+  const [tempSite, setTempSite] = useState('oral');
 
   // React Hook Form for Vitals logging.
   // These fields mirror createVitalSignSchema on the server exactly. Anything not
@@ -198,9 +199,11 @@ export default function VitalsEntryPage() {
     try {
       setIsSubmitting(true);
 
+      const calibratedTemp = formData.temperature ? calibrateTemperature(formData.temperature, tempSite) : undefined;
+
       // Log Vitals
       const vitalsPayload = {
-        temperature: formData.temperature ? parseFloat(formData.temperature) : undefined,
+        temperature: calibratedTemp !== null && calibratedTemp !== undefined ? calibratedTemp : undefined,
         pulse: formData.pulse ? parseInt(formData.pulse, 10) : undefined,
         systolic_bp: formData.systolic_bp ? parseInt(formData.systolic_bp, 10) : undefined,
         diastolic_bp: formData.diastolic_bp ? parseInt(formData.diastolic_bp, 10) : undefined,
@@ -555,17 +558,34 @@ export default function VitalsEntryPage() {
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="temperature" className="text-sm font-semibold">Temperature (°C)</Label>
-                    <div className="relative">
-                      <Input
-                        id="temperature"
-                        type="number"
-                        step="0.1"
-                        placeholder="e.g. 37.0"
-                        className="pr-10 bg-background font-tnum"
-                        {...register('temperature')}
-                      />
-                      <Thermometer className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="temperature" className="text-sm font-semibold">Temperature (°C)</Label>
+                      <span className="text-[10px] text-muted-foreground font-sans">
+                        {tempSite === 'axillary' ? '(+0.5°C Oral Equiv)' : tempSite === 'rectal' ? '(-0.5°C Oral Equiv)' : '(Oral Standard)'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="temperature"
+                          type="number"
+                          step="0.1"
+                          placeholder="e.g. 37.0"
+                          className="pr-10 bg-background font-tnum"
+                          {...register('temperature')}
+                        />
+                        <Thermometer className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                      <Select value={tempSite} onValueChange={setTempSite}>
+                        <SelectTrigger className="w-[105px] text-xs shrink-0 bg-background">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="oral">Oral</SelectItem>
+                          <SelectItem value="axillary">Axillary</SelectItem>
+                          <SelectItem value="rectal">Rectal</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 

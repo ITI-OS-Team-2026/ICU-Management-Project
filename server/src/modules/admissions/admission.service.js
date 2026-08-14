@@ -512,18 +512,12 @@ const resolveDerivedFilterIds = async (query) => {
     classified AS (
       SELECT id,
              CASE
-               WHEN (CASE WHEN spo2 < 90 THEN 2 ELSE 0 END)
-                  + (CASE WHEN pulse > 130 OR pulse < 45 THEN 1 ELSE 0 END)
-                  + (CASE WHEN temp > 39.0 OR temp < 35.5 THEN 1 ELSE 0 END)
-                  + (CASE WHEN sbp > 180 OR sbp < 85 THEN 1 ELSE 0 END) > 0
+               WHEN (spo2 <= 90 OR pulse > 140 OR pulse < 40 OR temp >= 40.6 OR temp < 35.0 OR sbp >= 180 OR sbp < 80)
                  THEN 'Critical'
-               WHEN (CASE WHEN spo2 >= 90 AND spo2 < 95 THEN 1 ELSE 0 END)
-                  + (CASE WHEN NOT (pulse > 130 OR pulse < 45)
-                            AND (pulse > 100 OR pulse < 55) THEN 1 ELSE 0 END)
-                  + (CASE WHEN NOT (temp > 39.0 OR temp < 35.5)
-                            AND (temp > 38.0 OR temp < 36.0) THEN 1 ELSE 0 END)
-                  + (CASE WHEN NOT (sbp > 180 OR sbp < 85)
-                            AND (sbp > 140 OR sbp < 95) THEN 1 ELSE 0 END) > 0
+               WHEN ((spo2 >= 91 AND spo2 <= 94)
+                  OR (pulse > 100 OR pulse < 60)
+                  OR (temp >= 37.5 OR temp < 36.5)
+                  OR (sbp > 120 OR sbp < 90))
                  THEN 'Watchful'
                ELSE 'Stable'
              END AS acuity,
@@ -573,18 +567,12 @@ const getAdmissionCensus = async (query = {}) => {
     )
     SELECT
       CASE
-        WHEN (CASE WHEN spo2 < 90 THEN 2 ELSE 0 END)
-           + (CASE WHEN pulse > 130 OR pulse < 45 THEN 1 ELSE 0 END)
-           + (CASE WHEN temp > 39.0 OR temp < 35.5 THEN 1 ELSE 0 END)
-           + (CASE WHEN sbp > 180 OR sbp < 85 THEN 1 ELSE 0 END) > 0
+        WHEN (spo2 <= 90 OR pulse > 140 OR pulse < 40 OR temp >= 40.6 OR temp < 35.0 OR sbp >= 180 OR sbp < 80)
           THEN 'Critical'
-        WHEN (CASE WHEN spo2 >= 90 AND spo2 < 95 THEN 1 ELSE 0 END)
-           + (CASE WHEN NOT (pulse > 130 OR pulse < 45)
-                     AND (pulse > 100 OR pulse < 55) THEN 1 ELSE 0 END)
-           + (CASE WHEN NOT (temp > 39.0 OR temp < 35.5)
-                     AND (temp > 38.0 OR temp < 36.0) THEN 1 ELSE 0 END)
-           + (CASE WHEN NOT (sbp > 180 OR sbp < 85)
-                     AND (sbp > 140 OR sbp < 95) THEN 1 ELSE 0 END) > 0
+        WHEN ((spo2 >= 91 AND spo2 <= 94)
+           OR (pulse > 100 OR pulse < 60)
+           OR (temp >= 37.5 OR temp < 36.5)
+           OR (sbp > 120 OR sbp < 90))
           THEN 'Watchful'
         ELSE 'Stable'
       END AS acuity,
