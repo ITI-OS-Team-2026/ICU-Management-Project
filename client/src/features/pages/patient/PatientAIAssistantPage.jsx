@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useOutletContext } from 'react-router-dom';
 import {
   Sparkles,
   Bot,
@@ -17,6 +17,7 @@ import {
   Loader2,
   Archive,
   RotateCcw,
+  FileDown,
 } from 'lucide-react';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -35,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { FormattedMarkdown } from '@/components/ui/formatted-markdown';
 import { aiService } from '@/features/services/aiService';
+import { ExportConsultationModal } from '@/features/components/pdf/ExportConsultationModal';
 
 // Checklist items displayed during AI generation loading experience
 const LOADING_STEPS = [
@@ -49,6 +51,8 @@ const LOADING_STEPS = [
 
 export default function PatientAIAssistantPage() {
   const { admissionId } = useParams();
+  const { admission } = useOutletContext() || {};
+  const patient = admission?.patient;
 
   // Tab filter: 'active' or 'archived'
   const [activeTab, setActiveTab] = useState('active');
@@ -59,6 +63,7 @@ export default function PatientAIAssistantPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Soft Delete state
   const [summaryToDelete, setSummaryToDelete] = useState(null);
@@ -594,6 +599,17 @@ export default function PatientAIAssistantPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setIsExportModalOpen(true)}
+                    className="gap-1.5 text-xs font-sans text-foreground"
+                    title="Export clinical consultation PDF"
+                  >
+                    <FileDown className="h-3.5 w-3.5 text-primary" />
+                    Export PDF
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleCopySummary}
                     className="gap-1.5 text-xs font-sans"
                   >
@@ -726,6 +742,22 @@ export default function PatientAIAssistantPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Consultation PDF Export Modal ──────────────────────────────────── */}
+      {selectedSummary && (
+        <ExportConsultationModal
+          open={isExportModalOpen}
+          onOpenChange={setIsExportModalOpen}
+          summary={selectedSummary}
+          patient={patient}
+          admission={admission}
+          authorName={
+            typeof selectedSummary?.requestedBy === 'object' && selectedSummary?.requestedBy
+              ? `${selectedSummary.requestedBy.firstName || ''} ${selectedSummary.requestedBy.lastName || ''}`.trim()
+              : 'ICU Attending Specialist'
+          }
+        />
+      )}
     </div>
   );
 }
