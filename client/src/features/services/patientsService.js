@@ -105,4 +105,9 @@ export const patientsService = {
   async deleteNursingNote(noteId) {
     await api.delete(`/notes/nursing/${noteId}`);
   },
+
+  async updatePatient(patientId, payload) {
+    const { data } = await api.patch(`/patients/${patientId}`, payload);
+    return data;
+  },
 };

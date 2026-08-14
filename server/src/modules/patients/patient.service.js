@@ -125,6 +125,56 @@ const getPatientById = async (id) => {
   };
 };
 
+const updatePatient = async (req, id, data) => {
+  const existing = await prisma.patient.findUnique({
+    where: { id },
+  });
+  if (!existing || existing.isArchived) {
+    throw new APIError("Patient not found", 404);
+  }
+
+  const updateData = {};
+  if (data.national_id !== undefined) updateData.nationalId = data.national_id || null;
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.age !== undefined) updateData.age = data.age;
+  if (data.gender !== undefined) updateData.gender = data.gender || null;
+  if (data.residence !== undefined) updateData.residence = data.residence || null;
+  if (data.occupation !== undefined) updateData.occupation = data.occupation || null;
+  if (data.marital_status !== undefined) updateData.maritalStatus = data.marital_status || null;
+  if (data.handedness !== undefined) updateData.handedness = data.handedness || null;
+  if (data.children_count !== undefined) updateData.childrenCount = data.children_count ?? null;
+  if (data.youngest_child_age !== undefined) updateData.youngestChildAge = data.youngest_child_age || null;
+
+  return auditedTransaction(req, { action: "UPDATE", targetTable: "Patient" }, async (tx) => {
+    const updated = await tx.patient.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return {
+      targetId: updated.id,
+      oldValues: existing,
+      newValues: updated,
+      result: {
+        id: updated.id,
+        mrn: updated.mrn,
+        national_id: updated.nationalId,
+        name: updated.name,
+        age: updated.age,
+        gender: updated.gender,
+        residence: updated.residence,
+        occupation: updated.occupation,
+        marital_status: updated.maritalStatus,
+        handedness: updated.handedness,
+        is_archived: updated.isArchived,
+        archived_at: updated.archivedAt,
+        created_at: updated.createdAt,
+        updated_at: updated.updatedAt,
+      },
+    };
+  });
+};
+
 const deletePatient = async (req, id) => {
   const p = await prisma.patient.findUnique({ where: { id } });
   if (!p || p.isArchived) {
@@ -385,11 +435,12 @@ module.exports = {
   createPatient,
   getPatients,
   getPatientById,
+  updatePatient,
   deletePatient,
   createAllergy,
   getAllergies,
   deleteAllergy,
   createMedicalHistory,
   getMedicalHistory,
-  updateMedicalHistory
+  updateMedicalHistory,
 };
