@@ -1,21 +1,21 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Activity,
   Users,
   UserPlus,
   ClipboardList,
   Stethoscope,
-  Pill
-} from 'lucide-react';
+  Pill,
+} from "lucide-react";
 
-import { useDashboard } from '../../hooks/useDashboard';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useDashboard } from "../../hooks/useDashboard";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -23,28 +23,34 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import DashboardRagAssistant from '../../components/rag/DashboardRagAssistant';
-import { useShortcuts } from '../../hooks/useShortcuts';
-import { ClinicalFeedList } from '../../components/ClinicalFeedList';
+import DashboardRagAssistant from "../../components/rag/DashboardRagAssistant";
+import { useShortcuts } from "../../hooks/useShortcuts";
+import { ClinicalFeedList } from "../../components/ClinicalFeedList";
 
-export default function DoctorDashboard({ user, greetingName, currentFormattedDate }) {
+export default function DoctorDashboard({
+  user,
+  greetingName,
+  currentFormattedDate,
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { stats, admissions, activities, isLoading } = useDashboard();
 
   // The assistant is scoped to one admission at a time; the selection lives in
   // the URL so a shared link opens on the same patient.
-  const activeAdmissionId = searchParams.get('admissionId') || admissions[0]?.id || '';
+  const activeAdmissionId =
+    searchParams.get("admissionId") || admissions[0]?.id || "";
 
   const handlePatientSelect = (val) => {
     setSearchParams({ admissionId: val });
   };
 
-  const activeIndex = admissions.findIndex(a => a.id === activeAdmissionId);
+  const activeIndex = admissions.findIndex((a) => a.id === activeAdmissionId);
 
   const handleNextPatient = () => {
     if (!admissions || admissions.length === 0) return;
-    const nextIndex = activeIndex < admissions.length - 1 ? activeIndex + 1 : activeIndex;
+    const nextIndex =
+      activeIndex < admissions.length - 1 ? activeIndex + 1 : activeIndex;
     setSearchParams({ admissionId: admissions[nextIndex].id });
   };
 
@@ -60,11 +66,11 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
     }
   };
 
-  useShortcuts('dashboard', {
+  useShortcuts("dashboard", {
     nextPatient: handleNextPatient,
     prevPatient: handlePrevPatient,
     openPatient: handleOpenPatient,
-    admitPatient: () => navigate('/patients/admit'),
+    admitPatient: () => navigate("/patients/admit"),
   });
 
   return (
@@ -81,21 +87,37 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {stats.criticalCases > 0 ? (
-            <Badge variant="destructive" className="gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold">
+            <Badge
+              variant="destructive"
+              className="gap-1.5 py-1.5 px-3 border border-destructive/20 font-sans font-semibold"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground animate-pulse" />
               {stats.criticalCases} Critical Patients
             </Badge>
           ) : (
-            <Badge variant="outline" className="gap-1.5 py-1.5 px-3 bg-status-available/10 text-status-available border-status-available/30 font-sans font-semibold">
+            <Badge
+              variant="outline"
+              className="gap-1.5 py-1.5 px-3 bg-status-available/10 text-status-available border-status-available/30 font-sans font-semibold"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-status-available" />
               All Patients Stable
             </Badge>
           )}
-          <Button size="sm" variant="outline" onClick={() => navigate('/patients/admit')} className="ml-2 hidden sm:flex">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate("/patients/admit")}
+            className="ml-2 hidden sm:flex"
+          >
             <UserPlus className="h-4 w-4 mr-2" />
             Admit Patient
           </Button>
-          <Button size="icon" variant="outline" onClick={() => navigate('/patients/admit')} className="ml-1 sm:hidden">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => navigate("/patients/admit")}
+            className="ml-1 sm:hidden"
+          >
             <UserPlus className="h-4 w-4" />
           </Button>
         </div>
@@ -103,24 +125,31 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
       {/* ── Workbench Layout columns ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
         {/* Left Column (Mini Patient Census) - 3/12 */}
         <div className="lg:col-span-3 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-sm font-bold text-foreground">
               My Patients
             </h2>
-            <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold px-2" onClick={() => navigate('/patients')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs font-semibold px-2"
+              onClick={() => navigate("/patients")}
+            >
               View All
             </Button>
           </div>
-          
+
           <Card className="border-border shadow-2xs bg-card overflow-hidden flex flex-col h-[400px] lg:h-[calc(100vh-200px)]">
             <ScrollArea className="h-full">
               <div className="flex flex-col p-2 gap-1">
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-md">
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-3 rounded-md"
+                    >
                       <Skeleton className="h-8 w-8 rounded-full shrink-0" />
                       <div className="space-y-2 flex-1">
                         <Skeleton className="h-3 w-2/3" />
@@ -133,29 +162,34 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
                     No active patients assigned.
                   </div>
                 ) : (
-                  admissions.map(adm => {
+                  admissions.map((adm) => {
                     const isSelected = adm.id === activeAdmissionId;
-                    const bedStr = adm.bed?.bed_number ? `Bed ${adm.bed.bed_number.split('/')[1] || adm.bed.bed_number}` : 'No Bed';
+                    const bedStr = adm.bed?.bed_number
+                      ? `Bed ${adm.bed.bed_number.split("/")[1] || adm.bed.bed_number}`
+                      : "No Bed";
                     return (
                       <button
                         key={adm.id}
                         onClick={() => handlePatientSelect(adm.id)}
-                        className={`flex flex-col gap-1 p-3 rounded-lg text-left transition-colors border ${
-                          isSelected 
-                            ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20' 
-                            : 'bg-transparent border-transparent hover:bg-muted/50'
+                        className={`flex flex-col gap-1 p-3 rounded-lg text-left transition-colors border cursor-pointer ${
+                          isSelected
+                            ? "bg-primary/5 border-primary/20 ring-1 ring-primary/20"
+                            : "bg-transparent border-transparent hover:bg-muted/50"
                         }`}
                       >
                         <div className="flex items-center justify-between w-full gap-2">
                           <span className="font-sans text-sm font-semibold text-foreground truncate">
-                            {adm.patient?.name || 'Unknown'}
+                            {adm.patient?.name || "Unknown"}
                           </span>
                           {adm.isCritical && (
                             <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
                           )}
                         </div>
                         <span className="font-sans text-xs text-muted-foreground truncate">
-                          {bedStr} · {adm.reasonForAdmission?.split(' ')[0] || 'Observation'}...
+                          {bedStr} ·{" "}
+                          {adm.reasonForAdmission?.split(" ")[0] ||
+                            "Observation"}
+                          ...
                         </span>
                       </button>
                     );
@@ -181,47 +215,62 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
           <div className="grid grid-cols-2 gap-4 shrink-0">
             <StatsCard
               title="Active Patients"
-              value={isLoading ? '-' : stats.activePatients}
+              value={isLoading ? "-" : stats.activePatients}
               icon={Users}
               iconClass="text-primary bg-primary/10"
             />
             <StatsCard
               title="Pending Labs"
-              value={isLoading ? '-' : stats.pendingLabs}
+              value={isLoading ? "-" : stats.pendingLabs}
               icon={Activity}
               iconClass="text-status-reserved bg-status-reserved/10"
             />
           </div>
-          
+
           {/* Unified Clinical Feed */}
           <div className="flex flex-col flex-1 min-h-0">
-            <Tabs defaultValue="critical" className="w-full flex flex-col h-full">
+            <Tabs
+              defaultValue="critical"
+              className="w-full flex flex-col h-full"
+            >
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <h2 className="font-display text-sm font-bold text-foreground">
                   Clinical Feed
                 </h2>
                 <TabsList className="h-8">
-                  <TabsTrigger value="critical" className="text-xs px-3">Critical</TabsTrigger>
-                  <TabsTrigger value="all" className="text-xs px-3">All</TabsTrigger>
+                  <TabsTrigger value="critical" className="text-xs px-3">
+                    Critical
+                  </TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs px-3">
+                    All
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
               <Card className="flex-1 border-border shadow-2xs bg-card overflow-hidden flex flex-col min-h-0">
-                <TabsContent value="critical" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col">
+                <TabsContent
+                  value="critical"
+                  className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col"
+                >
                   <ScrollArea className="h-full w-full">
-                    <ClinicalFeedList 
-                      isLoading={isLoading} 
-                      activities={activities.filter(a => ['critical', 'warning'].includes(a.severity))} 
+                    <ClinicalFeedList
+                      isLoading={isLoading}
+                      activities={activities.filter((a) =>
+                        ["critical", "warning"].includes(a.severity),
+                      )}
                       emptyTitle="No critical updates"
                       emptyDesc="There are no critical alerts or warnings in the recent feed."
                     />
                   </ScrollArea>
                 </TabsContent>
-                <TabsContent value="all" className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col">
+                <TabsContent
+                  value="all"
+                  className="flex-1 min-h-0 m-0 data-[state=active]:flex flex-col"
+                >
                   <ScrollArea className="h-full w-full">
-                    <ClinicalFeedList 
-                      isLoading={isLoading} 
-                      activities={activities} 
+                    <ClinicalFeedList
+                      isLoading={isLoading}
+                      activities={activities}
                       emptyTitle="No activity"
                       emptyDesc="No recent clinical events recorded in the system."
                     />
@@ -233,32 +282,43 @@ export default function DoctorDashboard({ user, greetingName, currentFormattedDa
 
           {/* Quick Actions (Ghost Buttons) */}
           <div className="grid grid-cols-3 gap-2 shrink-0">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/labs')}
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/labs")}
               className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Stethoscope className="h-4 w-4" />
-              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Order Lab</span>
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">
+                Order Lab
+              </span>
             </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/notes`)}
+            <Button
+              variant="ghost"
+              onClick={() =>
+                activeAdmissionId &&
+                navigate(`/patients/${activeAdmissionId}/notes`)
+              }
               className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
             >
               <ClipboardList className="h-4 w-4" />
-              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Add Note</span>
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">
+                Add Note
+              </span>
             </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => activeAdmissionId && navigate(`/patients/${activeAdmissionId}/medications`)}
+            <Button
+              variant="ghost"
+              onClick={() =>
+                activeAdmissionId &&
+                navigate(`/patients/${activeAdmissionId}/medications`)
+              }
               className="flex flex-col items-center justify-center gap-2 h-auto py-3 bg-muted/30 hover:bg-muted border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Pill className="h-4 w-4" />
-              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">Medicate</span>
+              <span className="text-[10px] font-sans font-semibold uppercase tracking-wider">
+                Medicate
+              </span>
             </Button>
           </div>
-
         </div>
       </div>
     </div>
@@ -273,7 +333,9 @@ function StatsCard({ title, value, icon: Icon, iconClass }) {
           <span className="font-sans text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             {title}
           </span>
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}>
+          <div
+            className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${iconClass}`}
+          >
             <Icon className="h-3.5 w-3.5" />
           </div>
         </div>
@@ -284,5 +346,3 @@ function StatsCard({ title, value, icon: Icon, iconClass }) {
     </Card>
   );
 }
-
-
