@@ -385,11 +385,11 @@ export default function DischargePage() {
                       <button
                         key={a.id}
                         onClick={() => handleSelect(a)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
-                          activeAdmissionId === a.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted/50 hover:bg-muted text-foreground"
-                        }`}
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors cursor-pointer ${
+                            activeAdmissionId === a.id
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted/50 hover:bg-muted text-foreground"
+                          }`}
                       >
                         <Avatar className="h-9 w-9 shrink-0">
                           <AvatarFallback className="text-xs font-bold">
@@ -728,7 +728,7 @@ export default function DischargePage() {
                       <button
                         key={a.id}
                         onClick={() => handleSelectDischarged(a)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors ${
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors cursor-pointer ${
                           selectedDischargedAdmission?.id === a.id
                             ? "bg-primary text-primary-foreground"
                             : "bg-muted/50 hover:bg-muted text-foreground"
