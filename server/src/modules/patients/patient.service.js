@@ -431,6 +431,93 @@ const updateMedicalHistory = async (req, patientId, data) => {
   });
 };
 
+const getPatientAdmissions = async (patientId) => {
+  const patient = await prisma.patient.findUnique({
+    where: { id: patientId },
+  });
+  if (!patient || patient.isArchived) {
+    throw new APIError("Patient not found", 404);
+  }
+
+  const admissions = await prisma.admission.findMany({
+    where: {
+      patientId,
+      isArchived: false,
+    },
+    orderBy: { admittedAt: "desc" },
+    include: {
+      bed: true,
+      doctor: true,
+      nurses: {
+        where: { isArchived: false },
+        include: {
+          nurse: true,
+        },
+      },
+      vitalSigns: {
+        orderBy: { recordedAt: "desc" },
+        take: 1,
+      },
+      diagnoses: {
+        where: { isArchived: false },
+      },
+    },
+  });
+
+  return admissions.map((a) => ({
+    id: a.id,
+    patient_id: a.patientId,
+    bed_id: a.bedId,
+    doctor_id: a.doctorId,
+    transfer_reason: a.transferReason,
+    place_of_transfer: a.placeOfTransfer,
+    transfer_doctor_name: a.transferDoctorName,
+    chief_complaint: a.chiefComplaint,
+    symptoms_related_system: a.symptomsRelatedSystem,
+    symptoms_other_systems: a.symptomsOtherSystems,
+    complaint_analysis: a.complaintAnalysis,
+    previous_investigations: a.previousInvestigations,
+    previous_treatments: a.previousTreatments,
+    provisional_diagnosis: a.provisionalDiagnosis,
+    status: a.status,
+    admitted_at: a.admittedAt,
+    discharged_at: a.dischargedAt,
+    bed: a.bed
+      ? {
+          id: a.bed.id,
+          bed_number: a.bed.bedNumber,
+          status: a.bed.status,
+        }
+      : null,
+    doctor: a.doctor
+      ? {
+          id: a.doctor.id,
+          first_name: a.doctor.firstName,
+          last_name: a.doctor.lastName,
+          email: a.doctor.email,
+          role: a.doctor.role,
+        }
+      : null,
+    nurses: a.nurses
+      ? a.nurses.map((n) => ({
+          id: n.id,
+          nurse_id: n.nurseId,
+          assigned_at: n.assignedAt,
+          nurse: n.nurse
+            ? {
+                id: n.nurse.id,
+                first_name: n.nurse.firstName,
+                last_name: n.nurse.lastName,
+              }
+            : null,
+        }))
+      : [],
+    latestVitals:
+      a.vitalSigns && a.vitalSigns.length > 0 ? a.vitalSigns[0] : null,
+    diagnosesList: a.diagnoses || [],
+  }));
+};
+
 module.exports = {
   createPatient,
   getPatients,
@@ -443,4 +530,5 @@ module.exports = {
   createMedicalHistory,
   getMedicalHistory,
   updateMedicalHistory,
+  getPatientAdmissions,
 };

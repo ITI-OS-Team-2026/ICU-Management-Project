@@ -8,11 +8,16 @@ import {
   RefreshCcw,
   ChevronLeft,
   ChevronRight,
+  History,
+  Calendar,
+  Stethoscope,
+  FileText,
 } from "lucide-react";
 import api from "@/lib/api";
 import { patientsService } from "../services/patientsService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -70,6 +75,8 @@ export default function DischargePage() {
   const [panelMode, setPanelMode] = useState("active");
   const [selectedDischargedAdmission, setSelectedDischargedAdmission] =
     useState(null);
+  const [dischargedPatientHistory, setDischargedPatientHistory] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // ── Selected patient detail (fetched independently of the list page) ────
   const [selectedAdmission, setSelectedAdmission] = useState(null);
@@ -236,6 +243,47 @@ export default function DischargePage() {
       cancelled = true;
     };
   }, [activeAdmissionId]);
+
+  useEffect(() => {
+    if (!selectedDischargedAdmission) {
+      setDischargedPatientHistory([]);
+      return;
+    }
+    const targetPatientId =
+      selectedDischargedAdmission.patient_id ||
+      selectedDischargedAdmission.patient?.id;
+    if (!targetPatientId) {
+      setDischargedPatientHistory([selectedDischargedAdmission]);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadHistory() {
+      try {
+        setIsHistoryLoading(true);
+        const history =
+          await patientsService.getPatientAdmissions(targetPatientId);
+        if (!cancelled) {
+          setDischargedPatientHistory(
+            history && history.length > 0
+              ? history
+              : [selectedDischargedAdmission],
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load patient admissions history", err);
+          setDischargedPatientHistory([selectedDischargedAdmission]);
+        }
+      } finally {
+        if (!cancelled) setIsHistoryLoading(false);
+      }
+    }
+    loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDischargedAdmission]);
 
   const handleSelect = (admission) => {
     setMessage("");
@@ -475,16 +523,28 @@ export default function DischargePage() {
                               <h2 className="font-semibold text-lg">
                                 {selectedDischargedAdmission.patient?.name}
                               </h2>
-                              <p className="text-sm text-muted-foreground">
-                                MRN: {selectedDischargedAdmission.patient?.mrn || "—"}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-0.5">
+                                <span>MRN: <span className="font-mono font-tnum font-medium text-foreground">{selectedDischargedAdmission.patient?.mrn || "—"}</span></span>
+                                {selectedDischargedAdmission.patient?.age !== undefined && selectedDischargedAdmission.patient?.age !== null && (
+                                  <>
+                                    <span>·</span>
+                                    <span>Age: <span className="font-tnum font-medium text-foreground">{selectedDischargedAdmission.patient.age}</span></span>
+                                  </>
+                                )}
+                                {selectedDischargedAdmission.patient?.gender && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="capitalize font-medium text-foreground">{selectedDischargedAdmission.patient.gender.toLowerCase()}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex flex-col gap-1 text-right">
                             <div className="flex items-center justify-end gap-1.5 text-sm text-muted-foreground">
                               <Clock className="h-4 w-4" />
                               <span className="text-xs">
-                                Discharged:{" "}
+                                Latest Discharge:{" "}
                                 {selectedDischargedAdmission.discharged_at
                                   ? new Date(
                                       selectedDischargedAdmission.discharged_at,
@@ -492,37 +552,112 @@ export default function DischargePage() {
                                   : "—"}
                               </span>
                             </div>
+                            <div className="flex justify-end">
+                              <Badge variant="secondary" className="font-sans text-[11px] uppercase">
+                                {selectedDischargedAdmission.status}
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 p-3 rounded-lg border border-border bg-muted/20">
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            Chief Complaint
+                            Latest Chief Complaint
                           </p>
-                          <p className="text-sm">
+                          <p className="text-sm text-foreground">
                             {selectedDischargedAdmission.chief_complaint || "—"}
                           </p>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5 p-3 rounded-lg border border-border bg-muted/20">
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                            Provisional Diagnosis
+                            Latest Provisional Diagnosis
                           </p>
-                          <p className="text-sm">
+                          <p className="text-sm text-foreground">
                             {selectedDischargedAdmission.provisional_diagnosis || "—"}
                           </p>
                         </div>
                       </div>
 
+                      {/* Previous Admissions History */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                            <History className="h-4 w-4 text-primary" />
+                            <span>Previous ICU Admissions History</span>
+                          </h3>
+                          <Badge variant="outline" className="font-sans text-[11px]">
+                            {dischargedPatientHistory.length} Total Stay{dischargedPatientHistory.length !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+
+                        {isHistoryLoading ? (
+                          <div className="space-y-2">
+                            <Skeleton className="h-16 w-full" />
+                            <Skeleton className="h-16 w-full" />
+                          </div>
+                        ) : dischargedPatientHistory.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No prior admissions recorded.</p>
+                        ) : (
+                          <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                            {dischargedPatientHistory.map((adm, idx) => (
+                              <div
+                                key={adm.id || idx}
+                                className="p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors text-xs space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="font-tnum">
+                                      {adm.admitted_at
+                                        ? new Date(adm.admitted_at).toLocaleDateString()
+                                        : "—"}
+                                      {adm.discharged_at
+                                        ? ` · Discharged: ${new Date(adm.discharged_at).toLocaleDateString()}`
+                                        : ""}
+                                    </span>
+                                  </div>
+                                  <Badge
+                                    variant={adm.status === "ACTIVE" ? "default" : "outline"}
+                                    className="text-[10px] uppercase font-sans"
+                                  >
+                                    {adm.status}
+                                  </Badge>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-muted-foreground">
+                                  {adm.doctor && (
+                                    <div className="flex items-center gap-1.5">
+                                      <Stethoscope className="h-3.5 w-3.5 shrink-0" />
+                                      <span>Dr. {adm.doctor.first_name} {adm.doctor.last_name}</span>
+                                    </div>
+                                  )}
+                                  {adm.bed?.bed_number && (
+                                    <div className="flex items-center gap-1.5">
+                                      <Bed className="h-3.5 w-3.5 shrink-0" />
+                                      <span>Bed {adm.bed.bed_number}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {adm.provisional_diagnosis && (
+                                  <div className="pt-0.5 text-foreground">
+                                    <span className="text-muted-foreground font-medium">Diagnosis: </span>
+                                    <span>{adm.provisional_diagnosis}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Readmit action — prominently placed in the detail panel */}
                       <div className="border-t pt-4 space-y-3">
                         <p className="text-sm text-muted-foreground">
-                          This patient has been discharged. You can readmit them,
-                          which will open the Admission form pre-filled with their
-                          previous clinical history. A new admission record will be
-                          created; all previous records remain associated with the
-                          original admission.
+                          This patient is eligible for readmission. Clicking below will open the Admission form
+                          pre-filled with their clinical and demographic history. A new admission record will be created.
                         </p>
                         <Button
                           onClick={() =>

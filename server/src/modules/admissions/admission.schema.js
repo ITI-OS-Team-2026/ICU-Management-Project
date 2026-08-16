@@ -22,6 +22,7 @@ const admissionCreateSchema = Joi.object({
 
 const admissionQuerySchema = Joi.object({
   status: Joi.string().valid("ACTIVE", "DISCHARGED", "ARCHIVED").optional(),
+  patient_id: Joi.string().uuid().optional(),
   bed_id: Joi.string().uuid().optional(),
   search: Joi.string().trim().max(100).allow("").optional(),
   // Derived filters — resolved from the latest vitals / bed number server-side.

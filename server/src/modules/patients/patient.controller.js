@@ -99,6 +99,15 @@ const updateMedicalHistory = async (req, res, next) => {
   }
 };
 
+const getPatientAdmissions = async (req, res, next) => {
+  try {
+    const admissions = await patientService.getPatientAdmissions(req.params.id);
+    res.status(200).json(admissions);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPatient,
   getPatients,
@@ -111,4 +120,5 @@ module.exports = {
   createMedicalHistory,
   getMedicalHistory,
   updateMedicalHistory,
+  getPatientAdmissions,
 };
