@@ -27,6 +27,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Calendar,
 } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -221,6 +222,7 @@ export default function PatientOverviewPage() {
     labs: [],
     allergies: [],
     history: null,
+    allAdmissions: [],
     isLoading: true,
   });
 
@@ -245,6 +247,7 @@ export default function PatientOverviewPage() {
   const [showAllDiagnoses, setShowAllDiagnoses] = useState(false);
   const [showAllMeds, setShowAllMeds] = useState(false);
   const [showAllLabs, setShowAllLabs] = useState(false);
+  const [showAllHistoryAdmissions, setShowAllHistoryAdmissions] = useState(false);
 
   useEffect(() => {
     if (!admission?.id || !admission?.patient_id) return;
@@ -253,16 +256,17 @@ export default function PatientOverviewPage() {
     
     const fetchExtraData = async () => {
       try {
-        const [diagnoses, medications, labs, allergies, history] = await Promise.all([
+        const [diagnoses, medications, labs, allergies, history, allAdmissions] = await Promise.all([
           patientsService.getDiagnoses(admission.id).catch(() => []),
           patientsService.getMedications(admission.id).catch(() => []),
           patientsService.getLabs(admission.id).catch(() => []),
           patientsService.getAllergies(admission.patient_id).catch(() => []),
           patientsService.getMedicalHistory(admission.patient_id).catch(() => null),
+          patientsService.getPatientAdmissions(admission.patient_id).catch(() => []),
         ]);
         
         if (isMounted) {
-          setExtraData({ diagnoses, medications, labs, allergies, history, isLoading: false });
+          setExtraData({ diagnoses, medications, labs, allergies, history, allAdmissions: allAdmissions || [], isLoading: false });
         }
       } catch (error) {
         console.error("Failed to load extra clinical data", error);
@@ -845,6 +849,110 @@ export default function PatientOverviewPage() {
             </Card>
           </div>
         </div>
+
+        {/* ── Fourth Section: Patient ICU Admissions History ────────────────── */}
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+                <History size={14} className="text-primary" />
+                ICU Admissions & Stay History
+              </CardTitle>
+              <Badge variant="outline" className="font-sans text-[11px]">
+                {extraData.allAdmissions.length} Total Admission{extraData.allAdmissions.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {extraData.isLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </div>
+            ) : extraData.allAdmissions.length === 0 ? (
+              <p className="font-sans text-xs text-muted-foreground">No admission records found.</p>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {extraData.allAdmissions.slice(0, showAllHistoryAdmissions ? undefined : 6).map((adm) => {
+                    const isCurrent = adm.id === admission?.id;
+                    const stayLos = computeLOS(adm.admitted_at, adm.discharged_at);
+                    return (
+                      <div
+                        key={adm.id}
+                        className={`p-3.5 rounded-lg border transition-colors space-y-2 text-xs ${
+                          isCurrent
+                            ? 'border-primary/40 bg-primary/5'
+                            : 'border-border bg-card hover:bg-muted/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 font-medium text-foreground">
+                            <Calendar size={13} className="text-muted-foreground" />
+                            <span className="font-tnum">
+                              {adm.admitted_at ? formatDate(adm.admitted_at, 'MMM d, yyyy') : '—'}
+                              {adm.discharged_at ? ` → ${formatDate(adm.discharged_at, 'MMM d, yyyy')}` : ''}
+                            </span>
+                          </div>
+                          <Badge
+                            variant={isCurrent ? 'default' : adm.status === 'ACTIVE' ? 'secondary' : 'outline'}
+                            className="text-[10px] uppercase font-sans tracking-wider"
+                          >
+                            {isCurrent ? 'Current Stay' : adm.status}
+                          </Badge>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-muted-foreground text-[11px]">
+                          {stayLos && (
+                            <div className="flex items-center gap-1">
+                              <Clock size={12} />
+                              <span className="font-tnum">LOS: {stayLos}</span>
+                            </div>
+                          )}
+                          {adm.bed?.bed_number && (
+                            <div className="flex items-center gap-1">
+                              <Bed size={12} />
+                              <span>Bed {adm.bed.bed_number}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {adm.doctor && (
+                          <div className="flex items-center gap-1 text-muted-foreground text-[11px]">
+                            <Stethoscope size={12} />
+                            <span>Dr. {adm.doctor.first_name} {adm.doctor.last_name}</span>
+                          </div>
+                        )}
+
+                        {adm.provisional_diagnosis && (
+                          <div className="pt-1 border-t border-border/60 text-foreground text-[11px] leading-relaxed">
+                            <span className="text-muted-foreground font-medium">Diagnosis: </span>
+                            <span>{adm.provisional_diagnosis}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {extraData.allAdmissions.length > 6 && (
+                  <div className="flex justify-center pt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAllHistoryAdmissions((prev) => !prev)}
+                      className="text-xs font-sans text-muted-foreground hover:text-foreground"
+                    >
+                      {showAllHistoryAdmissions
+                        ? 'Show less'
+                        : `+ Show ${extraData.allAdmissions.length - 6} more previous stays`}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Reconcile / Edit Patient Identity Dialog ─────────────────────────── */}

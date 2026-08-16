@@ -45,6 +45,11 @@ export const patientsService = {
     return data;
   },
 
+  async getPatientAdmissions(patientId) {
+    const { data } = await api.get(`/patients/${patientId}/admissions`);
+    return data || [];
+  },
+
   async getLatestVitals(admissionId) {
     const { data } = await api.get(`/admissions/${admissionId}/vitals?limit=1`);
     return data?.[0] || null;

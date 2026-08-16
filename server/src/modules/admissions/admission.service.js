@@ -611,6 +611,7 @@ const getAdmissions = async (query) => {
 
   const where = { isArchived: false };
   if (query.status) where.status = query.status;
+  if (query.patient_id) where.patientId = query.patient_id;
   if (query.bed_id) where.bedId = query.bed_id;
   if (query.search && query.search.trim()) {
     const search = query.search.trim();
@@ -631,18 +632,29 @@ const getAdmissions = async (query) => {
 
   // When the caller only wants patients eligible for readmission (i.e. patients
   // with a DISCHARGED admission who do NOT currently have an ACTIVE admission),
-  // find all patient IDs that already have an active admission and exclude them.
-  // This is enforced here in the service layer — not just in the UI — so the
-  // exclusion is consistent across every caller (API, future endpoints, etc.).
+  // return only the single most recent discharged admission per unique patient.
+  // This prevents the same patient from appearing multiple times in the readmission list.
   if (query.readmitEligible === "true" || query.readmitEligible === true) {
-    const activePatients = await prisma.admission.findMany({
-      where: { status: "ACTIVE", isArchived: false },
-      select: { patientId: true },
-    });
-    const activePatientIds = activePatients.map((a) => a.patientId);
-    if (activePatientIds.length > 0) {
-      where.patient = { id: { notIn: activePatientIds } };
+    const eligibleRows = await prisma.$queryRaw`
+      WITH latest_discharged AS (
+        SELECT DISTINCT ON (a.patient_id) a.id
+        FROM admissions a
+        JOIN patients p ON p.id = a.patient_id
+        WHERE a.status = 'DISCHARGED'::"AdmissionStatus"
+          AND a.is_archived = false
+          AND p.is_archived = false
+          AND a.patient_id NOT IN (
+            SELECT patient_id FROM admissions WHERE status = 'ACTIVE'::"AdmissionStatus" AND is_archived = false
+          )
+        ORDER BY a.patient_id, a.admitted_at DESC
+      )
+      SELECT id FROM latest_discharged
+    `;
+    const eligibleIds = eligibleRows.map((r) => r.id);
+    if (eligibleIds.length === 0) {
+      return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
     }
+    where.id = { in: eligibleIds };
   }
 
   // Acuity and bed-unit are derived values, so they can't be expressed as a
@@ -652,7 +664,16 @@ const getAdmissions = async (query) => {
     if (derivedIds.length === 0) {
       return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
     }
-    where.id = { in: derivedIds };
+    if (where.id?.in) {
+      const derivedSet = new Set(derivedIds);
+      const intersected = where.id.in.filter((id) => derivedSet.has(id));
+      if (intersected.length === 0) {
+        return { data: [], meta: { total: 0, page, limit, totalPages: 0 } };
+      }
+      where.id = { in: intersected };
+    } else {
+      where.id = { in: derivedIds };
+    }
   }
 
   const [admissions, total] = await Promise.all([

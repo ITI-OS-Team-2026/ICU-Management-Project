@@ -105,6 +105,13 @@ router.get(
   patientController.getPatientById
 );
 
+router.get(
+  "/:id/admissions",
+  verifyToken,
+  restrictTo(["ICU_NURSE", "MEDICAL_RESIDENT", "ICU_SPECIALIST"]),
+  patientController.getPatientAdmissions
+);
+
 router.patch(
   "/:id",
   verifyToken,

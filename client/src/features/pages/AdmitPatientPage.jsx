@@ -8,7 +8,9 @@ import { patientsService } from "../services/patientsService";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, History, Calendar, ChevronDown, ChevronUp, Stethoscope, Bed } from "lucide-react";
 
 import AdmissionStepper from "./admission/AdmissionStepper";
 import AdmissionProgress from "./admission/AdmissionProgress";
@@ -646,7 +648,10 @@ export default function AdmitPatientPage() {
   const [submitError, setSubmitError] = useState(null);
   const [prefillValues, setPrefillValues] = useState(null);
   const [readmitAdmission, setReadmitAdmission] = useState(null);
+  const [previousAdmissions, setPreviousAdmissions] = useState([]);
+  const [isPrevAdmissionsOpen, setIsPrevAdmissionsOpen] = useState(false);
   const submittingRef = useRef(false);
+  const prevNationalIdRef = useRef(draft?.values?.national_id || "");
 
   const navigate = useNavigate();
 
@@ -660,7 +665,10 @@ export default function AdmitPatientPage() {
   const nationalId = form.watch("national_id");
 
   useEffect(() => {
-    if (nationalId && nationalId.length === 14) {
+    // Only derive age/gender when the user actively changes/inputs a 14-digit National ID
+    if (nationalId && nationalId.length === 14 && nationalId !== prevNationalIdRef.current) {
+      prevNationalIdRef.current = nationalId;
+
       const genderDigit = parseInt(nationalId[12], 10);
       if (!isNaN(genderDigit)) {
         const derivedGender = genderDigit % 2 === 0 ? "FEMALE" : "MALE";
@@ -702,6 +710,8 @@ export default function AdmitPatientPage() {
           }
         }
       }
+    } else if (!nationalId || nationalId.length !== 14) {
+      prevNationalIdRef.current = nationalId || "";
     }
   }, [nationalId, form]);
 
@@ -733,6 +743,7 @@ export default function AdmitPatientPage() {
     if (!readmitId) {
       setPrefillValues(null);
       setReadmitAdmission(null);
+      setPreviousAdmissions([]);
 
       // The unmount cleanup already cleared the plain draft, so always start
       // with a blank form whenever readmitId is absent (covers both the
@@ -742,6 +753,7 @@ export default function AdmitPatientPage() {
       form.reset(defaultValues);
       setCurrentStep(0);
       prevReadmitId.current = null;
+      prevNationalIdRef.current = "";
       return;
     }
 
@@ -754,12 +766,15 @@ export default function AdmitPatientPage() {
         const admission = await patientsService.getAdmissionById(readmitId);
         if (!admission) return;
 
+        const pId = admission.patient?.national_id || "";
+        prevNationalIdRef.current = pId;
+
         const admissionValues = {
           ...defaultValues,
-          national_id: admission.patient?.national_id || "30304071302452",
+          national_id: pId,
           name: admission.patient?.name || "",
-          age: admission.patient?.age ? String(admission.patient.age) : "",
-          gender: admission.patient?.gender?.toUpperCase() || "",
+          age: admission.patient?.age !== undefined && admission.patient?.age !== null ? String(admission.patient.age) : "",
+          gender: admission.patient?.gender ? admission.patient.gender.toUpperCase() : "",
           residence: admission.patient?.residence || "",
           occupation: admission.patient?.occupation || "",
           marital_status: admission.patient?.marital_status || "",
@@ -795,6 +810,17 @@ export default function AdmitPatientPage() {
         setPrefillValues(admissionValues);
         setReadmitAdmission(admission);
         setCurrentStep(0);
+
+        // Fetch all prior admissions for full context
+        const patientTargetId = admission.patient_id || admission.patient?.id;
+        if (patientTargetId) {
+          try {
+            const allAdmissions = await patientsService.getPatientAdmissions(patientTargetId);
+            setPreviousAdmissions(allAdmissions || []);
+          } catch (fetchErr) {
+            console.error("Failed to load patient previous admissions", fetchErr);
+          }
+        }
       } catch (err) {
         console.error("Failed to load readmit details", err);
       }
@@ -1166,18 +1192,103 @@ export default function AdmitPatientPage() {
       )}
 
       {readmitAdmission && (
-        <Alert
-          variant="secondary"
-          className="border-border bg-muted text-foreground"
-        >
-          <AlertTitle>Readmit prefill applied</AlertTitle>
-          <AlertDescription>
-            This admission form was prefilled from discharged admission
-            <span className="font-medium"> #{readmitAdmission.id}</span>.
-            Assignment fields like bed, nurse, and doctor must still be selected
-            manually.
-          </AlertDescription>
-        </Alert>
+        <Card className="border-border bg-card">
+          <CardHeader className="p-4 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <History className="h-5 w-5 text-primary" />
+                <div>
+                  <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <span>Patient Readmission History</span>
+                    <Badge variant="outline" className="font-sans text-[11px] font-medium">
+                      {previousAdmissions.length > 0
+                        ? `${previousAdmissions.length} Prior Admission${previousAdmissions.length > 1 ? "s" : ""}`
+                        : "Prior Stay"}
+                    </Badge>
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Prefilled from previous discharge for <span className="font-medium text-foreground">{readmitAdmission.patient?.name || "Patient"}</span>.
+                  </p>
+                </div>
+              </div>
+              {previousAdmissions.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPrevAdmissionsOpen((prev) => !prev)}
+                  className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  <span>{isPrevAdmissionsOpen ? "Hide History" : "View Prior Admissions"}</span>
+                  {isPrevAdmissionsOpen ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          {isPrevAdmissionsOpen && previousAdmissions.length > 0 && (
+            <CardContent className="p-4 pt-0 space-y-3 border-t border-border mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
+                {previousAdmissions.map((adm, idx) => (
+                  <div
+                    key={adm.id || idx}
+                    className="p-3 rounded-lg border border-border bg-muted/30 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 font-medium text-foreground">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="font-tnum">
+                          {adm.admitted_at
+                            ? new Date(adm.admitted_at).toLocaleDateString()
+                            : "—"}
+                          {adm.discharged_at
+                            ? ` · Discharged: ${new Date(adm.discharged_at).toLocaleDateString()}`
+                            : ""}
+                        </span>
+                      </div>
+                      <Badge
+                        variant={adm.status === "ACTIVE" ? "default" : "secondary"}
+                        className="text-[10px] uppercase font-sans"
+                      >
+                        {adm.status}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1 text-muted-foreground">
+                      {adm.doctor && (
+                        <div className="flex items-center gap-1.5">
+                          <Stethoscope className="h-3.5 w-3.5 shrink-0" />
+                          <span>Dr. {adm.doctor.first_name} {adm.doctor.last_name}</span>
+                        </div>
+                      )}
+                      {adm.bed?.bed_number && (
+                        <div className="flex items-center gap-1.5">
+                          <Bed className="h-3.5 w-3.5 shrink-0" />
+                          <span>Bed {adm.bed.bed_number}</span>
+                        </div>
+                      )}
+                      {adm.provisional_diagnosis && (
+                        <div className="pt-1 text-foreground">
+                          <span className="font-medium text-muted-foreground">Diagnosis: </span>
+                          <span>{adm.provisional_diagnosis}</span>
+                        </div>
+                      )}
+                      {adm.chief_complaint && (
+                        <div className="text-foreground">
+                          <span className="font-medium text-muted-foreground">Complaint: </span>
+                          <span>{adm.chief_complaint}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
       )}
 
       <div className="flex flex-col md:flex-row gap-8">
