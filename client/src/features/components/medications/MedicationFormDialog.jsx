@@ -77,13 +77,21 @@ export default function MedicationFormDialog({
   // Set when the API rejects the order because of a documented allergy — the
   // prescriber must confirm before we re-send with acknowledge_allergy.
   const [allergyWarning, setAllergyWarning] = useState('');
+  // Set when a selected start or end date is in the past, prompting the prescriber
+  // to confirm whether this is an intentional retroactive entry.
+  const [pastDateWarning, setPastDateWarning] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const todayStr = toDateInput(new Date());
+  const isStartInPast = Boolean(values.start_date && values.start_date < todayStr);
+  const isEndInPast = Boolean(values.end_date && values.end_date < todayStr);
 
   const setField = (name, value) => {
     setValues((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: undefined }));
-    // Any edit invalidates a previous acknowledgement — the drug may have changed.
+    // Any edit invalidates a previous acknowledgement — the drug or date may have changed.
     setAllergyWarning('');
+    setPastDateWarning('');
   };
 
   const validate = () => {
@@ -117,11 +125,28 @@ export default function MedicationFormDialog({
     return payload;
   };
 
-  const submit = async (acknowledgeAllergy = false) => {
+  const submit = async (acknowledgeAllergy = false, confirmPastDate = false) => {
     if (!validate()) return;
+
+    // Intercept past dates with a soft warning confirmation prompt
+    if (!confirmPastDate) {
+      if (isEndInPast) {
+        setPastDateWarning(
+          `The selected end date (${values.end_date}) is in the past. This course will be recorded as completed and will generate no active doses on today's administration record.`
+        );
+        return;
+      }
+      if (isStartInPast) {
+        setPastDateWarning(
+          `The selected start date (${values.start_date}) is in the past. This order will be recorded retroactively, and past scheduled doses may show as unrecorded or missed.`
+        );
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     setServerError('');
+    setPastDateWarning('');
     try {
       const payload = buildPayload(acknowledgeAllergy);
       const saved = isEdit
@@ -170,6 +195,36 @@ export default function MedicationFormDialog({
           </Alert>
         )}
 
+        {pastDateWarning && (
+          <Alert className="border-primary/40 bg-primary/5">
+            <AlertTriangle className="h-4 w-4 text-primary" />
+            <AlertTitle className="font-display font-semibold text-foreground">
+              Past date notice
+            </AlertTitle>
+            <AlertDescription className="text-sm font-sans text-foreground">
+              <p>{pastDateWarning}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isSubmitting}
+                  onClick={() => submit(false, true)}
+                >
+                  Confirm & proceed
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPastDateWarning('')}
+                >
+                  Adjust date
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {allergyWarning && (
           <Alert className="border-destructive/40 bg-destructive/5">
             <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -182,7 +237,7 @@ export default function MedicationFormDialog({
                   size="sm"
                   variant="destructive"
                   disabled={isSubmitting}
-                  onClick={() => submit(true)}
+                  onClick={() => submit(true, true)}
                 >
                   Prescribe anyway
                 </Button>
@@ -296,7 +351,14 @@ export default function MedicationFormDialog({
               value={values.start_date}
               onChange={(e) => setField('start_date', e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Defaults to today if left empty.</p>
+            {isStartInPast ? (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                <AlertTriangle className="h-3.5 w-3.5 text-primary shrink-0" />
+                Past date — order will be recorded retroactively.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Defaults to today if left empty.</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -309,6 +371,11 @@ export default function MedicationFormDialog({
             />
             {errors.end_date ? (
               <p className="text-xs text-destructive">{errors.end_date}</p>
+            ) : isEndInPast ? (
+              <p className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                <AlertTriangle className="h-3.5 w-3.5 text-primary shrink-0" />
+                Past end date — medication course has already concluded.
+              </p>
             ) : (
               <p className="text-xs text-muted-foreground">Leave empty for an ongoing order.</p>
             )}
@@ -333,7 +400,10 @@ export default function MedicationFormDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={() => submit(false)} disabled={isSubmitting || Boolean(allergyWarning)}>
+          <Button
+            onClick={() => submit(false, Boolean(pastDateWarning))}
+            disabled={isSubmitting || Boolean(allergyWarning)}
+          >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEdit ? 'Save amendment' : 'Prescribe'}
           </Button>
